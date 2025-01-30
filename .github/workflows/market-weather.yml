@@ -129,11 +129,33 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v3
 
-      - name: Check deployment
+      - name: Verify Deployment
+        if: success()
+        shell: bash
         run: |
-          if [ -d "_site" ] && [ -f "_site/market-weather.html" ]; then
-            echo "Deployment check passed"
+          echo "Checking deployment artifacts..."
+          
+          if [ ! -d "_site" ]; then
+            echo "Error: _site directory not found"
+            exit 1
+          fi
+          
+          if [ ! -f "_site/market-weather.html" ]; then
+            echo "Error: market-weather.html not found in _site directory"
+            exit 1
+          fi
+          
+          echo "✅ Deployment verification successful"
+          echo "📊 Site deployed to: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+
+      - name: Deployment Status
+        if: always()
+        run: |
+          if [ "${{ steps.deployment.outcome }}" == "success" ]; then
+            echo "✅ Deployment successful"
+            echo "📊 Market Weather Report is now live at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
           else
-            echo "Deployment check failed - output files missing"
+            echo "❌ Deployment failed"
+            echo "Check the logs above for more details"
             exit 1
           fi
