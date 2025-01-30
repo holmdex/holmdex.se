@@ -3,10 +3,35 @@ name: Market Weather Update
 on:
   schedule:
     - cron: '0 * * * *'  # Run hourly
-  workflow_dispatch:      # Allow manual trigger
+  workflow_dispatch:      # Manual trigger option
 
 jobs:
+  # Check if previous run failed
+  check_previous:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - name: Check previous run status
+        id: check
+        run: |
+          # Get previous run status using GitHub API
+          previous_status=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/$(basename ${{ github.workflow }})/runs?per_page=2" \
+            | jq -r '.workflow_runs[1].conclusion')
+          
+          if [ "$previous_status" = "failure" ]; then
+            echo "Previous run failed. Stopping scheduled runs."
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          fi
+
   cleanup:
+    needs: check_previous
+    if: needs.check_previous.outputs.should_run == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Delete old workflow runs
@@ -19,33 +44,36 @@ jobs:
 
   render:
     needs: cleanup
+    if: needs.check_previous.outputs.should_run == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pages: write
       id-token: write
-    
+
     steps:
-      - name: Check out repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-        
-      - name: Set up R
+        with:
+          fetch-depth: 1
+
+      - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.2.1'
           use-public-rspm: true
 
-      - name: Set up Pandoc
+      - name: Setup Pandoc
         uses: r-lib/actions/setup-pandoc@v2
         with:
           pandoc-version: '3.1.1'
 
-      - name: Set up Quarto
+      - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: 1.3.450
 
-      - name: Get R package cache
+      - name: Cache R packages
         uses: actions/cache@v3
         with:
           path: ${{ env.R_LIBS_USER }}
@@ -59,63 +87,76 @@ jobs:
             libcurl4-openssl-dev \
             libssl-dev \
             libxml2-dev \
-            libfontconfig1-dev \
-            libharfbuzz-dev \
-            libfribidi-dev \
-            libfreetype6-dev \
-            libpng-dev \
-            libtiff5-dev \
-            libjpeg-dev
+            libfontconfig1-dev
 
       - name: Install R packages
         run: |
           install.packages(c(
             'tidyverse',
             'quantmod',
-            'tidyquant',
             'rvest',
             'httr',
             'jsonlite',
-            'kableExtra',
             'lubridate',
             'DT'
           ), repos = 'https://cloud.r-project.org')
         shell: Rscript {0}
 
-      - name: Verify file structure
+      - name: Verify files
+        id: verify
+        continue-on-error: true
         run: |
-          echo "Checking required files..."
-          for file in market-weather.qmd market-weather-functions.R market-weather-indices.R market-weather.css; do
+          missing_files=()
+          for file in market-weather.qmd market-weather-functions.R market-weather.css; do
             if [ ! -f "$file" ]; then
-              echo "Error: Required file $file not found"
-              exit 1
+              missing_files+=($file)
             fi
           done
+          
+          if [ ${#missing_files[@]} -ne 0 ]; then
+            echo "Missing files: ${missing_files[*]}"
+            exit 1
+          fi
 
-      - name: Create _quarto.yml
+      - name: Create error page
+        if: failure()
         run: |
-          cat << EOF > _quarto.yml
-          project:
-            type: website
-            output-dir: _site
-            render:
-              - market-weather.qmd
-          format:
-            html:
-              embed-resources: true
-              self-contained: true
-              theme: none
-              css: market-weather.css
+          mkdir -p _site
+          cat << EOF > _site/market-weather.html
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Market Weather Report - Error</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                body { font-family: system-ui; padding: 20px; }
+                .error { 
+                  background: #fff3cd;
+                  border: 1px solid #ffeeba;
+                  padding: 20px;
+                  border-radius: 8px;
+                  text-align: center;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="error">
+                <h2>⚠️ Service Temporarily Unavailable</h2>
+                <p>The Market Weather Report is currently unavailable. Please try again later.</p>
+                <p>Last check: $(date -u '+%Y-%m-%d %H:%M:%S UTC')</p>
+              </div>
+            </body>
+          </html>
           EOF
 
-      - name: Render Market Weather
+      - name: Render report
+        if: steps.verify.outcome == 'success'
         run: |
-          echo "Current directory contents:"
-          ls -la
-          echo "Rendering with Quarto..."
-          quarto render market-weather.qmd
+          mkdir -p _site
+          quarto render market-weather.qmd --output-dir _site
         env:
           GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+          TZ: UTC
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -126,36 +167,10 @@ jobs:
           path: _site
 
       - name: Deploy to GitHub Pages
-        id: deployment
         uses: actions/deploy-pages@v3
 
-      - name: Verify Deployment
-        if: success()
-        shell: bash
+      - name: Notify on failure
+        if: failure()
         run: |
-          echo "Checking deployment artifacts..."
-          
-          if [ ! -d "_site" ]; then
-            echo "Error: _site directory not found"
-            exit 1
-          fi
-          
-          if [ ! -f "_site/market-weather.html" ]; then
-            echo "Error: market-weather.html not found in _site directory"
-            exit 1
-          fi
-          
-          echo "✅ Deployment verification successful"
-          echo "📊 Site deployed to: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
-
-      - name: Deployment Status
-        if: always()
-        run: |
-          if [ "${{ steps.deployment.outcome }}" == "success" ]; then
-            echo "✅ Deployment successful"
-            echo "📊 Market Weather Report is now live at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
-          else
-            echo "❌ Deployment failed"
-            echo "Check the logs above for more details"
-            exit 1
-          fi
+          echo "::error::Market Weather Report update failed. Scheduled runs will be paused until manually restarted."
+          echo "To resume scheduled updates, trigger a manual run using the 'Run workflow' button."
