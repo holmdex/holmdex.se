@@ -1,38 +1,56 @@
 .market-weather-widget {
-  width: 1000px;
+  width: 100%;
+  max-width: 1200px;
   height: auto;
   margin: 0 auto;
-  padding: 25px;
+  padding: 20px;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  box-sizing: border-box;
 }
 
 .market-weather-widget h1 {
   text-align: center;
   color: #2c3e50;
-  margin: 0 0 25px 0;
-  font-size: 26px;
+  margin: 0 0 20px 0;
+  font-size: 24px;
   font-weight: 600;
+  line-height: 1.2;
 }
 
 .weather-table {
   font-size: 14px !important;
   width: 100% !important;
   margin-bottom: 20px !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
 }
 
 .weather-table th {
   background-color: #f8f9fa !important;
   color: #2c3e50 !important;
   font-weight: 600 !important;
-  padding: 12px 18px !important;
+  padding: 12px 16px !important;
+  white-space: nowrap !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10 !important;
+  border-bottom: 2px solid #dee2e6 !important;
 }
 
 .weather-table td {
-  padding: 10px 18px !important;
-  color: #000000 !important;
+  padding: 10px 16px !important;
+  vertical-align: middle !important;
+  border-bottom: 1px solid #e9ecef !important;
+}
+
+.dt-buttons {
+  margin-bottom: 15px !important;
+  display: flex !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
 }
 
 .dt-button {
@@ -41,9 +59,10 @@
   border: none !important;
   border-radius: 4px !important;
   padding: 8px 16px !important;
-  margin-right: 8px !important;
   cursor: pointer !important;
   font-size: 14px !important;
+  transition: background-color 0.2s !important;
+  white-space: nowrap !important;
 }
 
 .dt-button:hover {
@@ -60,45 +79,175 @@
   padding: 6px 12px !important;
   margin-left: 8px !important;
   width: 200px !important;
+  font-size: 14px !important;
+}
+
+.dataTables_filter input:focus {
+  border-color: #4CAF50 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2) !important;
 }
 
 .dataTables_filter label {
   color: #2c3e50 !important;
   font-weight: 500 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
 }
 
 .legend-container {
   text-align: center;
-  margin: 20px 0;
-  padding: 15px;
+  margin: 15px 0;
+  padding: 12px;
   background: #f8f9fa;
-  border-radius: 8px;
+  border-radius: 6px;
   font-size: 14px;
   color: #2c3e50;
   border: 1px solid #dee2e6;
   line-height: 1.8;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
 }
 
+/* Mobile optimizations */
+@media screen and (max-width: 768px) {
+  .market-weather-widget {
+    padding: 12px;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .market-weather-widget h1 {
+    font-size: 20px;
+    margin-bottom: 15px;
+  }
+
+  .weather-table {
+    font-size: 13px !important;
+  }
+
+  .weather-table th,
+  .weather-table td {
+    padding: 8px !important;
+  }
+
+  .dataTables_filter {
+    width: 100%;
+    margin: 10px 0;
+  }
+
+  .dataTables_filter input {
+    width: calc(100% - 70px) !important;
+    margin-left: 0 !important;
+  }
+
+  .dt-buttons {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .legend-container {
+    font-size: 12px;
+    padding: 8px;
+    margin: 10px 0;
+  }
+}
+
+/* Print styles */
+@media print {
+  .market-weather-widget {
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .dt-buttons,
+  .dataTables_filter,
+  .dataTables_paginate {
+    display: none !important;
+  }
+
+  .weather-table {
+    border: 1px solid #dee2e6 !important;
+  }
+
+  .weather-table th {
+    background-color: #f8f9fa !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Additional iframe-specific styles */
 .widget-footer {
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
   color: #6c757d;
-  margin-top: 20px;
-  padding-top: 15px;
+  margin-top: 15px;
+  padding-top: 12px;
   border-top: 1px solid #dee2e6;
 }
 
+.no-data {
+  text-align: center;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  color: #dc3545;
+  font-weight: 500;
+  margin: 15px 0;
+  border: 1px solid #f5c6cb;
+}
+
+/* Loading state */
+.market-weather-widget.loading::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.market-weather-widget.loading::after {
+  content: "Loading market data...";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #2c3e50;
+  font-weight: 500;
+  z-index: 1001;
+}
+
+/* Table header styling */
+.dataTables_wrapper .fg-toolbar {
+  padding: 8px 0;
+}
+
+/* Pagination styling */
 .dataTables_paginate {
   margin-top: 15px !important;
+  display: flex !important;
+  justify-content: center !important;
+  gap: 4px !important;
 }
 
 .paginate_button {
   background: #fff !important;
   border: 1px solid #dee2e6 !important;
   padding: 6px 12px !important;
-  margin: 0 4px !important;
   color: #2c3e50 !important;
   border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
 }
 
 .paginate_button.current {
@@ -112,16 +261,46 @@
   color: #2c3e50 !important;
 }
 
-.no-data {
-  text-align: center;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  color: #dc3545;
-  font-weight: 500;
-  margin: 20px 0;
+/* Accessibility improvements */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
-.buttons-collection {
-  margin-right: 15px !important;
+/* Focus styles for better accessibility */
+.dt-button:focus,
+.paginate_button:focus,
+.dataTables_filter input:focus {
+  outline: 2px solid #4CAF50;
+  outline-offset: 2px;
+}
+
+/* Dark mode support if needed */
+@media (prefers-color-scheme: dark) {
+  .market-weather-widget[data-theme="auto"] {
+    background: #1a1a1a;
+    color: #e0e0e0;
+  }
+
+  .market-weather-widget[data-theme="auto"] h1 {
+    color: #e0e0e0;
+  }
+
+  .market-weather-widget[data-theme="auto"] .weather-table th {
+    background-color: #2c2c2c !important;
+    color: #e0e0e0 !important;
+  }
+
+  .market-weather-widget[data-theme="auto"] .legend-container {
+    background: #2c2c2c;
+    border-color: #404040;
+    color: #e0e0e0;
+  }
 }
