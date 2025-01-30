@@ -1,62 +1,256 @@
 ---
 title: "Market Weather Report"
+author: "Market Analysis Tool"
+date: "Updated: `r format(Sys.time(), '%B %d, %Y at %H:%M %Z', tz = 'UTC')`"
 format: 
   html:
     embed-resources: true
     self-contained: true
     theme: none
     css: market-weather.css
+    page-layout: full
+    code-tools: false
+    toc: false
+    fig-align: center
+    default-image-extension: svg
+    execute:
+      echo: false
+      warning: false
+      message: false
+    mainfont: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif
+    meta-tags:
+      - name: "description"
+        content: "Real-time Market Weather Report showing global market conditions"
+      - name: "keywords"
+        content: "market analysis, stock indices, global markets, market weather"
+      - name: "viewport"
+        content: "width=device-width, initial-scale=1.0"
 ---
 
 ```{r setup}
 #| include: false
+#| cache: true
 
-suppressPackageStartupMessages({
-  library(tidyverse)
-  library(quantmod)
-  library(tidyquant)
-  library(rvest)
-  library(httr)
-  library(jsonlite)
-  library(kableExtra)
-  library(lubridate)
-  library(DT)
+start_time <- Sys.time()
+
+# Performance monitoring function
+log_performance <- function(operation, start_time) {
+  end_time <- Sys.time()
+  duration <- difftime(end_time, start_time, units = "secs")
+  message(sprintf("[%s] %s completed in %.2f seconds", 
+                 format(end_time, "%H:%M:%S"),
+                 operation, 
+                 as.numeric(duration)))
+  return(end_time)
+}
+
+# Load required packages with version check
+packages <- c(
+  "tidyverse" = "2.0.0",
+  "quantmod" = "0.4.20",
+  "tidyquant" = "1.0.0",
+  "rvest" = "1.0.0",
+  "httr" = "1.4.0",
+  "jsonlite" = "1.8.0",
+  "kableExtra" = "1.3.0",
+  "lubridate" = "1.9.0",
+  "DT" = "0.27"
+)
+
+load_packages <- function(packages) {
+  suppressPackageStartupMessages({
+    for (pkg_name in names(packages)) {
+      if (!requireNamespace(pkg_name, quietly = TRUE)) {
+        stop(sprintf("Package '%s' is required but not installed.", pkg_name))
+      }
+      pkg_version <- packageVersion(pkg_name)
+      min_version <- package_version(packages[pkg_name])
+      if (pkg_version < min_version) {
+        warning(sprintf("Package '%s' version %s is lower than recommended version %s",
+                       pkg_name, pkg_version, min_version))
+      }
+      library(pkg_name, character.only = TRUE)
+    }
+  })
+}
+
+# Data validation functions
+validate_market_data <- function(data) {
+  if (is.null(data) || nrow(data) == 0) {
+    return(list(valid = FALSE, message = "No market data available"))
+  }
+  required_cols <- c("region", "symbol", "price", "date")
+  missing_cols <- setdiff(required_cols, names(data))
+  if (length(missing_cols) > 0) {
+    return(list(valid = FALSE, 
+                message = sprintf("Missing required columns: %s", 
+                                paste(missing_cols, collapse = ", "))))
+  }
+  invalid_prices <- sum(is.na(data$price) | data$price < 0)
+  if (invalid_prices > 0) {
+    return(list(valid = FALSE, 
+                message = sprintf("Found %d invalid price values", invalid_prices)))
+  }
+  list(valid = TRUE, message = "Data validation passed")
+}
+
+# Initialize error tracking
+errors <- list()
+
+# Load packages with error handling
+tryCatch({
+  load_packages(packages)
+  pkg_time <- log_performance("Package loading", start_time)
+}, error = function(e) {
+  errors$packages <- e$message
 })
 
-source("market-weather-functions.R")
-source("market-weather-indices.R")
+# Source helper functions with error handling
+tryCatch({
+  source("market-weather-functions.R")
+  source("market-weather-indices.R")
+  source_time <- log_performance("Source loading", pkg_time)
+}, error = function(e) {
+  errors$source <- e$message
+})
 
-# Time periods
+# Time periods with business day adjustment
 current_date <- Sys.Date()
-start_date <- current_date - days(30)
+is_weekend <- weekdays(current_date) %in% c("Saturday", "Sunday")
+start_date <- current_date - days(if(is_weekend) 32 else 30)  # Extra days for weekends
 
-# Fetch and process data
-market_data <- fetch_all_market_data(market_indices, start_date)
-weather_summary <- calculate_market_weather(market_data)
+# Fetch and process data with validation
+tryCatch({
+  market_data <- fetch_all_market_data(market_indices, start_date)
+  validation_result <- validate_market_data(market_data)
+  
+  if (!validation_result$valid) {
+    warning(validation_result$message)
+    weather_summary <- tibble()
+  } else {
+    weather_summary <- calculate_market_weather(market_data)
+  }
+  
+  data_time <- log_performance("Data processing", source_time)
+}, error = function(e) {
+  errors$data <- e$message
+  weather_summary <- tibble()
+})
 ```
 
 :::{.market-weather-widget}
-# Market Weather Report
+# Market Weather Report {.text-center .text-2xl .font-semibold .mb-6}
+
+```{r status-check}
+#| echo: false
+#| results: asis
+
+if (length(errors) > 0) {
+  cat('<div class="alert alert-warning">')
+  cat('<h3>System Status Update</h3>')
+  for (component in names(errors)) {
+    cat(sprintf('<p>%s Error: %s</p>', tools::toTitleCase(component), errors[[component]]))
+  }
+  cat('</div>')
+}
+```
 
 ```{r weather-table}
 #| echo: false
+#| results: asis
+#| cache: false
 
-render_weather_table(weather_summary)
+tryCatch({
+  if (nrow(weather_summary) > 0) {
+    render_weather_table(weather_summary)
+  } else {
+    cat('<div class="no-data">No market data available at this time. Please try again later.</div>')
+  }
+}, error = function(e) {
+  cat('<div class="no-data">Error generating weather table: ', e$message, '</div>')
+})
 ```
 
 ::: {.legend-container}
+## Market Conditions Legend {.sr-only}
 🌞 Exceptional (>5%) | 🌤️ Very Strong (3-5%) | ⛅ Strong (1-3%) | 🌥️ Positive (0-1%) | 
 ☁️ Stable (-1-0%) | 🌧️ Cautious (-3--1%) | ⛈️ Weak (-5--3%) | 🌪️ Very Weak (-7--5%) | ⚡ Critical (<-7%)
 :::
 
 ::: {.widget-footer}
-Updated: `r format(Sys.time(), "%B %d, %Y at %H:%M %Z")`
+Last Updated: `r format(Sys.time(), "%B %d, %Y at %H:%M %Z", tz = "UTC")`  
+Data Refresh Interval: Hourly  
+Performance: `r sprintf("%.2f seconds", as.numeric(difftime(Sys.time(), start_time, units = "secs")))`
 :::
 :::
 
-```{js}
+```{ojs}
+// Function to format percentages
+function formatPercent(value) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'percent',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value / 100);
+}
+
+// Add accessibility improvements
+function improveAccessibility() {
+  const table = document.querySelector('.weather-table');
+  if (!table) return;
+  
+  // Add appropriate ARIA labels
+  table.setAttribute('role', 'table');
+  table.setAttribute('aria-label', 'Market Weather Conditions');
+  
+  // Make weather icons more accessible
+  const cells = table.querySelectorAll('td');
+  cells.forEach(cell => {
+    const icon = cell.textContent.trim();
+    if (icon.match(/[🌞🌤️⛅🌥️☁️🌧️⛈️🌪️⚡]/)) {
+      const condition = cell.nextElementSibling?.textContent || 'Unknown';
+      cell.setAttribute('aria-label', `Market condition: ${condition}`);
+    }
+  });
+}
+
+// Initialize DataTable with enhanced features
+function initializeDataTable() {
+  const table = document.querySelector('.weather-table');
+  if (!table) return;
+  
+  const dt = new DataTable(table, {
+    pageLength: 15,
+    dom: '<"top"<"left"B><"right"f>>rtip',
+    buttons: [
+      {
+        extend: 'collection',
+        text: 'Change Period',
+        buttons: [
+          {text: 'Daily', action: () => showPeriod('daily')},
+          {text: 'Weekly', action: () => showPeriod('weekly')},
+          {text: 'Monthly', action: () => showPeriod('monthly')}
+        ]
+      }
+    ],
+    order: [[2, 'desc']],
+    language: {
+      search: 'Search Markets:',
+      zeroRecords: 'No matching markets found',
+      info: 'Showing _START_ to _END_ of _TOTAL_ markets',
+      infoEmpty: 'No markets available',
+      infoFiltered: '(filtered from _MAX_ total markets)'
+    }
+  });
+  
+  return dt;
+}
+
+// Show specific period data
 function showPeriod(period) {
-  const table = $('.weather-table').DataTable();
+  const table = document.querySelector('.weather-table')?.DataTable();
+  if (!table) return;
+  
   const periodColumns = {
     'daily': 2,
     'weekly': 3,
@@ -66,11 +260,58 @@ function showPeriod(period) {
   Object.values(periodColumns).forEach(col => table.column(col).visible(false));
   table.column(periodColumns[period]).visible(true);
   
-  $('.period-button').removeClass('active');
-  $(`#${period}-button`).addClass('active');
+  // Update URL parameter without reload
+  const url = new URL(window.location);
+  url.searchParams.set('period', period);
+  window.history.pushState({}, '', url);
 }
 
-$(document).ready(function() {
-  showPeriod('daily');
+// Initialize everything when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  improveAccessibility();
+  const dt = initializeDataTable();
+  
+  // Set initial period from URL parameter or default to daily
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialPeriod = urlParams.get('period') || 'daily';
+  showPeriod(initialPeriod);
+  
+  // Add keyboard navigation
+  document.addEventListener('keydown', function(e) {
+    if (e.altKey) {
+      switch(e.key) {
+        case 'd': showPeriod('daily'); break;
+        case 'w': showPeriod('weekly'); break;
+        case 'm': showPeriod('monthly'); break;
+      }
+    }
+  });
 });
+
+// Add print styles
+if (window.matchMedia) {
+  window.matchMedia('print').addListener(function(mql) {
+    if (mql.matches) {
+      document.querySelectorAll('.dt-buttons, .dataTables_filter').forEach(el => {
+        el.style.display = 'none';
+      });
+    }
+  });
+}
+```
+
+```{=html}
+<script>
+// Add real-time data update indication
+let lastUpdate = new Date();
+const updateIndicator = () => {
+  const now = new Date();
+  const minutesSinceUpdate = Math.floor((now - lastUpdate) / 60000);
+  const indicator = document.createElement('div');
+  indicator.className = 'update-indicator';
+  indicator.textContent = `Last refresh: ${minutesSinceUpdate} minutes ago`;
+  document.querySelector('.widget-footer').appendChild(indicator);
+};
+setInterval(updateIndicator, 60000);
+</script>
 ```
