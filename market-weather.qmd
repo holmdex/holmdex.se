@@ -10,24 +10,26 @@ format:
       text: |
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <base target="_parent">
+    execute:
+      echo: false
+      warning: false
+      message: false
 ---
 
 ```{r setup}
 #| include: false
-#| error: false
-#| warning: false
-#| message: false
 
 start_time <- Sys.time()
 
 # Load required packages with error handling
 required_packages <- c(
-  'tidyverse', 
-  'quantmod',  # For Yahoo Finance
-  'jsonlite',  # For JSON handling
-  'httr',      # For HTTP requests
-  'lubridate', # For date handling
-  'DT'         # For interactive tables
+  'tidyverse',  # For data manipulation
+  'quantmod',   # For Yahoo Finance
+  'rvest',      # For web scraping
+  'httr',       # For HTTP requests
+  'jsonlite',   # For JSON parsing
+  'lubridate',  # For date handling
+  'DT'          # For interactive tables
 )
 
 load_packages <- function(packages) {
@@ -37,6 +39,10 @@ load_packages <- function(packages) {
     }
   })
 }
+
+# Setup error tracking
+errors <- list()
+weather_summary <- NULL
 
 tryCatch({
   # Load packages
@@ -55,13 +61,10 @@ tryCatch({
   
   if (!is.null(market_data) && nrow(market_data) > 0) {
     weather_summary <- calculate_market_weather(market_data)
-  } else {
-    weather_summary <- tibble()
   }
   
 }, error = function(e) {
-  warning(sprintf("Setup error: %s", e$message))
-  weather_summary <- tibble()
+  errors$setup <- e$message
 })
 
 execution_time <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
@@ -70,15 +73,33 @@ execution_time <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
 :::{.market-weather-widget}
 # Market Weather Report
 
+```{r status-check}
+#| echo: false
+#| results: asis
+
+if (length(errors) > 0) {
+  cat('<div class="system-status">')
+  cat('<h3>System Status Update</h3>')
+  for (component in names(errors)) {
+    cat(sprintf('<p>%s Error: %s</p>', tools::toTitleCase(component), errors[[component]]))
+  }
+  cat('</div>')
+}
+```
+
 ```{r weather-table}
 #| echo: false
 #| results: asis
 
-if (exists("weather_summary") && nrow(weather_summary) > 0) {
-  render_weather_table(weather_summary)
-} else {
-  cat('<div class="no-data">No market data available at this time. Please try again later.</div>')
-}
+tryCatch({
+  if (!is.null(weather_summary) && nrow(weather_summary) > 0) {
+    render_weather_table(weather_summary)
+  } else {
+    cat('<div class="no-data">No market data available at this time. Please try again later.</div>')
+  }
+}, error = function(e) {
+  cat('<div class="no-data">Error generating weather table: ', e$message, '</div>')
+})
 ```
 
 ::: {.legend-container}
@@ -94,27 +115,36 @@ Performance: `r sprintf("%.2f seconds", execution_time)`
 :::
 
 ```{js}
-// Ensure all links open in parent window
 document.addEventListener('DOMContentLoaded', function() {
-  document.querySelectorAll('a').forEach(link => {
-    link.target = '_parent';
-  });
-  
-  // Initialize with daily view
-  setTimeout(() => {
+  // Initialize table
+  const initializeTable = () => {
     const table = document.querySelector('.weather-table')?.DataTable();
     if (table) {
       // Hide all columns except daily initially
       [3, 4].forEach(col => table.column(col).visible(false));
+      
+      // Add keyboard shortcuts
+      document.addEventListener('keydown', function(e) {
+        if (e.altKey) {
+          switch(e.key) {
+            case 'd': showPeriod('daily'); break;
+            case 'w': showPeriod('weekly'); break;
+            case 'm': showPeriod('monthly'); break;
+          }
+        }
+      });
     }
-  }, 0);
-  
-  // Notify parent window of height changes
+  };
+
+  // Handle iframe resizing
   const resizeObserver = new ResizeObserver(entries => {
     const height = document.body.scrollHeight;
     window.parent.postMessage({ type: 'resize', height }, '*');
   });
   
   resizeObserver.observe(document.body);
+  
+  // Initialize
+  setTimeout(initializeTable, 0);
 });
 ```
