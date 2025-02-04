@@ -6,34 +6,7 @@ on:
   workflow_dispatch:      # Manual trigger option
 
 jobs:
-  check_previous:
-    runs-on: ubuntu-latest
-    outputs:
-      should_run: ${{ steps.check.outputs.should_run }}
-    steps:
-      - name: Check previous run status
-        id: check
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "should_run=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          previous_status=$(curl -s \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/$(basename ${{ github.workflow }})/runs?per_page=2" \
-            | jq -r '.workflow_runs[1].conclusion')
-          
-          if [ "$previous_status" = "failure" ]; then
-            echo "should_run=false" >> $GITHUB_OUTPUT
-          else
-            echo "should_run=true" >> $GITHUB_OUTPUT
-          fi
-
-  render:
-    needs: check_previous
-    if: needs.check_previous.outputs.should_run == 'true'
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -60,6 +33,20 @@ jobs:
         with:
           version: 1.3.450
 
+      - name: Query dependencies
+        run: |
+          install.packages('remotes')
+          saveRDS(remotes::dev_package_deps(dependencies = TRUE), ".github/depends.Rds", version = 2)
+          writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
+        shell: Rscript {0}
+
+      - name: Cache R packages
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
+          restore-keys: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -67,20 +54,41 @@ jobs:
             libcurl4-openssl-dev \
             libssl-dev \
             libxml2-dev \
-            libfontconfig1-dev
+            libfontconfig1-dev \
+            libharfbuzz-dev \
+            libfribidi-dev \
+            libfreetype6-dev \
+            libpng-dev \
+            libtiff5-dev \
+            libjpeg-dev \
+            libglpk-dev \
+            libgit2-dev
 
       - name: Install R packages
-        run: |
-          install.packages(c(
-            'tidyverse',
-            'quantmod',
-            'rvest',
-            'httr',
-            'jsonlite',
-            'lubridate',
-            'DT'
-          ), repos = 'https://cloud.r-project.org')
         shell: Rscript {0}
+        run: |
+          # Install pak for better package management
+          install.packages("pak", repos = "https://r-lib.github.io/p/pak/dev/")
+          
+          # Install packages with pak
+          pak::pkg_install(c(
+            "tidyverse",
+            "quantmod",
+            "rvest",
+            "httr",
+            "jsonlite",
+            "lubridate",
+            "DT"
+          ))
+          
+          # Verify installations
+          installed <- rownames(installed.packages())
+          required <- c("tidyverse", "quantmod", "rvest", "httr", "jsonlite", "lubridate", "DT")
+          missing <- required[!required %in% installed]
+          
+          if (length(missing) > 0) {
+            stop("Failed to install packages: ", paste(missing, collapse = ", "))
+          }
 
       - name: Verify files
         run: |
@@ -100,24 +108,17 @@ jobs:
           echo "Current directory contents:"
           ls -la
           echo "Rendering market weather report..."
-          quarto render market-weather.qmd
+          quarto render market-weather.qmd --output-dir _site
         env:
           GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Pages
-        if: success()
         uses: actions/configure-pages@v4
 
-      - name: Upload artifact
-        if: success()
-        uses: actions/upload-artifact@v4  # Updated from v2 to v4
-        with:
-          name: github-pages
-          path: _site
-          retention-days: 1
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v2
 
       - name: Deploy to GitHub Pages
-        if: success()
         id: deployment
         uses: actions/deploy-pages@v3
 
