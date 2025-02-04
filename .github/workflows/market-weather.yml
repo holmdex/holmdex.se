@@ -110,9 +110,11 @@ jobs:
 
       - name: Upload artifact
         if: success()
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-artifact@v4  # Updated from v2 to v4
         with:
+          name: github-pages
           path: _site
+          retention-days: 1
 
       - name: Deploy to GitHub Pages
         if: success()
