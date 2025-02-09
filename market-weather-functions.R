@@ -1,64 +1,3 @@
-# Source priority order:
-# 1. Yahoo Finance API (most reliable, free)
-# 2. Stooq Data (free, good backup)
-# 3. MarketWatch Web Scraping (free, fallback)
-# 4. Investing.com Web Scraping (free, last resort)
-
-# Define market indices
-market_indices <- list(
-  US = c(
-    "^GSPC" = "S&P 500",
-    "^DJI" = "Dow Jones",
-    "^IXIC" = "NASDAQ",
-    "^RUT" = "Russell 2000",
-    "^VIX" = "VIX"
-  ),
-  Asia = c(
-    "^N225" = "Nikkei 225",
-    "^HSI" = "Hang Seng",
-    "000001.SS" = "Shanghai Composite",
-    "399001.SZ" = "Shenzhen Component",
-    "^KS11" = "KOSPI"
-  ),
-  Europe = c(
-    "^FTSE" = "FTSE 100",
-    "^GDAXI" = "DAX",
-    "^FCHI" = "CAC 40",
-    "^STOXX50E" = "EURO STOXX 50",
-    "^IBEX" = "IBEX 35"
-  )
-)
-
-# Symbol mapping for different sources
-symbol_mappings <- list(
-  yahoo = list(
-    "^GSPC" = "^GSPC",
-    "^DJI" = "^DJI"
-    # Add more as needed
-  ),
-  stooq = list(
-    "^GSPC" = "^SPX",
-    "^DJI" = "^DJI"
-    # Add more as needed
-  ),
-  marketwatch = list(
-    "^GSPC" = "SPX",
-    "^DJI" = "DJIA"
-    # Add more as needed
-  ),
-  investing = list(
-    "^GSPC" = "us-spx-500",
-    "^DJI" = "us-30"
-    # Add more as needed
-  )
-)
-
-# Logging function
-log_debug <- function(symbol, source, msg) {
-  timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
-  cat(sprintf("[%s] %s (%s): %s\n", timestamp, symbol, source, msg))
-}
-
 # Rate limiting function with source-specific delays
 rate_limit <- function(source) {
   delay <- switch(source,
@@ -71,12 +10,23 @@ rate_limit <- function(source) {
   Sys.sleep(delay)
 }
 
-# Yahoo Finance fetcher
+# Enhanced logging function
+log_debug <- function(symbol, source, msg, level = "INFO") {
+  timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+  formatted_msg <- sprintf("[%s] [%s] %s (%s): %s", timestamp, level, symbol, source, msg)
+  cat(formatted_msg, "\n")
+  
+  # Return invisibly for potential future logging to file
+  invisible(formatted_msg)
+}
+
+# Yahoo Finance fetcher with improved error handling
 fetch_yahoo <- function(symbol, from_date) {
   tryCatch({
     rate_limit("yahoo")
     log_debug(symbol, "yahoo", "Attempting fetch")
     
+    # Use quantmod with explicit error handling
     data <- quantmod::getSymbols(symbol, 
                                 src = "yahoo",
                                 from = from_date,
@@ -91,23 +41,21 @@ fetch_yahoo <- function(symbol, from_date) {
         source = "yahoo"
       ))
     }
+    log_debug(symbol, "yahoo", "No data returned", "WARN")
     NULL
   }, error = function(e) {
-    log_debug(symbol, "yahoo", paste("Error:", e$message))
+    log_debug(symbol, "yahoo", paste("Error:", e$message), "ERROR")
     NULL
   })
 }
 
-# Stooq Data fetcher
+# Stooq Data fetcher with improved error handling
 fetch_stooq <- function(symbol, from_date) {
   tryCatch({
     rate_limit("stooq")
     log_debug(symbol, "stooq", "Attempting fetch")
     
-    # Map symbol to Stooq format
-    stooq_symbol <- symbol_mappings$stooq[[symbol]] %||% symbol
-    
-    data <- quantmod::getSymbols(stooq_symbol, 
+    data <- quantmod::getSymbols(symbol, 
                                 src = "stooq",
                                 from = from_date,
                                 auto.assign = FALSE)
@@ -121,112 +69,39 @@ fetch_stooq <- function(symbol, from_date) {
         source = "stooq"
       ))
     }
+    log_debug(symbol, "stooq", "No data returned", "WARN")
     NULL
   }, error = function(e) {
-    log_debug(symbol, "stooq", paste("Error:", e$message))
+    log_debug(symbol, "stooq", paste("Error:", e$message), "ERROR")
     NULL
   })
 }
 
-# MarketWatch web scraping fetcher
-fetch_marketwatch <- function(symbol, from_date) {
-  tryCatch({
-    rate_limit("marketwatch")
-    log_debug(symbol, "marketwatch", "Attempting fetch")
-    
-    # Map symbol to MarketWatch format
-    mw_symbol <- symbol_mappings$marketwatch[[symbol]] %||% symbol
-    url <- sprintf("https://www.marketwatch.com/investing/index/%s", tolower(mw_symbol))
-    
-    page <- rvest::read_html(url)
-    price <- page %>%
-      rvest::html_nodes(".value") %>%
-      rvest::html_text() %>%
-      .[1] %>%
-      gsub("[^0-9.]", "", .) %>%
-      as.numeric()
-    
-    if (!is.na(price)) {
-      log_debug(symbol, "marketwatch", "Fetch successful")
-      return(data.frame(
-        date = Sys.Date(),
-        price = price,
-        symbol = symbol,
-        source = "marketwatch"
-      ))
-    }
-    NULL
-  }, error = function(e) {
-    log_debug(symbol, "marketwatch", paste("Error:", e$message))
-    NULL
-  })
-}
-
-# Investing.com web scraping fetcher
-fetch_investing <- function(symbol, from_date) {
-  tryCatch({
-    rate_limit("investing")
-    log_debug(symbol, "investing", "Attempting fetch")
-    
-    # Map symbol to Investing.com format
-    inv_symbol <- symbol_mappings$investing[[symbol]] %||% gsub("^\\^", "", tolower(symbol))
-    url <- sprintf("https://www.investing.com/indices/%s", inv_symbol)
-    
-    headers <- c(
-      "User-Agent" = "Mozilla/5.0",
-      "Accept" = "text/html,application/xhtml+xml,application/xml;q=0.9",
-      "Accept-Language" = "en-US,en;q=0.5"
-    )
-    
-    page <- rvest::read_html(url)
-    price <- page %>%
-      rvest::html_nodes(".last-price-value") %>%
-      rvest::html_text() %>%
-      gsub("[^0-9.]", "", .) %>%
-      as.numeric()
-    
-    if (!is.na(price)) {
-      log_debug(symbol, "investing", "Fetch successful")
-      return(data.frame(
-        date = Sys.Date(),
-        price = price,
-        symbol = symbol,
-        source = "investing"
-      ))
-    }
-    NULL
-  }, error = function(e) {
-    log_debug(symbol, "investing", paste("Error:", e$message))
-    NULL
-  })
-}
-
-# Main fetch function that tries all sources
+# Main fetch function with improved error handling
 fetch_market_data <- function(symbol, from_date) {
   # List of fetch functions in priority order
   fetch_functions <- list(
-    fetch_yahoo,
-    fetch_stooq,
-    fetch_marketwatch,
-    fetch_investing
+    yahoo = fetch_yahoo,
+    stooq = fetch_stooq
   )
   
   # Try each function in sequence
-  for (fetch_fn in fetch_functions) {
-    data <- fetch_fn(symbol, from_date)
+  for (source_name in names(fetch_functions)) {
+    data <- fetch_functions[[source_name]](symbol, from_date)
     if (!is.null(data) && nrow(data) > 0) {
       return(data)
     }
   }
   
-  log_debug(symbol, "ALL", "All data fetching methods failed")
+  log_debug(symbol, "ALL", "All data fetching methods failed", "ERROR")
   NULL
 }
 
-# Fetch all market data with retries
+# Fetch all market data with improved error handling and retries
 fetch_all_market_data <- function(indices, start_date) {
   market_data <- tibble()
   fetch_count <- 0
+  failed_fetches <- list()
   
   for (region in names(indices)) {
     for (symbol in names(indices[[region]])) {
@@ -234,33 +109,49 @@ fetch_all_market_data <- function(indices, start_date) {
       if (fetch_count > 0) Sys.sleep(2)
       fetch_count <- fetch_count + 1
       
-      # Retry logic
+      # Retry logic with exponential backoff
       max_retries <- 3
+      success <- FALSE
+      
       for (retry in 1:max_retries) {
         data <- fetch_market_data(symbol, start_date)
+        
         if (!is.null(data) && nrow(data) > 0) {
           data$region <- region
           data$index_name <- indices[[region]][symbol]
           market_data <- bind_rows(market_data, data)
+          success <- TRUE
           break
         } else if (retry < max_retries) {
-          Sys.sleep(2 ^ retry)  # Exponential backoff
-          log_debug(symbol, "retry", sprintf("Attempt %d of %d", retry + 1, max_retries))
+          backoff_time <- 2 ^ retry
+          log_debug(symbol, "retry", sprintf("Attempt %d of %d, waiting %d seconds", 
+                                           retry + 1, max_retries, backoff_time), "WARN")
+          Sys.sleep(backoff_time)
         }
+      }
+      
+      if (!success) {
+        failed_fetches[[symbol]] <- list(
+          region = region,
+          index_name = indices[[region]][symbol]
+        )
       }
     }
   }
   
-  # Validate final dataset
-  if (nrow(market_data) > 0) {
-    log_debug("ALL", "summary", sprintf("Successfully fetched %d/%d indices", 
-                                      length(unique(market_data$symbol)),
-                                      sum(lengths(indices))))
-  }
+  # Log summary statistics
+  log_debug("ALL", "summary", sprintf("Successfully fetched %d/%d indices", 
+                                    length(unique(market_data$symbol)),
+                                    sum(lengths(indices))), 
+           if(length(failed_fetches) > 0) "WARN" else "INFO")
+  
+  # Add failed fetches as attribute for debugging
+  attr(market_data, "failed_fetches") <- failed_fetches
   
   market_data
 }
 
+# Calculate market weather with improved error handling
 calculate_market_weather <- function(market_data) {
   if (nrow(market_data) == 0) return(tibble())
   
@@ -321,10 +212,7 @@ calculate_market_weather <- function(market_data) {
           daily_return >= -5 ~ "#FF5722",
           daily_return >= -7 ~ "#F44336",
           TRUE ~ "#B71C1C"
-        ),
-        # Format percentages after all calculations
-        across(ends_with("_return"), 
-               ~sprintf("%.2f%%", .))
+        )
       )
     
     # Add data quality metrics
@@ -338,11 +226,12 @@ calculate_market_weather <- function(market_data) {
     weather_data
     
   }, error = function(e) {
-    log_debug("calculate", "error", sprintf("Calculation error: %s", e$message))
+    log_debug("calculate", "error", sprintf("Calculation error: %s", e$message), "ERROR")
     return(tibble())
   })
 }
 
+# Render weather table with improved error handling
 render_weather_table <- function(weather_summary) {
   if (nrow(weather_summary) == 0) {
     return(HTML(sprintf(
@@ -354,83 +243,84 @@ render_weather_table <- function(weather_summary) {
     )))
   }
   
-  # Get data quality info
-  data_quality <- attr(weather_summary, "data_quality")
-  quality_note <- if (!is.null(data_quality)) {
-    sprintf(
-      "Data Coverage: %.1f%% (%d/%d indices)",
-      (1 - data_quality$missing_data/data_quality$total_indices) * 100,
-      data_quality$total_indices - data_quality$missing_data,
-      data_quality$total_indices
-    )
-  } else {
-    ""
-  }
-  
-  datatable(
-    weather_summary %>%
-      select(region, index_name, daily_return, weekly_return, monthly_return, 
-             weather_icon, conditions) %>%
+  tryCatch({
+    # Get data quality info
+    data_quality <- attr(weather_summary, "data_quality")
+    quality_note <- if (!is.null(data_quality)) {
+      sprintf(
+        "Data Coverage: %.1f%% (%d/%d indices)",
+        (1 - data_quality$missing_data/data_quality$total_indices) * 100,
+        data_quality$total_indices - data_quality$missing_data,
+        data_quality$total_indices
+      )
+    } else {
+      ""
+    }
+    
+    # Format percentages for display
+    display_data <- weather_summary %>%
       mutate(
+        across(ends_with("_return"), ~sprintf("%.2f%%", .)),
         region = paste(region, "</div>") %>%
           paste0('<div class="region-', tolower(region), '">', .)
-      ),
-    colnames = c("Region", "Market", "Daily %", "Weekly %", "Monthly %", 
-                 "Weather", "Status"),
-    options = list(
-      pageLength = 15,
-      dom = '<"top"<"left"B><"right"f>>rtip',
-      buttons = list(
-        list(
-          extend = 'collection',
-          text = 'Change Period',
-          buttons = list(
-            list(text = 'Daily', action = JS("function() { showPeriod('daily'); }")),
-            list(text = 'Weekly', action = JS("function() { showPeriod('weekly'); }")),
-            list(text = 'Monthly', action = JS("function() { showPeriod('monthly'); }"))
+      )
+    
+    # Create the datatable
+    dt <- datatable(
+      display_data %>% select(-mood_color),
+      colnames = c("Region", "Market", "Daily %", "Weekly %", "Monthly %", 
+                   "Weather", "Status"),
+      options = list(
+        pageLength = 15,
+        dom = '<"top"<"left"B><"right"f>>rtip',
+        buttons = list(
+          list(
+            extend = 'collection',
+            text = 'Change Period',
+            buttons = list(
+              list(text = 'Daily', action = JS("function() { showPeriod('daily'); }")),
+              list(text = 'Weekly', action = JS("function() { showPeriod('weekly'); }")),
+              list(text = 'Monthly', action = JS("function() { showPeriod('monthly'); }"))
+            )
           )
+        ),
+        order = list(list(2, 'desc')),
+        language = list(
+          search = 'Search Markets:',
+          zeroRecords = 'No matching markets found',
+          info = paste(quality_note, '- Showing _START_ to _END_ of _TOTAL_'),
+          infoEmpty = 'No markets available',
+          infoFiltered = '(filtered from _MAX_)'
         )
       ),
-      order = list(list(2, 'desc')),
-      language = list(
-        search = 'Search Markets:',
-        zeroRecords = 'No matching markets found',
-        info = paste(quality_note, '- Showing _START_ to _END_ of _TOTAL_'),
-        infoEmpty = 'No markets available',
-        infoFiltered = '(filtered from _MAX_)'
-      ),
-      drawCallback = JS("
-        function(settings) {
-          var api = this.api();
-          var rows = api.rows({page:'current'}).nodes();
-          var last = null;
-          
-          api.column(0).data().each(function(group, i) {
-            if (last !== group) {
-              $(rows).eq(i).before(
-                '<tr class=\"group\"><td colspan=\"7\">' + group + '</td></tr>'
-              );
-              last = group;
-            }
-          });
-        }
-      ")
-    ),
-    rownames = FALSE,
-    escape = FALSE,
-    selection = 'none',
-    class = 'cell-border stripe weather-table'
-  ) %>%
-    formatStyle(
-      columns = colnames(weather_summary),
+      rownames = FALSE,
+      escape = FALSE,
+      selection = 'none',
+      class = 'cell-border stripe weather-table'
+    )
+    
+    # Apply styling
+    dt %>% formatStyle(
+      columns = names(display_data)[-which(names(display_data) == "mood_color")],
       backgroundColor = styleEqual(
         unique(weather_summary$conditions),
         unique(weather_summary$mood_color)
       ),
       color = styleEqual(
         unique(weather_summary$conditions),
-        ifelse(weather_summary$mood_color == "#808080", "black", "white")
-      ),
-      fontWeight = 500
+        ifelse(unique(weather_summary$mood_color) == "#808080", "black", "white")
+      )
     )
+    
+  }, error = function(e) {
+    log_debug("render", "error", sprintf("Table rendering error: %s", e$message), "ERROR")
+    HTML(sprintf(
+      '<div class="no-data">
+         Error generating weather table: %s<br>
+         <small>Time: %s</small>
+       </div>',
+      e$message,
+      format(Sys.time(), "%H:%M:%S")
+    ))
+  })
 }
