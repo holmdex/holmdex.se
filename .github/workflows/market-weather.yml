@@ -43,7 +43,9 @@ jobs:
             libtiff5-dev \
             libjpeg-dev \
             libglpk-dev \
-            libgit2-dev
+            libgit2-dev \
+            pandoc \
+            pandoc-citeproc
 
       - name: Setup Pandoc
         uses: r-lib/actions/setup-pandoc@v2.7.0
@@ -55,6 +57,17 @@ jobs:
         with:
           version: '1.4.549'
           tinytex: true
+
+      - name: Verify Quarto installation
+        run: |
+          echo "Checking Quarto version..."
+          quarto --version
+          echo "Checking Quarto installation..."
+          quarto check
+          echo "Listing Quarto installation directory..."
+          ls -la $(which quarto)
+          echo "Quarto capabilities..."
+          quarto capabilities
 
       - name: Cache R packages
         uses: actions/cache@v3
@@ -78,7 +91,7 @@ jobs:
             }
           }
           
-          # Required packages from your files
+          # Required packages
           required_packages <- c(
             'tidyverse',
             'quantmod',
@@ -110,7 +123,6 @@ jobs:
             "market-weather.qmd"
             "market-weather-functions.R"
             "market-weather.css"
-            "market-weather-indices.R"
           )
           
           # Check each required file
@@ -120,62 +132,27 @@ jobs:
               exit 1
             fi
             echo "✓ Found $file"
+            echo "First few lines of $file:"
+            head -n 5 "$file"
           done
           
           # Set proper permissions
           chmod 644 *.R *.qmd *.css
 
-      - name: Verify R environment
-        shell: Rscript {0}
-        run: |
-          # Test loading market indices
-          tryCatch({
-            source("market-weather-indices.R")
-            if(!exists("market_indices")) stop("market_indices not loaded")
-            print("✓ Successfully loaded market indices")
-          }, error = function(e) {
-            print(paste("Error loading market indices:", e$message))
-            quit(status = 1)
-          })
-          
-          # Test loading functions
-          tryCatch({
-            source("market-weather-functions.R")
-            print("✓ Successfully loaded functions")
-          }, error = function(e) {
-            print(paste("Error loading functions:", e$message))
-            quit(status = 1)
-          })
-          
-          # Print session info for debugging
-          print(sessionInfo())
-
       - name: Setup output directory
         run: mkdir -p _site
 
-      - name: Verify Quarto
-        run: |
-          echo "Checking Quarto installation..."
-          quarto check
-          echo "Quarto version:"
-          quarto --version
-
       - name: Render report
-        id: render
         run: |
-          # Check R environment
-          Rscript -e "installed.packages()"
+          # Set R session options
+          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org"))'
           
-          # Verify all required files exist in current directory
-          echo "Current directory contents:"
-          ls -la
-          
-          # Test source R files independently first
+          # Test source files first
           echo "Testing R files..."
-          Rscript -e "tryCatch({source('market-weather-functions.R')}, error = function(e) {print(e); quit(status=1)})"
+          Rscript -e 'tryCatch({source("market-weather-functions.R")}, error = function(e) {print(e); quit(status=1)})'
           
-          # Now attempt the render with verbose output
-          echo "Attempting render..."
+          # Render with detailed output
+          echo "Rendering QMD..."
           quarto render market-weather.qmd --output-dir _site --debug
         env:
           GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
