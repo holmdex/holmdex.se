@@ -2,51 +2,268 @@
 # 1. Yahoo Finance API (most reliable, free)
 # 2. Stooq Data (free, good backup)
 
-# Define market indices
+# Define comprehensive market indices
 market_indices <- list(
   US = c(
-    "^GSPC" = "S&P 500",
-    "^DJI" = "Dow Jones",
-    "^IXIC" = "NASDAQ",
-    "^RUT" = "Russell 2000",
-    "^VIX" = "VIX"
+    "^GSPC" = "S&P 500 | Area: United States",
+    "^DJI" = "Dow Jones | Area: United States",
+    "^IXIC" = "NASDAQ | Area: United States",
+    "^RUT" = "Russell 2000 | Area: United States",
+    "^VIX" = "VIX | Area: United States",
+    "^NYA" = "NYSE Composite | Area: United States",
+    "^XAX" = "NYSE AMEX Composite | Area: United States",
+    "^BKX" = "KBW Bank Index | Area: United States",
+    "^DJT" = "Dow Jones Transport | Area: United States",
+    "^DJUS" = "Dow Jones US Total | Area: United States"
   ),
+  
   Asia = c(
-    "^N225" = "Nikkei 225",
-    "^HSI" = "Hang Seng",
-    "000001.SS" = "Shanghai Composite",
-    "399001.SZ" = "Shenzhen Component",
-    "^KS11" = "KOSPI"
+    "^N225" = "Nikkei 225 | Area: Japan",
+    "^HSI" = "Hang Seng | Area: Hong Kong",
+    "000001.SS" = "Shanghai Composite | Area: Mainland",
+    "399001.SZ" = "Shenzhen Component | Area: Mainland",
+    "^KS11" = "KOSPI | Area: South Korea",
+    "^TWII" = "TAIEX | Area: Taipei",
+    "^BSESN" = "BSE SENSEX | Area: India",
+    "^NSEI" = "NIFTY 50 | Area: India",
+    "^JKSE" = "Jakarta Composite | Area: Indonesia",
+    "^STI" = "Straits Times | Area: Singapore",
+    "^KLSE" = "KLCI | Area: Malaysia",
+    "^SET.BK" = "SET | Area: Thailand",
+    "^VNINDEX" = "VN-Index | Area: Vietnam",
+    "^PSEI" = "PSEi | Area: Philippines"
   ),
+  
   Europe = c(
-    "^FTSE" = "FTSE 100",
-    "^GDAXI" = "DAX",
-    "^FCHI" = "CAC 40",
-    "^STOXX50E" = "EURO STOXX 50",
-    "^IBEX" = "IBEX 35"
+    "^FTSE" = "FTSE 100 | Area: UK",
+    "^GDAXI" = "DAX | Area: Germany",
+    "^FCHI" = "CAC 40 | Area: France",
+    "^STOXX50E" = "EURO STOXX 50 | Area: Eurozone",
+    "^IBEX" = "IBEX 35 | Area: Spain",
+    "^AEX" = "AEX | Area: Netherlands",
+    "^BFX" = "BEL 20 | Area: Belgium",
+    "^SSMI" = "SMI | Area: Switzerland",
+    "^FTSEMIB.MI" = "FTSE MIB | Area: Italy",
+    "^ATX" = "ATX | Area: Austria",
+    "^PX" = "PX | Area: Czech Republic",
+    "^WIG20" = "WIG20 | Area: Poland",
+    "^BUX" = "BUX | Area: Hungary",
+    "IMOEX.ME" = "MOEX | Area: Russia",
+    "^RTS.RS" = "RTS | Area: Russia",
+    "XU100.IS" = "BIST 100 | Area: Turkey"
+  ),
+  
+  Nordics = c(
+    "^OMXC25" = "OMX C25 | Area: Denmark",
+    "^OMXH25" = "OMX H25 | Area: Finland",
+    "^OSEAX" = "Oslo Exchange | Area: Norway",
+    "^OMX" = "OMX S30 | Area: Sweden",
+    "^OMXIPI" = "OMX Iceland | Area: Iceland",
+    "OMXBBGI.ST" = "OMX Baltic | Area: Baltic Region",
+    "^OMXRGI" = "OMX Riga | Area: Latvia",
+    "^OMXTGI" = "OMX Tallinn | Area: Estonia",
+    "^OMXVGI" = "OMX Vilnius | Area: Lithuania"
+  ),
+  
+  Pacific = c(
+    "^AORD" = "All Ordinaries | Area: Australia",
+    "^AXJO" = "S&P/ASX 200 | Area: Australia",
+    "^NZ50" = "NZX 50 | Area: New Zealand",
+    "^NZAQ" = "NZX All | Area: New Zealand",
+    "^NZSC" = "NZX SmallCap | Area: New Zealand"
+  ),
+  
+  Americas = c(
+    "^GSPTSE" = "S&P/TSX Composite | Area: Canada",
+    "^BVSP" = "Bovespa | Area: Brazil",
+    "^MXX" = "IPC Mexico | Area: Mexico",
+    "^MERV" = "MERVAL | Area: Argentina",
+    "^IPSA" = "IPSA | Area: Chile",
+    "^COLCAP" = "COLCAP | Area: Colombia",
+    "^LIMA" = "S&P/BVL | Area: Peru",
+    "^BVCA" = "BCX | Area: Venezuela",
+    "^IBC" = "IBC | Area: Venezuela"
+  ),
+  
+  Africa = c(
+    "^JALSH" = "JSE All-Share | Area: South Africa",
+    "^TOP40.JO" = "JSE Top 40 | Area: South Africa",
+    "^EGX30" = "EGX 30 | Area: Egypt",
+    "^MASI" = "Moroccan All Shares | Area: Morocco",
+    "^NGSEINDX" = "NGX 30 | Area: Nigeria",
+    "^NASI" = "NSE All Share | Area: Kenya",
+    "^TUSISE" = "Tunindex | Area: Tunisia",
+    "^GGSECI" = "GSE Composite | Area: Ghana",
+    "^ALSIUG" = "USE All Share | Area: Uganda",
+    "^DARSDEI" = "DSE Index | Area: Tanzania"
+  ),
+  
+  MiddleEast = c(
+    "^TASI.SR" = "Tadawul All Share | Area: Saudi Arabia",
+    "^ADI" = "ADX General | Area: UAE",
+    "^DFMGI" = "DFM General | Area: UAE",
+    "^QSI" = "QE General | Area: Qatar",
+    "^KWSE" = "Kuwait General | Area: Kuwait",
+    "^MSM30" = "MSM 30 | Area: Oman",
+    "^BSEX" = "Bahrain All Share | Area: Bahrain",
+    "TA35.TA" = "TA-35 | Area: Israel",
+    "^AMGNRLX" = "Amman SE General | Area: Jordan"
   )
 )
 
 # Symbol mapping for different sources
 symbol_mappings <- list(
   yahoo = list(
-    "^GSPC" = "^GSPC",
-    "^DJI" = "^DJI",
-    "^IXIC" = "^IXIC",
-    "^RUT" = "^RUT",
-    "^VIX" = "^VIX",
-    "^N225" = "^N225",
-    "^HSI" = "^HSI",
-    "000001.SS" = "000001.SS",
-    "399001.SZ" = "399001.SZ",
-    "^KS11" = "^KS11",
-    "^FTSE" = "^FTSE",
-    "^GDAXI" = "^GDAXI",
-    "^FCHI" = "^FCHI",
-    "^STOXX50E" = "^STOXX50E",
-    "^IBEX" = "^IBEX"
+    # US Markets
+    "^GSPC" = "^GSPC", "^DJI" = "^DJI", "^IXIC" = "^IXIC", "^RUT" = "^RUT",
+    "^VIX" = "^VIX", "^NYA" = "^NYA", "^XAX" = "^XAX", "^BKX" = "^BKX",
+    "^DJT" = "^DJT", "^DJUS" = "^DJUS",
+    
+    # Asian Markets
+    "^N225" = "^N225", "^HSI" = "^HSI", "000001.SS" = "000001.SS",
+    "399001.SZ" = "399001.SZ", "^KS11" = "^KS11", "^TWII" = "^TWII",
+    "^BSESN" = "^BSESN", "^NSEI" = "^NSEI", "^JKSE" = "^JKSE",
+    "^STI" = "^STI", "^KLSE" = "^KLSE", "^SET.BK" = "^SET.BK",
+    "^VNINDEX" = "^VNINDEX", "^PSEI" = "^PSEI",
+    
+    # European Markets
+    "^FTSE" = "^FTSE", "^GDAXI" = "^GDAXI", "^FCHI" = "^FCHI",
+    "^STOXX50E" = "^STOXX50E", "^IBEX" = "^IBEX", "^AEX" = "^AEX",
+    "^BFX" = "^BFX", "^SSMI" = "^SSMI", "^FTSEMIB.MI" = "^FTSEMIB.MI",
+    "^ATX" = "^ATX", "^PX" = "^PX", "^WIG20" = "^WIG20", "^BUX" = "^BUX",
+    "IMOEX.ME" = "IMOEX.ME", "^RTS.RS" = "^RTS.RS", "XU100.IS" = "XU100.IS",
+    
+    # Nordic Markets
+    "^OMXC25" = "^OMXC25", "^OMXH25" = "^OMXH25", "^OSEAX" = "^OSEAX",
+    "^OMX" = "^OMX", "^OMXIPI" = "^OMXIPI", "OMXBBGI.ST" = "OMXBBGI.ST",
+    "^OMXRGI" = "^OMXRGI", "^OMXTGI" = "^OMXTGI", "^OMXVGI" = "^OMXVGI",
+    
+    # Pacific Markets
+    "^AORD" = "^AORD", "^AXJO" = "^AXJO", "^NZ50" = "^NZ50",
+    "^NZAQ" = "^NZAQ", "^NZSC" = "^NZSC",
+    
+    # Americas Markets
+    "^GSPTSE" = "^GSPTSE", "^BVSP" = "^BVSP", "^MXX" = "^MXX",
+    "^MERV" = "^MERV", "^IPSA" = "^IPSA", "^COLCAP" = "^COLCAP",
+    "^LIMA" = "^LIMA", "^BVCA" = "^BVCA", "^IBC" = "^IBC",
+    
+    # African Markets
+    "^JALSH" = "^JALSH", "^TOP40.JO" = "^TOP40.JO", "^EGX30" = "^EGX30",
+    "^MASI" = "^MASI", "^NGSEINDX" = "^NGSEINDX", "^NASI" = "^NASI",
+    "^TUSISE" = "^TUSISE", "^GGSECI" = "^GGSECI", "^ALSIUG" = "^ALSIUG",
+    "^DARSDEI" = "^DARSDEI",
+    
+    # Middle East Markets
+    "^TASI.SR" = "^TASI.SR", "^ADI" = "^ADI", "^DFMGI" = "^DFMGI",
+    "^QSI" = "^QSI", "^KWSE" = "^KWSE", "^MSM30" = "^MSM30",
+    "^BSEX" = "^BSEX", "TA35.TA" = "TA35.TA", "^AMGNRLX" = "^AMGNRLX"
   ),
+  
   stooq = list(
+    # US Markets
+    "^GSPC" = "^SPX", "^DJI" = "^DJI", "^IXIC" = "^NDQ", "^RUT" = "^RUT",
+    "^VIX" = "^VIX", "^NYA" = "^NYA", "^XAX" = "^XAX", "^BKX" = "^BKX",
+    "^DJT" = "^DJT", "^DJUS" = "^DJUS",
+    
+    # Asian Markets
+    "^N225" = "^NKX", "^HSI" = "^HSI", "000001.SS" = "^SHC",
+    "^KS11" = "^KS11", "^TWII" = "^TWI", "^BSESN" = "^BOM",
+    "^NSEI" = "^NSE", "^JKSE" = "^JCI", "^STI" = "^SGX",
+    "^KLSE" = "^KLSE", "^SET.BK" = "^SET",
+    
+    # European Markets
+    "^FTSE" = "^FTM", "^GDAXI" = "^DAX", "^FCHI" = "^CAC",
+    "^STOXX50E" = "^SX5E", "^IBEX" = "^IBEX", "^AEX" = "^AEX",
+    "^BFX" = "^BFX", "^SSMI" = "^SSMI", "^FTSEMIB.MI" = "^FTMIB",
+    "^ATX" = "^ATX", "^PX" = "^PX", "^WIG20" = "^WIG20", "^BUX" = "^BUX",
+    "IMOEX.ME" = "^MOEX", "XU100.IS" = "^XU100",
+    
+    # Nordic Markets
+    "^OMXC25" = "^KFX", "^OMXH25" = "^OMXH", "^OSEAX" = "^OSEAX",
+    "^OMX" = "^OMX", "^OMXIPI" = "^ICEX", "OMXBBGI.ST" = "^OMXBBGI",
+    "^OMXRGI" = "^OMXR", "^OMXTGI" = "^OMXT", "^OMXVGI" = "^OMXV",
+    
+    # Pacific Markets
+    "^AORD" = "^AORD", "^AXJO" = "^AXJ", "^NZ50" = "^NZ50",
+    "^NZAQ" = "^NZAQ", "^NZSC" = "^NZSC",
+    
+    # Americas Markets
+    "^GSPTSE" = "^TSX", "^BVSP" = "^BVP", "^MXX" = "^IPC",
+    "^MERV" = "^MERV", "^IPSA" = "^IPSA", "^COLCAP" = "^COL",
+    "^LIMA" = "^LIMA", "^BVCA" = "^BVC",
+    
+    # African Markets
+    "^JALSH" = "^JSE", "^TOP40.JO" = "^SAF40", "^EGX30" = "^EGX30",
+    "^MASI" = "^MASI", "^NGSEINDX" = "^NGE", "^NASI" = "^NASI",
+    
+    # Middle East Markets
+    "^TASI.SR" = "^TASI", "^ADI" = "^ADXG", "^DFMGI" = "^DFMG",
+    "^QSI" = "^QSI", "^KWSE" = "^KWS", "TA35.TA" = "^TA35"
+  )
+)
+  yahoo = list(
+    # US Markets
+    "^GSPC" = "^GSPC", "^DJI" = "^DJI", "^IXIC" = "^IXIC", "^RUT" = "^RUT",
+    "^VIX" = "^VIX", "^NYA" = "^NYA", "^XAX" = "^XAX", "^BKX" = "^BKX",
+    "^DJT" = "^DJT", "^DJUS" = "^DJUS",
+    
+    # Asian Markets
+    "^N225" = "^N225", "^HSI" = "^HSI", "000001.SS" = "000001.SS",
+    "399001.SZ" = "399001.SZ", "^KS11" = "^KS11", "^TWII" = "^TWII",
+    "^BSESN" = "^BSESN", "^NSEI" = "^NSEI", "^JKSE" = "^JKSE",
+    "^STI" = "^STI", "^KLSE" = "^KLSE", "^SET.BK" = "^SET.BK",
+    
+    # European Markets
+    "^FTSE" = "^FTSE", "^GDAXI" = "^GDAXI", "^FCHI" = "^FCHI",
+    "^STOXX50E" = "^STOXX50E", "^IBEX" = "^IBEX", "^AEX" = "^AEX",
+    "^BFX" = "^BFX", "^SSMI" = "^SSMI", "^FTSEMIB.MI" = "^FTSEMIB.MI",
+    
+    # Nordic Markets
+    "^OMXC25" = "^OMXC25", "^OMXH25" = "^OMXH25", "^OSEAX" = "^OSEAX",
+    "^OMX" = "^OMX", "^OMXIPI" = "^OMXIPI", "OMXBBGI.ST" = "OMXBBGI.ST",
+    
+    # Pacific Markets
+    "^AORD" = "^AORD", "^AXJO" = "^AXJO", "^NZ50" = "^NZ50",
+    
+    # Americas Markets
+    "^GSPTSE" = "^GSPTSE", "^BVSP" = "^BVSP", "^MXX" = "^MXX",
+    "^MERV" = "^MERV", "^IPSA" = "^IPSA", "^COLCAP" = "^COLCAP",
+    
+    # African Markets
+    "^JALSH" = "^JALSH", "^TOP40.JO" = "^TOP40.JO", "^EGX30" = "^EGX30",
+    
+    # Middle East Markets
+    "^TASI.SR" = "^TASI.SR", "TA35.TA" = "TA35.TA"
+  ),
+  
+  stooq = list(
+    # US Markets
+    "^GSPC" = "^SPX", "^DJI" = "^DJI", "^IXIC" = "^NDQ", "^RUT" = "^RUT",
+    "^VIX" = "^VIX", "^NYA" = "^NYA", "^XAX" = "^XAX", "^BKX" = "^BKX",
+    
+    # Asian Markets
+    "^N225" = "^NKX", "^HSI" = "^HSI", "000001.SS" = "^SHC",
+    "^KS11" = "^KS11", "^TWII" = "^TWI", "^BSESN" = "^BOM",
+    
+    # European Markets
+    "^FTSE" = "^FTM", "^GDAXI" = "^DAX", "^FCHI" = "^CAC",
+    "^STOXX50E" = "^SX5E", "^IBEX" = "^IBEX", "^AEX" = "^AEX",
+    "^BFX" = "^BFX", "^SSMI" = "^SSMI", "^FTSEMIB.MI" = "^FTMIB",
+    
+    # Nordic Markets
+    "^OMXC25" = "^KFX", "^OMXH25" = "^OMXH", "^OSEAX" = "^OSEAX",
+    "^OMX" = "^OMX", "^OMXIPI" = "^OMXIPI",
+    
+    # Pacific Markets
+    "^AORD" = "^AORD", "^AXJO" = "^AXJO", "^NZ50" = "^NZ50",
+    
+    # Americas Markets
+    "^GSPTSE" = "^TSX", "^BVSP" = "^BVP", "^MXX" = "^IPC",
+    
+    # African Markets
+    "^JALSH" = "^JSE", "^TOP40.JO" = "^SAF40", "^EGX30" = "^EGX30"
+  )
+)ooq = list(
     "^GSPC" = "^SPX",
     "^DJI" = "^DJI",
     "^IXIC" = "^NDQ",
@@ -397,13 +614,13 @@ render_weather_table <- function(weather_summary) {
           paste0('<div class="region-', tolower(region), '">', .)
       )
     
-    # Create the datatable
+          # Create the datatable
     dt <- datatable(
       display_data %>% select(-mood_color),
       colnames = c("Region", "Market", "Daily %", "Weekly %", "Monthly %", 
                    "Weather", "Status"),
       options = list(
-        pageLength = 15,
+        pageLength = 20,  # Increased from 15 to show more indices
         dom = '<"top"<"left"B><"right"f>>rtip',
         buttons = list(
           list(
@@ -416,9 +633,9 @@ render_weather_table <- function(weather_summary) {
             )
           )
         ),
-        order = list(list(2, 'desc')),
+        order = list(list(0, 'asc'), list(2, 'desc')),  # First by region, then by daily return
         language = list(
-          search = 'Search Markets:',
+          search = 'Search:',
           zeroRecords = 'No matching markets found',
           info = paste(quality_note, '- Showing _START_ to _END_ of _TOTAL_'),
           infoEmpty = 'No markets available',
