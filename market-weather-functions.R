@@ -1,14 +1,68 @@
-# Rate limiting function with source-specific delays
-rate_limit <- function(source) {
-  delay <- switch(source,
-    "yahoo" = 1,
-    "stooq" = 2,
-    "marketwatch" = 3,
-    "investing" = 5,
-    2  # Default delay
+# Source priority order:
+# 1. Yahoo Finance API (most reliable, free)
+# 2. Stooq Data (free, good backup)
+
+# Define market indices
+market_indices <- list(
+  US = c(
+    "^GSPC" = "S&P 500",
+    "^DJI" = "Dow Jones",
+    "^IXIC" = "NASDAQ",
+    "^RUT" = "Russell 2000",
+    "^VIX" = "VIX"
+  ),
+  Asia = c(
+    "^N225" = "Nikkei 225",
+    "^HSI" = "Hang Seng",
+    "000001.SS" = "Shanghai Composite",
+    "399001.SZ" = "Shenzhen Component",
+    "^KS11" = "KOSPI"
+  ),
+  Europe = c(
+    "^FTSE" = "FTSE 100",
+    "^GDAXI" = "DAX",
+    "^FCHI" = "CAC 40",
+    "^STOXX50E" = "EURO STOXX 50",
+    "^IBEX" = "IBEX 35"
   )
-  Sys.sleep(delay)
-}
+)
+
+# Symbol mapping for different sources
+symbol_mappings <- list(
+  yahoo = list(
+    "^GSPC" = "^GSPC",
+    "^DJI" = "^DJI",
+    "^IXIC" = "^IXIC",
+    "^RUT" = "^RUT",
+    "^VIX" = "^VIX",
+    "^N225" = "^N225",
+    "^HSI" = "^HSI",
+    "000001.SS" = "000001.SS",
+    "399001.SZ" = "399001.SZ",
+    "^KS11" = "^KS11",
+    "^FTSE" = "^FTSE",
+    "^GDAXI" = "^GDAXI",
+    "^FCHI" = "^FCHI",
+    "^STOXX50E" = "^STOXX50E",
+    "^IBEX" = "^IBEX"
+  ),
+  stooq = list(
+    "^GSPC" = "^SPX",
+    "^DJI" = "^DJI",
+    "^IXIC" = "^NDQ",
+    "^RUT" = "^RUT",
+    "^VIX" = "^VIX",
+    "^N225" = "^NKX",
+    "^HSI" = "^HSI",
+    "000001.SS" = "^SHC",
+    "^KS11" = "^KS11",
+    "^FTSE" = "^FTM",
+    "^GDAXI" = "^DAX",
+    "^FCHI" = "^CAC",
+    "^STOXX50E" = "^SX5E",
+    "^IBEX" = "^IBEX"
+  )
+)
 
 # Enhanced logging function
 log_debug <- function(symbol, source, msg, level = "INFO") {
@@ -20,14 +74,60 @@ log_debug <- function(symbol, source, msg, level = "INFO") {
   invisible(formatted_msg)
 }
 
+# Rate limiting function with source-specific delays
+rate_limit <- function(source) {
+  delay <- switch(source,
+    "yahoo" = 1,
+    "stooq" = 2,
+    2  # Default delay
+  )
+  Sys.sleep(delay)
+}
+
+# Debug function to test data sources
+test_data_sources <- function(symbol, from_date) {
+  log_debug(symbol, "test", "Starting data source test")
+  
+  # Test Yahoo
+  yahoo_result <- tryCatch({
+    yahoo_data <- quantmod::getSymbols(symbol, 
+                                      src = "yahoo",
+                                      from = from_date,
+                                      auto.assign = FALSE)
+    log_debug(symbol, "test", "Yahoo fetch succeeded")
+    TRUE
+  }, error = function(e) {
+    log_debug(symbol, "test", paste("Yahoo error:", e$message), "ERROR")
+    FALSE
+  })
+  
+  # Test Stooq
+  stooq_result <- tryCatch({
+    stooq_data <- quantmod::getSymbols(symbol, 
+                                      src = "stooq",
+                                      from = from_date,
+                                      auto.assign = FALSE)
+    log_debug(symbol, "test", "Stooq fetch succeeded")
+    TRUE
+  }, error = function(e) {
+    log_debug(symbol, "test", paste("Stooq error:", e$message), "ERROR")
+    FALSE
+  })
+  
+  list(yahoo = yahoo_result, stooq = stooq_result)
+}
+
 # Yahoo Finance fetcher with improved error handling
 fetch_yahoo <- function(symbol, from_date) {
   tryCatch({
+    log_debug(symbol, "yahoo", sprintf("Starting fetch for date: %s", from_date))
     rate_limit("yahoo")
-    log_debug(symbol, "yahoo", "Attempting fetch")
     
-    # Use quantmod with explicit error handling
-    data <- quantmod::getSymbols(symbol, 
+    # Map symbol if needed
+    yahoo_symbol <- symbol_mappings$yahoo[[symbol]] %||% symbol
+    log_debug(symbol, "yahoo", sprintf("Using symbol: %s", yahoo_symbol))
+    
+    data <- quantmod::getSymbols(yahoo_symbol, 
                                 src = "yahoo",
                                 from = from_date,
                                 auto.assign = FALSE)
@@ -52,10 +152,14 @@ fetch_yahoo <- function(symbol, from_date) {
 # Stooq Data fetcher with improved error handling
 fetch_stooq <- function(symbol, from_date) {
   tryCatch({
+    log_debug(symbol, "stooq", sprintf("Starting fetch for date: %s", from_date))
     rate_limit("stooq")
-    log_debug(symbol, "stooq", "Attempting fetch")
     
-    data <- quantmod::getSymbols(symbol, 
+    # Map symbol if needed
+    stooq_symbol <- symbol_mappings$stooq[[symbol]] %||% symbol
+    log_debug(symbol, "stooq", sprintf("Using symbol: %s", stooq_symbol))
+    
+    data <- quantmod::getSymbols(stooq_symbol, 
                                 src = "stooq",
                                 from = from_date,
                                 auto.assign = FALSE)
@@ -79,6 +183,15 @@ fetch_stooq <- function(symbol, from_date) {
 
 # Main fetch function with improved error handling
 fetch_market_data <- function(symbol, from_date) {
+  log_debug(symbol, "market_data", sprintf("Starting market data fetch for %s from %s", 
+                                         symbol, format(from_date)))
+  
+  # Validate inputs
+  if (is.null(symbol) || is.null(from_date)) {
+    log_debug(symbol, "market_data", "Invalid inputs - symbol or date is NULL", "ERROR")
+    return(NULL)
+  }
+  
   # List of fetch functions in priority order
   fetch_functions <- list(
     yahoo = fetch_yahoo,
@@ -93,15 +206,24 @@ fetch_market_data <- function(symbol, from_date) {
     }
   }
   
-  log_debug(symbol, "ALL", "All data fetching methods failed", "ERROR")
+  log_debug(symbol, "market_data", "All data fetching methods failed", "ERROR")
   NULL
 }
 
 # Fetch all market data with improved error handling and retries
 fetch_all_market_data <- function(indices, start_date) {
+  log_debug("ALL", "start", sprintf("Starting data fetch for %d indices from %s", 
+                                  sum(lengths(indices)), format(start_date)))
+  
   market_data <- tibble()
   fetch_count <- 0
   failed_fetches <- list()
+  
+  # Test a sample symbol first
+  test_symbol <- "^GSPC"  # S&P 500 as test
+  source_test <- test_data_sources(test_symbol, start_date)
+  log_debug("ALL", "test", sprintf("Data source test results - Yahoo: %s, Stooq: %s",
+                                 source_test$yahoo, source_test$stooq))
   
   for (region in names(indices)) {
     for (symbol in names(indices[[region]])) {
@@ -234,11 +356,21 @@ calculate_market_weather <- function(market_data) {
 # Render weather table with improved error handling
 render_weather_table <- function(weather_summary) {
   if (nrow(weather_summary) == 0) {
+    # Check for failed fetches attribute
+    failed_fetches <- attr(weather_summary, "failed_fetches")
+    failure_msg <- if (!is.null(failed_fetches) && length(failed_fetches) > 0) {
+      sprintf("Failed to fetch %d indices", length(failed_fetches))
+    } else {
+      "No market data available"
+    }
+    
     return(HTML(sprintf(
       '<div class="no-data">
-         No market data available. Please try again later.<br>
-         <small>Last attempt: %s</small>
+         %s at this time. Please try again later.<br>
+         <small>Last attempt: %s</small><br>
+         <small>Check logs for detailed error information.</small>
        </div>',
+      failure_msg,
       format(Sys.time(), "%H:%M:%S")
     )))
   }
