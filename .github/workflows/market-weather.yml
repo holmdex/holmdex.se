@@ -2,16 +2,21 @@ name: Market Weather Update
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Run hourly
-  workflow_dispatch:      # Manual trigger option
+    - cron: '0 */2 * * *'  # Run every 2 hours
+  workflow_dispatch:        # Manual trigger option
 
 jobs:
-  build:
+  update-market-weather:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pages: write
       id-token: write
+    
+    # Add concurrency to prevent overlapping runs
+    concurrency:
+      group: market-weather-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
       - name: Checkout repository
@@ -22,30 +27,6 @@ jobs:
         with:
           r-version: '4.2.1'
           use-public-rspm: true
-
-      - name: Setup Pandoc
-        uses: r-lib/actions/setup-pandoc@v2
-        with:
-          pandoc-version: '3.1.1'
-
-      - name: Setup Quarto
-        uses: quarto-dev/quarto-actions/setup@v2
-        with:
-          version: 1.3.450
-
-      - name: Query dependencies
-        run: |
-          install.packages('remotes')
-          saveRDS(remotes::dev_package_deps(dependencies = TRUE), ".github/depends.Rds", version = 2)
-          writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
-        shell: Rscript {0}
-
-      - name: Cache R packages
-        uses: actions/cache@v3
-        with:
-          path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
-          restore-keys: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-
 
       - name: Install system dependencies
         run: |
@@ -64,14 +45,24 @@ jobs:
             libglpk-dev \
             libgit2-dev
 
+      - name: Setup Pandoc
+        uses: r-lib/actions/setup-pandoc@v2
+        with:
+          pandoc-version: '3.1.1'
+
+      - name: Setup Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: 1.3.450
+
       - name: Install R packages
         shell: Rscript {0}
         run: |
-          # Install pak for better package management
-          install.packages("pak", repos = "https://r-lib.github.io/p/pak/dev/")
+          if (!require("pak", quietly = TRUE)) {
+            install.packages("pak", repos = "https://r-lib.github.io/p/pak/dev/")
+          }
           
-          # Install packages with pak
-          pak::pkg_install(c(
+          packages <- c(
             "tidyverse",
             "quantmod",
             "rvest",
@@ -79,21 +70,25 @@ jobs:
             "jsonlite",
             "lubridate",
             "DT"
-          ))
+          )
+          
+          pak::pkg_install(packages)
           
           # Verify installations
-          installed <- rownames(installed.packages())
-          required <- c("tidyverse", "quantmod", "rvest", "httr", "jsonlite", "lubridate", "DT")
-          missing <- required[!required %in% installed]
-          
+          missing <- packages[!packages %in% rownames(installed.packages())]
           if (length(missing) > 0) {
-            stop("Failed to install packages: ", paste(missing, collapse = ", "))
+            stop("Failed to install: ", paste(missing, collapse = ", "))
           }
 
       - name: Verify files
         run: |
-          echo "Checking required files..."
-          for file in market-weather.qmd market-weather-functions.R market-weather.css; do
+          required_files=(
+            "market-weather.qmd"
+            "market-weather-functions.R"
+            "market-weather.css"
+          )
+          
+          for file in "${required_files[@]}"; do
             if [ ! -f "$file" ]; then
               echo "Error: Required file $file not found"
               exit 1
@@ -104,10 +99,8 @@ jobs:
         run: mkdir -p _site
 
       - name: Render report
+        id: render
         run: |
-          echo "Current directory contents:"
-          ls -la
-          echo "Rendering market weather report..."
           quarto render market-weather.qmd --output-dir _site
         env:
           GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -115,22 +108,23 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      - name: Upload Pages artifact
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v2
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v3
 
-      - name: Create error page
+      - name: Handle failure
         if: failure()
         run: |
+          # Create error page
           mkdir -p _site
           cat > _site/market-weather.html << 'EOL'
           <!DOCTYPE html>
           <html>
             <head>
-              <title>Market Weather Report - Temporarily Unavailable</title>
+              <title>Market Weather Report - Manual Restart Required</title>
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <style>
                 body {
@@ -153,20 +147,21 @@ jobs:
             </head>
             <body>
               <div class="error-container">
-                <h1>⚠️ Service Temporarily Unavailable</h1>
-                <p>The Market Weather Report is currently unavailable. 
-                   Updates have been paused and will resume after manual verification.</p>
-                <p>Last checked: $(date -u "+%Y-%m-%d %H:%M UTC")</p>
+                <h1>⚠️ Manual Restart Required</h1>
+                <p>The Market Weather Report has encountered an error and requires manual intervention.</p>
+                <p>Please visit the GitHub Actions page to restart the workflow.</p>
+                <p>Last attempt: $(date -u "+%Y-%m-%d %H:%M UTC")</p>
+                <p>Error details are available in the workflow run logs.</p>
               </div>
             </body>
           </html>
           EOL
 
-      - name: Deploy error page
-        if: failure()
-        uses: actions/deploy-pages@v3
-
-      - name: Notify on failure
-        if: failure()
-        run: |
-          echo "::error::Market Weather Report update failed. Scheduled runs will be paused until manually restarted."
+          # Create issue for manual intervention
+          gh issue create \
+            --title "Market Weather Report: Manual Restart Required" \
+            --body "The Market Weather Report workflow failed at $(date -u) and requires manual restart. Please check the logs and restart the workflow manually." \
+            --label "incident" \
+            || echo "Could not create issue. Please check manually."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
