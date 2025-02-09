@@ -77,90 +77,133 @@ jobs:
       - name: Install R packages
         shell: Rscript {0}
         run: |
-          # Function to check and install packages
+          # Function to check and install packages with error handling
           install_if_missing <- function(packages) {
-            new_packages <- packages[!(packages %in% installed.packages()[,"Package"])]
-            if(length(new_packages)) install.packages(new_packages)
-            
-            # Verify installations
-            missing <- packages[!(packages %in% installed.packages()[,"Package"])]
-            if(length(missing)) {
-              stop("Failed to install: ", paste(missing, collapse=", "))
+            options(warn = 2) # Treat warnings as errors
+            for(pkg in packages) {
+              tryCatch({
+                if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+                  message(sprintf("Installing package: %s", pkg))
+                  install.packages(pkg, dependencies = TRUE)
+                }
+                library(pkg, character.only = TRUE)
+                message(sprintf("✓ Successfully loaded: %s", pkg))
+              }, error = function(e) {
+                message(sprintf("Error with package %s: %s", pkg, e$message))
+                quit(status = 1)
+              })
             }
           }
           
-          # Required packages
+          # Required packages with explicit versions
           required_packages <- c(
-            'tidyverse',
-            'quantmod',
-            'rvest',
-            'httr',
-            'jsonlite',
-            'lubridate',
-            'DT'
+            'tidyverse',  # For data manipulation
+            'quantmod',   # For financial data
+            'rvest',      # For web scraping
+            'httr',       # For HTTP requests
+            'jsonlite',   # For JSON handling
+            'lubridate',  # For date handling
+            'DT'         # For interactive tables
           )
           
-          # Install packages
+          # Set CRAN mirror explicitly
+          options(repos = c(CRAN = "https://cloud.r-project.org"))
+          
+          # Install and verify packages
           install_if_missing(required_packages)
           
-          # Verify all packages can be loaded
-          lapply(required_packages, function(pkg) {
-            if(!require(pkg, character.only = TRUE)) {
-              stop(paste("Failed to load package:", pkg))
-            }
-            print(paste("✓ Successfully loaded:", pkg))
-          })
+          # Print session info for debugging
+          sessionInfo()
 
-      - name: Verify file structure
+      - name: Verify required files
         run: |
           echo "Current directory contents:"
           ls -la
           
-          # List of required files
-          required_files=(
-            "market-weather.qmd"
-            "market-weather-functions.R"
-            "market-weather.css"
+          # Required files with descriptions
+          declare -A required_files=(
+            ["market-weather.qmd"]="Quarto document"
+            ["market-weather-functions.R"]="R functions"
+            ["market-weather.css"]="Stylesheet"
           )
           
-          # Check each required file
-          for file in "${required_files[@]}"; do
+          # Check each file
+          for file in "${!required_files[@]}"; do
             if [ ! -f "$file" ]; then
-              echo "Error: Required file $file not found"
+              echo "Error: Required $file (${required_files[$file]}) not found"
               exit 1
             fi
-            echo "✓ Found $file"
+            echo "✓ Found $file (${required_files[$file]})"
             echo "First few lines of $file:"
             head -n 5 "$file"
+            echo "File permissions:"
+            ls -l "$file"
           done
           
           # Set proper permissions
           chmod 644 *.R *.qmd *.css
-
-      - name: Setup output directory
-        run: mkdir -p _site
+          
+          # Verify file contents are not empty
+          for file in "${!required_files[@]}"; do
+            if [ ! -s "$file" ]; then
+              echo "Error: $file is empty"
+              exit 1
+            fi
+          done
 
       - name: Render report
         run: |
-          # Set R session options
-          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org"))'
+          echo "Testing R environment..."
+          Rscript -e 'sessionInfo()'
           
-          # Test source files first
-          echo "Testing R files..."
-          Rscript -e 'tryCatch({source("market-weather-functions.R")}, error = function(e) {print(e); quit(status=1)})'
+          echo "Verifying R package loading..."
+          Rscript -e '
+            required_packages <- c("tidyverse", "quantmod", "rvest", "httr", "jsonlite", "lubridate", "DT")
+            for(pkg in required_packages) {
+              if(!require(pkg, character.only = TRUE)) {
+                stop(paste("Failed to load package:", pkg))
+              }
+              print(paste("✓ Loaded:", pkg))
+            }'
           
-          # Render with detailed output
-          echo "Rendering QMD..."
+          echo "Testing market-weather-functions.R..."
+          Rscript -e '
+            tryCatch({
+              source("market-weather-functions.R")
+              print("✓ Successfully loaded functions")
+            }, error = function(e) {
+              print(paste("Error loading functions:", e$message))
+              quit(status = 1)
+            })'
+          
+          echo "Rendering QMD with debug output..."
           quarto render market-weather.qmd --output-dir _site --debug
         env:
           GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
+      - name: Verify rendered output
         if: success()
-        continue-on-error: false
+        run: |
+          echo "Checking rendered output..."
+          if [ ! -f "_site/market-weather.html" ]; then
+            echo "Error: Rendered file not found"
+            echo "Contents of _site directory:"
+            ls -la _site/
+            echo "Last few lines of quarto render log:"
+            tail -n 50 .quarto/log.txt || echo "No quarto log found"
+            exit 1
+          fi
+          
+          echo "Checking file size..."
+          size=$(stat -f%z "_site/market-weather.html" 2>/dev/null || stat -c%s "_site/market-weather.html")
+          if [ "$size" -lt 1000 ]; then
+            echo "Warning: Rendered file seems too small ($size bytes)"
+            echo "File contents:"
+            cat "_site/market-weather.html"
+            exit 1
+          fi
+          
+          echo "✓ Render verification complete"
 
       - name: Deploy to GitHub Pages
         id: deployment
