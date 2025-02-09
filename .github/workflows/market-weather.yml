@@ -12,21 +12,15 @@ jobs:
       contents: read
       pages: write
       id-token: write
-    
-    # Add concurrency to prevent overlapping runs
-    concurrency:
-      group: market-weather-${{ github.ref }}
-      cancel-in-progress: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup R
-        uses: r-lib/actions/setup-r@v2.7.0
+        uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.2.1'
-          use-public-rspm: true
 
       - name: Install system dependencies
         run: |
@@ -43,10 +37,11 @@ jobs:
             libtiff5-dev \
             libjpeg-dev \
             libglpk-dev \
-            libgit2-dev
+            libgit2-dev \
+            pandoc
 
       - name: Setup Pandoc
-        uses: r-lib/actions/setup-pandoc@v2.7.0
+        uses: r-lib/actions/setup-pandoc@v2
         with:
           pandoc-version: '3.1.1'
 
@@ -56,206 +51,51 @@ jobs:
           version: '1.4.549'
           tinytex: true
 
-      - name: Verify Quarto installation
+      - name: Verify required files
         run: |
-          echo "Checking Quarto version..."
-          quarto --version
-          echo "Checking Quarto installation..."
-          quarto check
-          echo "Listing Quarto installation directory..."
-          ls -la $(which quarto)
-          echo "Quarto capabilities..."
-          quarto capabilities
-
-      - name: Cache R packages
-        uses: actions/cache@v3
-        with:
-          path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-${{ hashFiles('**/renv.lock') }}
-          restore-keys: ${{ runner.os }}-r-
+          required_files=("market-weather.qmd" "market-weather-functions.R" "market-weather.css")
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "Error: Required file $file not found"
+              exit 1
+            fi
+            echo "✓ Found $file"
+          done
 
       - name: Install R packages
         shell: Rscript {0}
         run: |
-          # Function to check and install packages with error handling
-          install_if_missing <- function(packages) {
-            options(warn = 2) # Treat warnings as errors
-            for(pkg in packages) {
-              tryCatch({
-                if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
-                  message(sprintf("Installing package: %s", pkg))
-                  install.packages(pkg, dependencies = TRUE)
-                }
-                library(pkg, character.only = TRUE)
-                message(sprintf("✓ Successfully loaded: %s", pkg))
-              }, error = function(e) {
-                message(sprintf("Error with package %s: %s", pkg, e$message))
-                quit(status = 1)
-              })
-            }
-          }
-          
-          # Required packages with explicit versions
-          required_packages <- c(
-            'tidyverse',  # For data manipulation
-            'quantmod',   # For financial data
-            'rvest',      # For web scraping
-            'httr',       # For HTTP requests
-            'jsonlite',   # For JSON handling
-            'lubridate',  # For date handling
-            'DT'         # For interactive tables
-          )
-          
-          # Set CRAN mirror explicitly
           options(repos = c(CRAN = "https://cloud.r-project.org"))
-          
-          # Install and verify packages
+          required_packages <- c('tidyverse', 'quantmod', 'rvest', 'httr', 'jsonlite', 'lubridate', 'DT')
+          install_if_missing <- function(packages) {
+            new_packages <- packages[!(packages %in% installed.packages()[,"Package"])]
+            if(length(new_packages)) install.packages(new_packages)
+          }
           install_if_missing(required_packages)
-          
-          # Print session info for debugging
-          sessionInfo()
+          lapply(required_packages, function(pkg) {
+            if(!require(pkg, character.only = TRUE)) stop(paste("Failed to load package:", pkg))
+            print(paste("✓ Loaded:", pkg))
+          })
 
-      - name: Verify required files
+      - name: Test R environment
+        shell: Rscript {0}
         run: |
-          echo "Current directory contents:"
-          ls -la
-          
-          # Required files with descriptions
-          declare -A required_files=(
-            ["market-weather.qmd"]="Quarto document"
-            ["market-weather-functions.R"]="R functions"
-            ["market-weather.css"]="Stylesheet"
-          )
-          
-          # Check each file
-          for file in "${!required_files[@]}"; do
-            if [ ! -f "$file" ]; then
-              echo "Error: Required $file (${required_files[$file]}) not found"
-              exit 1
-            fi
-            echo "✓ Found $file (${required_files[$file]})"
-            echo "First few lines of $file:"
-            head -n 5 "$file"
-            echo "File permissions:"
-            ls -l "$file"
-          done
-          
-          # Set proper permissions
-          chmod 644 *.R *.qmd *.css
-          
-          # Verify file contents are not empty
-          for file in "${!required_files[@]}"; do
-            if [ ! -s "$file" ]; then
-              echo "Error: $file is empty"
-              exit 1
-            fi
-          done
+          print("Testing R environment...")
+          print(sessionInfo())
+          print("Testing source file...")
+          source("market-weather-functions.R")
+          print("✓ Environment check complete")
 
       - name: Render report
         run: |
-          echo "Testing R environment..."
-          Rscript -e 'sessionInfo()'
-          
-          echo "Verifying R package loading..."
-          Rscript -e '
-            required_packages <- c("tidyverse", "quantmod", "rvest", "httr", "jsonlite", "lubridate", "DT")
-            for(pkg in required_packages) {
-              if(!require(pkg, character.only = TRUE)) {
-                stop(paste("Failed to load package:", pkg))
-              }
-              print(paste("✓ Loaded:", pkg))
-            }'
-          
-          echo "Testing market-weather-functions.R..."
-          Rscript -e '
-            tryCatch({
-              source("market-weather-functions.R")
-              print("✓ Successfully loaded functions")
-            }, error = function(e) {
-              print(paste("Error loading functions:", e$message))
-              quit(status = 1)
-            })'
-          
-          echo "Rendering QMD with debug output..."
-          quarto render market-weather.qmd --output-dir _site --debug
+          quarto render market-weather.qmd --output-dir _site
         env:
           GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify rendered output
-        if: success()
-        run: |
-          echo "Checking rendered output..."
-          if [ ! -f "_site/market-weather.html" ]; then
-            echo "Error: Rendered file not found"
-            echo "Contents of _site directory:"
-            ls -la _site/
-            echo "Last few lines of quarto render log:"
-            tail -n 50 .quarto/log.txt || echo "No quarto log found"
-            exit 1
-          fi
-          
-          echo "Checking file size..."
-          size=$(stat -f%z "_site/market-weather.html" 2>/dev/null || stat -c%s "_site/market-weather.html")
-          if [ "$size" -lt 1000 ]; then
-            echo "Warning: Rendered file seems too small ($size bytes)"
-            echo "File contents:"
-            cat "_site/market-weather.html"
-            exit 1
-          fi
-          
-          echo "✓ Render verification complete"
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
 
       - name: Deploy to GitHub Pages
-        id: deployment
         uses: actions/deploy-pages@v4
-
-      - name: Handle failure
-        if: failure()
-        run: |
-          # Create error page
-          mkdir -p _site
-          cat > _site/market-weather.html << 'EOL'
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Market Weather Report - Manual Restart Required</title>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <style>
-                body {
-                  font-family: system-ui, -apple-system, sans-serif;
-                  line-height: 1.5;
-                  padding: 2rem;
-                  max-width: 800px;
-                  margin: 0 auto;
-                }
-                .error-container {
-                  background: #fff3cd;
-                  border: 1px solid #ffeeba;
-                  border-radius: 8px;
-                  padding: 2rem;
-                  text-align: center;
-                  margin-top: 2rem;
-                }
-                h1 { color: #856404; }
-              </style>
-            </head>
-            <body>
-              <div class="error-container">
-                <h1>⚠️ Manual Restart Required</h1>
-                <p>The Market Weather Report has encountered an error and requires manual intervention.</p>
-                <p>Please visit the GitHub Actions page to restart the workflow.</p>
-                <p>Last attempt: $(date -u "+%Y-%m-%d %H:%M UTC")</p>
-                <p>Error details are available in the workflow run logs.</p>
-              </div>
-            </body>
-          </html>
-          EOL
-
-          # Create issue for manual intervention
-          gh issue create \
-            --title "Market Weather Report: Manual Restart Required" \
-            --body "The Market Weather Report workflow failed at $(date -u) and requires manual restart. Please check the logs and restart the workflow manually." \
-            --label "incident" \
-            || echo "Could not create issue. Please check manually."
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
