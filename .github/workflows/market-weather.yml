@@ -106,22 +106,32 @@ jobs:
             quit(status = 1)
           })
 
-      - name: Test R environment
-        id: test-env
+      - name: Verify R packages
+        id: verify-packages
         shell: Rscript {0}
         run: |
-          tryCatch({
-            print("R Session Info:")
-            print(sessionInfo())
-            print("\nR Library Paths:")
-            print(.libPaths())
-            print("\nTesting source file...")
-            source("market-weather-functions.R")
-            print("✓ Environment check complete")
-          }, error = function(e) {
-            message("Environment test failed: ", e$message)
-            quit(status = 1)
-          })
+          required_packages <- c('tidyverse', 'quantmod', 'rvest', 'httr', 
+                               'jsonlite', 'lubridate', 'DT', 'dplyr', 
+                               'readr', 'ggplot2', 'tidyr')
+          
+          # Verify each package can be loaded
+          failed_packages <- character(0)
+          for(pkg in required_packages) {
+            tryCatch({
+              library(pkg, character.only = TRUE)
+              message(sprintf("✓ Verified %s", pkg))
+            }, error = function(e) {
+              failed_packages <<- c(failed_packages, pkg)
+              message(sprintf("✗ Failed to load %s: %s", pkg, e$message))
+            })
+          }
+          
+          if(length(failed_packages) > 0) {
+            stop("Failed to verify packages: ", paste(failed_packages, collapse=", "))
+          }
+          
+          # Print package versions
+          installed.packages()[required_packages, "Version"]
 
       - name: Render report
         id: render
