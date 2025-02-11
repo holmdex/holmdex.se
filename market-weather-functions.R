@@ -111,7 +111,7 @@ market_indices <- list(
   )
 )
 
-# Symbol mapping for different sources
+# Symbol mapping for different sources (partial mapping, extend as needed)
 symbol_mappings <- list(
   yahoo = list(
     # US Markets
@@ -124,118 +124,8 @@ symbol_mappings <- list(
     "399001.SZ" = "399001.SZ", "^KS11" = "^KS11", "^TWII" = "^TWII",
     "^BSESN" = "^BSESN", "^NSEI" = "^NSEI", "^JKSE" = "^JKSE",
     "^STI" = "^STI", "^KLSE" = "^KLSE", "^SET.BK" = "^SET.BK",
-    "^VNINDEX" = "^VNINDEX", "^PSEI" = "^PSEI",
-    
-    # European Markets
-    "^FTSE" = "^FTSE", "^GDAXI" = "^GDAXI", "^FCHI" = "^FCHI",
-    "^STOXX50E" = "^STOXX50E", "^IBEX" = "^IBEX", "^AEX" = "^AEX",
-    "^BFX" = "^BFX", "^SSMI" = "^SSMI", "^FTSEMIB.MI" = "^FTSEMIB.MI",
-    "^ATX" = "^ATX", "^PX" = "^PX", "^WIG20" = "^WIG20", "^BUX" = "^BUX",
-    "IMOEX.ME" = "IMOEX.ME", "^RTS.RS" = "^RTS.RS", "XU100.IS" = "XU100.IS",
-    
-    # Nordic Markets
-    "^OMXC25" = "^OMXC25", "^OMXH25" = "^OMXH25", "^OSEAX" = "^OSEAX",
-    "^OMX" = "^OMX", "^OMXIPI" = "^OMXIPI", "OMXBBGI.ST" = "OMXBBGI.ST",
-    "^OMXRGI" = "^OMXRGI", "^OMXTGI" = "^OMXTGI", "^OMXVGI" = "^OMXVGI",
-    
-    # Pacific Markets
-    "^AORD" = "^AORD", "^AXJO" = "^AXJO", "^NZ50" = "^NZ50",
-    "^NZAQ" = "^NZAQ", "^NZSC" = "^NZSC",
-    
-    # Americas Markets
-    "^GSPTSE" = "^GSPTSE", "^BVSP" = "^BVSP", "^MXX" = "^MXX",
-    "^MERV" = "^MERV", "^IPSA" = "^IPSA", "^COLCAP" = "^COLCAP",
-    "^LIMA" = "^LIMA", "^BVCA" = "^BVCA", "^IBC" = "^IBC",
-    
-    # African Markets
-    "^JALSH" = "^JALSH", "^TOP40.JO" = "^TOP40.JO", "^EGX30" = "^EGX30",
-    "^MASI" = "^MASI", "^NGSEINDX" = "^NGSEINDX", "^NASI" = "^NASI",
-    "^TUSISE" = "^TUSISE", "^GGSECI" = "^GGSECI", "^ALSIUG" = "^ALSIUG",
-    "^DARSDEI" = "^DARSDEI",
-    
-    # Middle East Markets
-    "^TASI.SR" = "^TASI.SR", "^ADI" = "^ADI", "^DFMGI" = "^DFMGI",
-    "^QSI" = "^QSI", "^KWSE" = "^KWSE", "^MSM30" = "^MSM30",
-    "^BSEX" = "^BSEX", "TA35.TA" = "TA35.TA", "^AMGNRLX" = "^AMGNRLX"
+    "^VNINDEX" = "^VNINDEX", "^PSEI" = "^PSEI"
   ),
-  
-  stooq = list(
-    # US Markets
-    "^GSPC" = "^SPX", "^DJI" = "^DJI", "^IXIC" = "^NDQ", "^RUT" = "^RUT",
-    "^VIX" = "^VIX", "^NYA" = "^NYA", "^XAX" = "^XAX", "^BKX" = "^BKX",
-    "^DJT" = "^DJT", "^DJUS" = "^DJUS",
-    
-    # Asian Markets
-    "^N225" = "^NKX", "^HSI" = "^HSI", "000001.SS" = "^SHC",
-    "^KS11" = "^KS11", "^TWII" = "^TWI", "^BSESN" = "^BOM",
-    "^NSEI" = "^NSE", "^JKSE" = "^JCI", "^STI" = "^SGX",
-    "^KLSE" = "^KLSE", "^SET.BK" = "^SET",
-    
-    # European Markets
-    "^FTSE" = "^FTM", "^GDAXI" = "^DAX", "^FCHI" = "^CAC",
-    "^STOXX50E" = "^SX5E", "^IBEX" = "^IBEX", "^AEX" = "^AEX",
-    "^BFX" = "^BFX", "^SSMI" = "^SSMI", "^FTSEMIB.MI" = "^FTMIB",
-    "^ATX" = "^ATX", "^PX" = "^PX", "^WIG20" = "^WIG20", "^BUX" = "^BUX",
-    "IMOEX.ME" = "^MOEX", "XU100.IS" = "^XU100",
-    
-    # Nordic Markets
-    "^OMXC25" = "^KFX", "^OMXH25" = "^OMXH", "^OSEAX" = "^OSEAX",
-    "^OMX" = "^OMX", "^OMXIPI" = "^ICEX", "OMXBBGI.ST" = "^OMXBBGI",
-    "^OMXRGI" = "^OMXR", "^OMXTGI" = "^OMXT", "^OMXVGI" = "^OMXV",
-    
-    # Pacific Markets
-    "^AORD" = "^AORD", "^AXJO" = "^AXJ", "^NZ50" = "^NZ50",
-    "^NZAQ" = "^NZAQ", "^NZSC" = "^NZSC",
-    
-    # Americas Markets
-    "^GSPTSE" = "^TSX", "^BVSP" = "^BVP", "^MXX" = "^IPC",
-    "^MERV" = "^MERV", "^IPSA" = "^IPSA", "^COLCAP" = "^COL",
-    "^LIMA" = "^LIMA", "^BVCA" = "^BVC",
-    
-    # African Markets
-    "^JALSH" = "^JSE", "^TOP40.JO" = "^SAF40", "^EGX30" = "^EGX30",
-    "^MASI" = "^MASI", "^NGSEINDX" = "^NGE", "^NASI" = "^NASI",
-    
-    # Middle East Markets
-    "^TASI.SR" = "^TASI", "^ADI" = "^ADXG", "^DFMGI" = "^DFMG",
-    "^QSI" = "^QSI", "^KWSE" = "^KWS", "TA35.TA" = "^TA35"
-  )
-)
-  yahoo = list(
-    # US Markets
-    "^GSPC" = "^GSPC", "^DJI" = "^DJI", "^IXIC" = "^IXIC", "^RUT" = "^RUT",
-    "^VIX" = "^VIX", "^NYA" = "^NYA", "^XAX" = "^XAX", "^BKX" = "^BKX",
-    "^DJT" = "^DJT", "^DJUS" = "^DJUS",
-    
-    # Asian Markets
-    "^N225" = "^N225", "^HSI" = "^HSI", "000001.SS" = "000001.SS",
-    "399001.SZ" = "399001.SZ", "^KS11" = "^KS11", "^TWII" = "^TWII",
-    "^BSESN" = "^BSESN", "^NSEI" = "^NSEI", "^JKSE" = "^JKSE",
-    "^STI" = "^STI", "^KLSE" = "^KLSE", "^SET.BK" = "^SET.BK",
-    
-    # European Markets
-    "^FTSE" = "^FTSE", "^GDAXI" = "^GDAXI", "^FCHI" = "^FCHI",
-    "^STOXX50E" = "^STOXX50E", "^IBEX" = "^IBEX", "^AEX" = "^AEX",
-    "^BFX" = "^BFX", "^SSMI" = "^SSMI", "^FTSEMIB.MI" = "^FTSEMIB.MI",
-    
-    # Nordic Markets
-    "^OMXC25" = "^OMXC25", "^OMXH25" = "^OMXH25", "^OSEAX" = "^OSEAX",
-    "^OMX" = "^OMX", "^OMXIPI" = "^OMXIPI", "OMXBBGI.ST" = "OMXBBGI.ST",
-    
-    # Pacific Markets
-    "^AORD" = "^AORD", "^AXJO" = "^AXJO", "^NZ50" = "^NZ50",
-    
-    # Americas Markets
-    "^GSPTSE" = "^GSPTSE", "^BVSP" = "^BVSP", "^MXX" = "^MXX",
-    "^MERV" = "^MERV", "^IPSA" = "^IPSA", "^COLCAP" = "^COLCAP",
-    
-    # African Markets
-    "^JALSH" = "^JALSH", "^TOP40.JO" = "^TOP40.JO", "^EGX30" = "^EGX30",
-    
-    # Middle East Markets
-    "^TASI.SR" = "^TASI.SR", "TA35.TA" = "TA35.TA"
-  ),
-  
   stooq = list(
     # US Markets
     "^GSPC" = "^SPX", "^DJI" = "^DJI", "^IXIC" = "^NDQ", "^RUT" = "^RUT",
@@ -244,40 +134,7 @@ symbol_mappings <- list(
     # Asian Markets
     "^N225" = "^NKX", "^HSI" = "^HSI", "000001.SS" = "^SHC",
     "^KS11" = "^KS11", "^TWII" = "^TWI", "^BSESN" = "^BOM",
-    
-    # European Markets
-    "^FTSE" = "^FTM", "^GDAXI" = "^DAX", "^FCHI" = "^CAC",
-    "^STOXX50E" = "^SX5E", "^IBEX" = "^IBEX", "^AEX" = "^AEX",
-    "^BFX" = "^BFX", "^SSMI" = "^SSMI", "^FTSEMIB.MI" = "^FTMIB",
-    
-    # Nordic Markets
-    "^OMXC25" = "^KFX", "^OMXH25" = "^OMXH", "^OSEAX" = "^OSEAX",
-    "^OMX" = "^OMX", "^OMXIPI" = "^OMXIPI",
-    
-    # Pacific Markets
-    "^AORD" = "^AORD", "^AXJO" = "^AXJO", "^NZ50" = "^NZ50",
-    
-    # Americas Markets
-    "^GSPTSE" = "^TSX", "^BVSP" = "^BVP", "^MXX" = "^IPC",
-    
-    # African Markets
-    "^JALSH" = "^JSE", "^TOP40.JO" = "^SAF40", "^EGX30" = "^EGX30"
-  )
-)ooq = list(
-    "^GSPC" = "^SPX",
-    "^DJI" = "^DJI",
-    "^IXIC" = "^NDQ",
-    "^RUT" = "^RUT",
-    "^VIX" = "^VIX",
-    "^N225" = "^NKX",
-    "^HSI" = "^HSI",
-    "000001.SS" = "^SHC",
-    "^KS11" = "^KS11",
-    "^FTSE" = "^FTM",
-    "^GDAXI" = "^DAX",
-    "^FCHI" = "^CAC",
-    "^STOXX50E" = "^SX5E",
-    "^IBEX" = "^IBEX"
+    "^NSEI" = "^NSE", "^JKSE" = "^JCI", "^STI" = "^SGX"
   )
 )
 
@@ -286,12 +143,10 @@ log_debug <- function(symbol, source, msg, level = "INFO") {
   timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
   formatted_msg <- sprintf("[%s] [%s] %s (%s): %s", timestamp, level, symbol, source, msg)
   cat(formatted_msg, "\n")
-  
-  # Return invisibly for potential future logging to file
   invisible(formatted_msg)
 }
 
-# Rate limiting function with source-specific delays
+# Rate limiting function
 rate_limit <- function(source) {
   delay <- switch(source,
     "yahoo" = 1,
@@ -299,39 +154,6 @@ rate_limit <- function(source) {
     2  # Default delay
   )
   Sys.sleep(delay)
-}
-
-# Debug function to test data sources
-test_data_sources <- function(symbol, from_date) {
-  log_debug(symbol, "test", "Starting data source test")
-  
-  # Test Yahoo
-  yahoo_result <- tryCatch({
-    yahoo_data <- quantmod::getSymbols(symbol, 
-                                      src = "yahoo",
-                                      from = from_date,
-                                      auto.assign = FALSE)
-    log_debug(symbol, "test", "Yahoo fetch succeeded")
-    TRUE
-  }, error = function(e) {
-    log_debug(symbol, "test", paste("Yahoo error:", e$message), "ERROR")
-    FALSE
-  })
-  
-  # Test Stooq
-  stooq_result <- tryCatch({
-    stooq_data <- quantmod::getSymbols(symbol, 
-                                      src = "stooq",
-                                      from = from_date,
-                                      auto.assign = FALSE)
-    log_debug(symbol, "test", "Stooq fetch succeeded")
-    TRUE
-  }, error = function(e) {
-    log_debug(symbol, "test", paste("Stooq error:", e$message), "ERROR")
-    FALSE
-  })
-  
-  list(yahoo = yahoo_result, stooq = stooq_result)
 }
 
 # Yahoo Finance fetcher with improved error handling
@@ -342,12 +164,26 @@ fetch_yahoo <- function(symbol, from_date) {
     
     # Map symbol if needed
     yahoo_symbol <- symbol_mappings$yahoo[[symbol]] %||% symbol
-    log_debug(symbol, "yahoo", sprintf("Using symbol: %s", yahoo_symbol))
+    log_debug(symbol, "yahoo", sprintf("Using mapped symbol: %s", yahoo_symbol))
     
-    data <- quantmod::getSymbols(yahoo_symbol, 
-                                src = "yahoo",
-                                from = from_date,
-                                auto.assign = FALSE)
+    # More robust data fetch with retries
+    max_retries <- 3
+    data <- NULL
+    last_error <- NULL
+    
+    for(i in 1:max_retries) {
+      tryCatch({
+        data <- quantmod::getSymbols(yahoo_symbol, 
+                                   src = "yahoo",
+                                   from = from_date,
+                                   auto.assign = FALSE)
+        break
+      }, error = function(e) {
+        last_error <- e
+        log_debug(symbol, "yahoo", sprintf("Attempt %d failed: %s", i, e$message), "WARN")
+        if(i < max_retries) Sys.sleep(2^i)  # Exponential backoff
+      })
+    }
     
     if (!is.null(data) && nrow(data) > 0) {
       log_debug(symbol, "yahoo", "Fetch successful")
@@ -358,7 +194,12 @@ fetch_yahoo <- function(symbol, from_date) {
         source = "yahoo"
       ))
     }
-    log_debug(symbol, "yahoo", "No data returned", "WARN")
+    
+    if(!is.null(last_error)) {
+      stop(last_error$message)
+    } else {
+      log_debug(symbol, "yahoo", "No data returned", "WARN")
+    }
     NULL
   }, error = function(e) {
     log_debug(symbol, "yahoo", paste("Error:", e$message), "ERROR")
@@ -374,12 +215,26 @@ fetch_stooq <- function(symbol, from_date) {
     
     # Map symbol if needed
     stooq_symbol <- symbol_mappings$stooq[[symbol]] %||% symbol
-    log_debug(symbol, "stooq", sprintf("Using symbol: %s", stooq_symbol))
+    log_debug(symbol, "stooq", sprintf("Using mapped symbol: %s", stooq_symbol))
     
-    data <- quantmod::getSymbols(stooq_symbol, 
-                                src = "stooq",
-                                from = from_date,
-                                auto.assign = FALSE)
+    # More robust data fetch with retries
+    max_retries <- 3
+    data <- NULL
+    last_error <- NULL
+    
+    for(i in 1:max_retries) {
+      tryCatch({
+        data <- quantmod::getSymbols(stooq_symbol, 
+                                   src = "stooq",
+                                   from = from_date,
+                                   auto.assign = FALSE)
+        break
+      }, error = function(e) {
+        last_error <- e
+        log_debug(symbol, "stooq", sprintf("Attempt %d failed: %s", i, e$message), "WARN")
+        if(i < max_retries) Sys.sleep(2^i)  # Exponential backoff
+      })
+    }
     
     if (!is.null(data) && nrow(data) > 0) {
       log_debug(symbol, "stooq", "Fetch successful")
@@ -390,7 +245,12 @@ fetch_stooq <- function(symbol, from_date) {
         source = "stooq"
       ))
     }
-    log_debug(symbol, "stooq", "No data returned", "WARN")
+    
+    if(!is.null(last_error)) {
+      stop(last_error$message)
+    } else {
+      log_debug(symbol, "stooq", "No data returned", "WARN")
+    }
     NULL
   }, error = function(e) {
     log_debug(symbol, "stooq", paste("Error:", e$message), "ERROR")
@@ -398,14 +258,14 @@ fetch_stooq <- function(symbol, from_date) {
   })
 }
 
-# Main fetch function with improved error handling
+# Main fetch function with error handling
 fetch_market_data <- function(symbol, from_date) {
   log_debug(symbol, "market_data", sprintf("Starting market data fetch for %s from %s", 
                                          symbol, format(from_date)))
   
   # Validate inputs
   if (is.null(symbol) || is.null(from_date)) {
-    log_debug(symbol, "market_data", "Invalid inputs - symbol or date is NULL", "ERROR")
+    log_debug(symbol, "market_data", "Invalid inputs", "ERROR")
     return(NULL)
   }
   
@@ -436,35 +296,47 @@ fetch_all_market_data <- function(indices, start_date) {
   fetch_count <- 0
   failed_fetches <- list()
   
-  # Test a sample symbol first
-  test_symbol <- "^GSPC"  # S&P 500 as test
-  source_test <- test_data_sources(test_symbol, start_date)
-  log_debug("ALL", "test", sprintf("Data source test results - Yahoo: %s, Stooq: %s",
-                                 source_test$yahoo, source_test$stooq))
+  # Test initial connection
+  test_symbol <- "^GSPC"  # Use S&P 500 as test
+  test_result <- fetch_yahoo(test_symbol, start_date - days(1))
+  if (is.null(test_result)) {
+    log_debug("ALL", "test", "Initial connection test failed", "ERROR")
+    return(tibble())
+  }
+  log_debug("ALL", "test", "Initial connection test successful")
   
   for (region in names(indices)) {
     for (symbol in names(indices[[region]])) {
-      # Rate limiting between regions
+      # Rate limiting between requests
       if (fetch_count > 0) Sys.sleep(2)
       fetch_count <- fetch_count + 1
       
       # Retry logic with exponential backoff
       max_retries <- 3
       success <- FALSE
+      last_error <- NULL
       
       for (retry in 1:max_retries) {
-        data <- fetch_market_data(symbol, start_date)
+        tryCatch({
+          data <- fetch_market_data(symbol, start_date)
+          
+          if (!is.null(data) && nrow(data) > 0) {
+            data$region <- region
+            data$index_name <- indices[[region]][symbol]
+            market_data <- bind_rows(market_data, data)
+            success <- TRUE
+            break
+          }
+          
+        }, error = function(e) {
+          last_error <- e
+          log_debug(symbol, "retry", sprintf("Attempt %d failed: %s", retry, e$message), "WARN")
+        })
         
-        if (!is.null(data) && nrow(data) > 0) {
-          data$region <- region
-          data$index_name <- indices[[region]][symbol]
-          market_data <- bind_rows(market_data, data)
-          success <- TRUE
-          break
-        } else if (retry < max_retries) {
+        if (!success && retry < max_retries) {
           backoff_time <- 2 ^ retry
-          log_debug(symbol, "retry", sprintf("Attempt %d of %d, waiting %d seconds", 
-                                           retry + 1, max_retries, backoff_time), "WARN")
+          log_debug(symbol, "retry", sprintf("Waiting %d seconds before retry %d/%d", 
+                                           backoff_time, retry + 1, max_retries))
           Sys.sleep(backoff_time)
         }
       }
@@ -472,20 +344,32 @@ fetch_all_market_data <- function(indices, start_date) {
       if (!success) {
         failed_fetches[[symbol]] <- list(
           region = region,
-          index_name = indices[[region]][symbol]
+          index_name = indices[[region]][symbol],
+          last_error = if(!is.null(last_error)) last_error$message else "Unknown error"
         )
       }
     }
   }
   
   # Log summary statistics
-  log_debug("ALL", "summary", sprintf("Successfully fetched %d/%d indices", 
-                                    length(unique(market_data$symbol)),
-                                    sum(lengths(indices))), 
+  success_count <- length(unique(market_data$symbol))
+  total_count <- sum(lengths(indices))
+  log_debug("ALL", "summary", sprintf("Successfully fetched %d/%d indices (%.1f%%)", 
+                                    success_count,
+                                    total_count,
+                                    success_count/total_count * 100),
            if(length(failed_fetches) > 0) "WARN" else "INFO")
   
-  # Add failed fetches as attribute for debugging
+  if (length(failed_fetches) > 0) {
+    log_debug("ALL", "failures", sprintf("Failed indices: %s", 
+                                       paste(names(failed_fetches), collapse=", ")),
+             "WARN")
+  }
+  
+  # Add metadata
   attr(market_data, "failed_fetches") <- failed_fetches
+  attr(market_data, "fetch_time") <- Sys.time()
+  attr(market_data, "success_rate") <- success_count/total_count
   
   market_data
 }
@@ -494,7 +378,6 @@ fetch_all_market_data <- function(indices, start_date) {
 calculate_market_weather <- function(market_data) {
   if (nrow(market_data) == 0) return(tibble())
   
-  # Add error handling for calculations
   tryCatch({
     weather_data <- market_data %>%
       group_by(symbol) %>%
@@ -573,10 +456,16 @@ calculate_market_weather <- function(market_data) {
 # Render weather table with improved error handling
 render_weather_table <- function(weather_summary) {
   if (nrow(weather_summary) == 0) {
-    # Check for failed fetches attribute
+    # Get failed fetches info
     failed_fetches <- attr(weather_summary, "failed_fetches")
-    failure_msg <- if (!is.null(failed_fetches) && length(failed_fetches) > 0) {
-      sprintf("Failed to fetch %d indices", length(failed_fetches))
+    fetch_time <- attr(weather_summary, "fetch_time")
+    success_rate <- attr(weather_summary, "success_rate")
+    
+    # Create detailed error message
+    error_msg <- if (!is.null(failed_fetches) && length(failed_fetches) > 0) {
+      sample_errors <- head(sapply(failed_fetches, function(x) x$last_error), 3)
+      sprintf("Data fetch partially failed. Sample errors: %s", 
+              paste(sample_errors, collapse="; "))
     } else {
       "No market data available"
     }
@@ -585,10 +474,11 @@ render_weather_table <- function(weather_summary) {
       '<div class="no-data">
          %s at this time. Please try again later.<br>
          <small>Last attempt: %s</small><br>
-         <small>Check logs for detailed error information.</small>
+         %s
        </div>',
-      failure_msg,
-      format(Sys.time(), "%H:%M:%S")
+      error_msg,
+      format(Sys.time(), "%H:%M:%S"),
+      if(!is.null(success_rate)) sprintf("<small>Success rate: %.1f%%</small>", success_rate * 100) else ""
     )))
   }
   
@@ -614,13 +504,13 @@ render_weather_table <- function(weather_summary) {
           paste0('<div class="region-', tolower(region), '">', .)
       )
     
-          # Create the datatable
+    # Create the datatable
     dt <- datatable(
       display_data %>% select(-mood_color),
       colnames = c("Region", "Market", "Daily %", "Weekly %", "Monthly %", 
                    "Weather", "Status"),
       options = list(
-        pageLength = 20,  # Increased from 15 to show more indices
+        pageLength = 20,  # Show more rows by default
         dom = '<"top"<"left"B><"right"f>>rtip',
         buttons = list(
           list(
@@ -633,7 +523,7 @@ render_weather_table <- function(weather_summary) {
             )
           )
         ),
-        order = list(list(0, 'asc'), list(2, 'desc')),  # First by region, then by daily return
+        order = list(list(0, 'asc'), list(2, 'desc')),  # Sort by region then daily return
         language = list(
           search = 'Search:',
           zeroRecords = 'No matching markets found',
