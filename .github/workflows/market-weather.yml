@@ -66,6 +66,12 @@ jobs:
           version: '1.4.549'
           tinytex: true
 
+      - name: Create cache directories
+        run: |
+          mkdir -p data/cache
+          mkdir -p data/backup
+          echo "Created data directories"
+
       - name: Verify required files
         id: verify-files
         run: |
@@ -83,7 +89,16 @@ jobs:
         shell: Rscript {0}
         run: |
           options(repos = c(CRAN = "https://cloud.r-project.org"))
-          required_packages <- c('tidyverse', 'quantmod', 'rvest', 'httr', 'jsonlite', 'lubridate', 'DT')
+          required_packages <- c(
+            'tidyverse',   # For data manipulation
+            'quantmod',    # For Yahoo Finance
+            'rvest',       # For web scraping
+            'httr',        # For HTTP requests
+            'jsonlite',    # For JSON parsing
+            'lubridate',   # For date handling
+            'DT',          # For interactive tables
+            'scales'       # For formatting
+          )
           
           # More robust package installation
           install_if_missing <- function(packages) {
@@ -110,9 +125,11 @@ jobs:
         id: verify-packages
         shell: Rscript {0}
         run: |
-          required_packages <- c('tidyverse', 'quantmod', 'rvest', 'httr', 
-                               'jsonlite', 'lubridate', 'DT', 'dplyr', 
-                               'readr', 'ggplot2', 'tidyr')
+          required_packages <- c(
+            'tidyverse', 'quantmod', 'rvest', 'httr', 
+            'jsonlite', 'lubridate', 'DT', 'scales', 'dplyr', 
+            'readr', 'ggplot2', 'tidyr'
+          )
           
           # Verify each package can be loaded
           failed_packages <- character(0)
@@ -126,87 +143,4 @@ jobs:
             })
           }
           
-          if(length(failed_packages) > 0) {
-            stop("Failed to verify packages: ", paste(failed_packages, collapse=", "))
-          }
-          
-          # Print package versions
-          installed.packages()[required_packages, "Version"]
-
-      - name: Render report
-        id: render
-        run: |
-          quarto render market-weather.qmd --output-dir _site
-        env:
-          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload artifact
-        if: success()
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-      - name: Deploy to GitHub Pages
-        if: success()
-        uses: actions/deploy-pages@v4
-
-      - name: Handle failure
-        if: failure()
-        run: |
-          # Create error page
-          mkdir -p _site
-          cat > _site/market-weather.html << 'EOL'
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Market Weather Report - Manual Restart Required</title>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <style>
-                body {
-                  font-family: system-ui, -apple-system, sans-serif;
-                  line-height: 1.5;
-                  padding: 2rem;
-                  max-width: 800px;
-                  margin: 0 auto;
-                }
-                .error-container {
-                  background: #fff3cd;
-                  border: 1px solid #ffeeba;
-                  border-radius: 8px;
-                  padding: 2rem;
-                  text-align: center;
-                  margin-top: 2rem;
-                }
-                h1 { color: #856404; }
-              </style>
-            </head>
-            <body>
-              <div class="error-container">
-                <h1>⚠️ Manual Restart Required</h1>
-                <p>The Market Weather Report has encountered an error and requires manual intervention.</p>
-                <p>Please visit the GitHub Actions page to restart the workflow.</p>
-                <p>Last attempt: $(date -u "+%Y-%m-%d %H:%M UTC")</p>
-                <p>Error details are available in the workflow run logs.</p>
-              </div>
-            </body>
-          </html>
-          EOL
-
-          # Create GitHub issue for manual intervention
-          gh issue create \
-            --title "Market Weather Report: Manual Restart Required" \
-            --body "The Market Weather Report workflow failed at $(date -u) and requires manual restart. Please check the logs and restart the workflow manually." \
-            --label "incident" \
-            || echo "Could not create issue. Please check manually."
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload error artifact
-        if: failure()
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-      - name: Deploy error page
-        if: failure()
-        uses: actions/deploy-pages@v4
+          if(length(failed_packages
