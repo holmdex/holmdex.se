@@ -1,5 +1,5 @@
 ---
-title: "Market Weather Report"
+title: "Global Market Pulse"
 format: 
   html:
     embed-resources: true
@@ -10,6 +10,10 @@ format:
       text: |
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <base target="_parent">
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/js/jquery.dataTables.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
     execute:
       echo: false
       warning: false
@@ -29,7 +33,8 @@ required_packages <- c(
   'httr',       # For HTTP requests
   'jsonlite',   # For JSON parsing
   'lubridate',  # For date handling
-  'DT'          # For interactive tables
+  'DT',         # For interactive tables
+  'scales'      # For formatting
 )
 
 load_packages <- function(packages) {
@@ -70,81 +75,638 @@ tryCatch({
 execution_time <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
 ```
 
-:::{.market-weather-widget}
-# Market Weather Report
-
-```{r status-check}
-#| echo: false
-#| results: asis
-
-if (length(errors) > 0) {
-  cat('<div class="system-status">')
-  cat('<h3>System Status Update</h3>')
-  for (component in names(errors)) {
-    cat(sprintf('<p>%s Error: %s</p>', tools::toTitleCase(component), errors[[component]]))
-  }
-  cat('</div>')
-}
-```
-
-```{r weather-table}
-#| echo: false
-#| results: asis
-
-tryCatch({
+<div class="global-market-pulse" data-theme="light">
+  <div class="dashboard-header">
+    <div class="header-content">
+      <h1><i class="fas fa-globe-americas"></i> Global Market Pulse</h1>
+      <p class="tagline">Real-time market weather across the world's financial centers</p>
+    </div>
+    <div class="header-controls">
+      <div class="last-update">Updated: <span id="update-timestamp">`r format(Sys.time(), "%B %d, %Y at %H:%M %Z", tz = "UTC")`</span></div>
+      <button id="theme-toggle" class="theme-toggle">
+        <i class="fas fa-moon"></i>
+      </button>
+    </div>
+  </div>
+  
+  ```{r market-summary}
+  #| results: asis
+  
   if (!is.null(weather_summary) && nrow(weather_summary) > 0) {
-    render_weather_table(weather_summary)
+    # Calculate summary metrics
+    global_avg <- mean(weather_summary$daily_return, na.rm = TRUE)
+    regional_avgs <- weather_summary %>%
+      group_by(region) %>%
+      summarize(
+        avg_return = mean(daily_return, na.rm = TRUE),
+        markets_count = n(),
+        positive_count = sum(daily_return > 0, na.rm = TRUE),
+        negative_count = sum(daily_return < 0, na.rm = TRUE),
+        sentiment = sum(
+          case_when(
+            daily_return >= 3 ~ 2,
+            daily_return > 0 ~ 1,
+            daily_return > -3 ~ -1,
+            TRUE ~ -2
+          ),
+          na.rm = TRUE
+        ) / n()
+      )
+    
+    # Get top performing market
+    top_performer <- weather_summary %>%
+      filter(!is.na(daily_return)) %>%
+      arrange(desc(daily_return)) %>%
+      slice(1)
+    
+    # Get worst performing market
+    worst_performer <- weather_summary %>%
+      filter(!is.na(daily_return)) %>%
+      arrange(daily_return) %>%
+      slice(1)
+    
+    # Get VIX data if available
+    vix_data <- weather_summary %>%
+      filter(str_detect(index_name, "VIX")) %>%
+      slice(1)
+    
+    # Get US markets data
+    us_markets <- weather_summary %>%
+      filter(region == "US" & !str_detect(index_name, "VIX"))
+    
+    # Format global average
+    global_avg_formatted <- ifelse(global_avg >= 0, 
+                               paste0("+", format(round(global_avg, 2), nsmall = 2)), 
+                               format(round(global_avg, 2), nsmall = 2))
+    
+    # Determine global sentiment
+    global_sentiment <- case_when(
+      global_avg >= 1.5 ~ "bullish",
+      global_avg >= 0.5 ~ "slightly-bullish",
+      global_avg >= -0.5 ~ "neutral",
+      global_avg >= -1.5 ~ "slightly-bearish",
+      TRUE ~ "bearish"
+    )
+    
+    # Output the summary cards
+    cat('<div class="market-summary">')
+    
+    # Global Thermometer
+    cat('<div class="summary-card global-sentiment">')
+    cat(paste0('<div class="card-title">Global Sentiment</div>'))
+    cat(paste0('<div class="sentiment-meter ', global_sentiment, '">'))
+    cat(paste0('<div class="sentiment-indicator">', global_avg_formatted, '%</div>'))
+    cat('</div>')
+    cat(paste0('<div class="sentiment-label">', 
+             switch(global_sentiment,
+                  "bullish" = "Bullish",
+                  "slightly-bullish" = "Mildly Bullish",
+                  "neutral" = "Neutral",
+                  "slightly-bearish" = "Mildly Bearish",
+                  "bearish" = "Bearish"), 
+             '</div>'))
+    cat('</div>')
+    
+    # Top Performer
+    if (nrow(top_performer) > 0) {
+      cat('<div class="summary-card top-performer">')
+      cat('<div class="card-title">Top Performer</div>')
+      cat(paste0('<div class="card-value positive">', 
+               format(round(top_performer$daily_return, 2), nsmall = 2), '%</div>'))
+      cat(paste0('<div class="card-label">', str_replace(top_performer$index_name, "\\|.*$", ""), '</div>'))
+      cat('</div>')
+    }
+    
+    # Worst Performer
+    if (nrow(worst_performer) > 0) {
+      cat('<div class="summary-card worst-performer">')
+      cat('<div class="card-title">Worst Performer</div>')
+      cat(paste0('<div class="card-value negative">', 
+               format(round(worst_performer$daily_return, 2), nsmall = 2), '%</div>'))
+      cat(paste0('<div class="card-label">', str_replace(worst_performer$index_name, "\\|.*$", ""), '</div>'))
+      cat('</div>')
+    }
+    
+    # VIX Indicator
+    if (nrow(vix_data) > 0) {
+      cat('<div class="summary-card vix-indicator">')
+      cat('<div class="card-title">Fear Index (VIX)</div>')
+      cat(paste0('<div class="vix-meter">', round(abs(vix_data$current_price), 1), '</div>'))
+      
+      # VIX interpretation
+      vix_level <- case_when(
+        vix_data$current_price >= 30 ~ "high-fear",
+        vix_data$current_price >= 20 ~ "elevated",
+        vix_data$current_price >= 15 ~ "normal",
+        TRUE ~ "low"
+      )
+      
+      cat(paste0('<div class="vix-label ', vix_level, '">', 
+               switch(vix_level,
+                    "high-fear" = "High Fear",
+                    "elevated" = "Elevated",
+                    "normal" = "Normal",
+                    "low" = "Low Fear"), 
+               '</div>'))
+      cat('</div>')
+    }
+    
+    # Market Coverage
+    cat('<div class="summary-card market-coverage">')
+    cat('<div class="card-title">Market Coverage</div>')
+    cat(paste0('<div class="card-value">', nrow(weather_summary), '</div>'))
+    cat(paste0('<div class="card-label">Markets across ', n_distinct(weather_summary$region), ' regions</div>'))
+    cat('</div>')
+    
+    cat('</div>') # End of summary section
+    
+    # Start region summary section
+    cat('<div class="region-summary">')
+    cat('<h2>Regional Performance</h2>')
+    cat('<div class="region-grid">')
+    
+    # Loop through each region to create region cards
+    for (i in 1:nrow(regional_avgs)) {
+      region_data <- regional_avgs[i,]
+      region_sentiment <- case_when(
+        region_data$sentiment >= 0.5 ~ "bullish",
+        region_data$sentiment >= 0 ~ "slightly-bullish",
+        region_data$sentiment >= -0.5 ~ "neutral",
+        region_data$sentiment >= -1 ~ "slightly-bearish",
+        TRUE ~ "bearish"
+      )
+      
+      region_color_class <- case_when(
+        region_data$avg_return >= 1.5 ~ "strong-positive",
+        region_data$avg_return >= 0 ~ "positive",
+        region_data$avg_return >= -1.5 ~ "negative",
+        TRUE ~ "strong-negative"
+      )
+      
+      # Format the average return
+      region_avg_formatted <- ifelse(region_data$avg_return >= 0, 
+                                  paste0("+", format(round(region_data$avg_return, 2), nsmall = 2)), 
+                                  format(round(region_data$avg_return, 2), nsmall = 2))
+      
+      # Calculate percentage of positive markets
+      positive_pct <- round(region_data$positive_count / region_data$markets_count * 100)
+      
+      # Create the region card
+      cat(paste0('<div class="region-card ', region_color_class, '">'))
+      cat(paste0('<div class="region-name">', region_data$region, '</div>'))
+      cat(paste0('<div class="region-value">', region_avg_formatted, '%</div>'))
+      cat('<div class="region-details">')
+      cat(paste0('<div class="markets-count">', region_data$markets_count, ' markets</div>'))
+      cat(paste0('<div class="sentiment-badge ', region_sentiment, '">', 
+               positive_pct, '% positive</div>'))
+      cat('</div>')
+      cat('</div>')
+    }
+    
+    cat('</div>') # End region grid
+    cat('</div>') # End region summary
+    
+    # Create div for the world map visualization
+    cat('<div class="world-map-container">')
+    cat('<h2>World Market View</h2>')
+    cat('<div id="world-market-map" class="world-map"></div>')
+    cat('</div>')
   } else {
-    cat('<div class="no-data">No market data available at this time. Please try again later.</div>')
+    # Show error message if no data
+    cat('<div class="error-message">')
+    cat('<i class="fas fa-exclamation-triangle"></i>')
+    cat('<h2>Market Data Unavailable</h2>')
+    cat('<p>We were unable to retrieve current market data. Please try again later.</p>')
+    if (length(errors) > 0) {
+      cat(paste0('<p class="error-details">Error: ', errors$setup, '</p>'))
+    }
+    cat('</div>')
   }
-}, error = function(e) {
-  cat('<div class="no-data">Error generating weather table: ', e$message, '</div>')
-})
-```
-
-::: {.legend-container}
-🌞 Exceptional (>5%) | 🌤️ Very Strong (3-5%) | ⛅ Strong (1-3%) | 🌥️ Positive (0-1%) | 
-☁️ Stable (-1-0%) | 🌧️ Cautious (-3--1%) | ⛈️ Weak (-5--3%) | 🌪️ Very Weak (-7--5%) | ⚡ Critical (<-7%)
-:::
-
-::: {.widget-footer}
-Last Updated: `r format(Sys.time(), "%B %d, %Y at %H:%M %Z", tz = "UTC")`  
-Data Refresh Interval: Hourly  
-Performance: `r sprintf("%.2f seconds", execution_time)`
-:::
-:::
+  ```
+  
+  <!-- Controls section -->
+  <div class="controls-section">
+    <div class="view-controls">
+      <h3>Market Data View</h3>
+      <div class="period-selector">
+        <button class="period-btn active" data-period="daily">Daily</button>
+        <button class="period-btn" data-period="weekly">Weekly</button>
+        <button class="period-btn" data-period="monthly">Monthly</button>
+      </div>
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" id="market-search" placeholder="Search markets...">
+      </div>
+    </div>
+    
+    <div class="region-filters">
+      <h3>Filter by Region</h3>
+      <div class="region-buttons">
+        <button class="region-btn active" data-region="all">All Regions</button>
+        <button class="region-btn" data-region="US">US</button>
+        <button class="region-btn" data-region="Europe">Europe</button>
+        <button class="region-btn" data-region="Asia">Asia</button>
+        <button class="region-btn" data-region="Nordics">Nordics</button>
+        <button class="region-btn" data-region="Pacific">Pacific</button>
+        <button class="region-btn" data-region="Americas">Americas</button>
+        <button class="region-btn" data-region="Africa">Africa</button>
+        <button class="region-btn" data-region="MiddleEast">Middle East</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Market data table section -->
+  <div class="market-table-container">
+    <h2>Detailed Market Weather</h2>
+    <div class="weather-legend">
+      <div class="legend-title">Market Weather Legend:</div>
+      <div class="legend-items">
+        <div class="legend-item"><span class="weather-icon">🌞</span> Exceptional (>5%)</div>
+        <div class="legend-item"><span class="weather-icon">🌤️</span> Very Strong (3-5%)</div>
+        <div class="legend-item"><span class="weather-icon">⛅</span> Strong (1-3%)</div>
+        <div class="legend-item"><span class="weather-icon">🌥️</span> Positive (0-1%)</div>
+        <div class="legend-item"><span class="weather-icon">☁️</span> Stable (-1-0%)</div>
+        <div class="legend-item"><span class="weather-icon">🌧️</span> Cautious (-3--1%)</div>
+        <div class="legend-item"><span class="weather-icon">⛈️</span> Weak (-5--3%)</div>
+        <div class="legend-item"><span class="weather-icon">🌪️</span> Very Weak (-7--5%)</div>
+        <div class="legend-item"><span class="weather-icon">⚡</span> Critical (<-7%)</div>
+      </div>
+    </div>
+  
+  ```{r weather-table}
+  #| results: asis
+  
+  if (!is.null(weather_summary) && nrow(weather_summary) > 0) {
+    # Convert data to JSON for JavaScript
+    json_data <- toJSON(weather_summary, pretty = TRUE)
+    
+    # Create the table
+    cat('<table id="market-weather-table" class="display">')
+    cat('<thead>')
+    cat('<tr>')
+    cat('<th>Region</th>')
+    cat('<th>Market</th>')
+    cat('<th>Daily</th>')
+    cat('<th>Weekly</th>')
+    cat('<th>Monthly</th>')
+    cat('<th>Weather</th>')
+    cat('<th>Condition</th>')
+    cat('</tr>')
+    cat('</thead>')
+    cat('<tbody>')
+    
+    # Group data by region
+    grouped_data <- weather_summary %>%
+      group_by(region) %>%
+      arrange(region, desc(daily_return)) %>%
+      mutate(first_in_region = row_number() == 1)
+    
+    # Loop through data to create table rows
+    for (i in 1:nrow(grouped_data)) {
+      row <- grouped_data[i,]
+      
+      # Format values
+      daily_val <- ifelse(is.na(row$daily_return), "N/A", 
+                       ifelse(row$daily_return >= 0, 
+                             paste0("+", format(round(row$daily_return, 2), nsmall = 2)), 
+                             format(round(row$daily_return, 2), nsmall = 2)))
+      
+      weekly_val <- ifelse(is.na(row$weekly_return), "N/A", 
+                        ifelse(row$weekly_return >= 0, 
+                              paste0("+", format(round(row$weekly_return, 2), nsmall = 2)), 
+                              format(round(row$weekly_return, 2), nsmall = 2)))
+      
+      monthly_val <- ifelse(is.na(row$monthly_return), "N/A", 
+                         ifelse(row$monthly_return >= 0, 
+                               paste0("+", format(round(row$monthly_return, 2), nsmall = 2)), 
+                               format(round(row$monthly_return, 2), nsmall = 2)))
+      
+      # Determine color classes based on return values
+      daily_class <- case_when(
+        is.na(row$daily_return) ~ "unavailable",
+        row$daily_return >= 5 ~ "positive-high",
+        row$daily_return >= 3 ~ "positive-med",
+        row$daily_return >= 1 ~ "positive-low",
+        row$daily_return >= 0 ~ "neutral",
+        row$daily_return >= -3 ~ "negative-low",
+        row$daily_return >= -5 ~ "negative-med",
+        TRUE ~ "negative-high"
+      )
+      
+      weekly_class <- case_when(
+        is.na(row$weekly_return) ~ "unavailable",
+        row$weekly_return >= 5 ~ "positive-high",
+        row$weekly_return >= 3 ~ "positive-med",
+        row$weekly_return >= 1 ~ "positive-low",
+        row$weekly_return >= 0 ~ "neutral",
+        row$weekly_return >= -3 ~ "negative-low",
+        row$weekly_return >= -5 ~ "negative-med",
+        TRUE ~ "negative-high"
+      )
+      
+      monthly_class <- case_when(
+        is.na(row$monthly_return) ~ "unavailable",
+        row$monthly_return >= 5 ~ "positive-high",
+        row$monthly_return >= 3 ~ "positive-med",
+        row$monthly_return >= 1 ~ "positive-low",
+        row$monthly_return >= 0 ~ "neutral",
+        row$monthly_return >= -3 ~ "negative-low",
+        row$monthly_return >= -5 ~ "negative-med",
+        TRUE ~ "negative-high"
+      )
+      
+      # Extract market name without the area info
+      market_name <- str_replace(row$index_name, "\\|.*$", "")
+      
+      # Create table row
+      cat('<tr>')
+      
+      # Region column - show region header for first row in each region
+      if (row$first_in_region) {
+        cat(paste0('<td><div class="region-header">', row$region, '</div></td>'))
+      } else {
+        cat('<td></td>')
+      }
+      
+      # Market name
+      cat(paste0('<td>', market_name, '</td>'))
+      
+      # Return columns with color coding
+      cat(paste0('<td><span class="return-pill ', daily_class, '">', daily_val, '</span></td>'))
+      cat(paste0('<td><span class="return-pill ', weekly_class, '">', weekly_val, '</span></td>'))
+      cat(paste0('<td><span class="return-pill ', monthly_class, '">', monthly_val, '</span></td>'))
+      
+      # Weather icon
+      cat(paste0('<td><span class="weather-icon">', row$weather_icon, '</span></td>'))
+      
+      # Market condition
+      cat(paste0('<td>', row$conditions, '</td>'))
+      
+      cat('</tr>')
+    }
+    
+    cat('</tbody>')
+    cat('</table>')
+    
+    # Create hidden JSON data element for JavaScript to use
+    cat(paste0('<script id="market-data" type="application/json">', json_data, '</script>'))
+  } else {
+    cat('<div class="no-data-message">No market data available</div>')
+  }
+  ```
+  
+  <div class="dashboard-footer">
+    <div class="data-sources">
+      <div class="source-info">
+        <i class="fas fa-database"></i> Data sources: Yahoo Finance, Stooq, Investing.com, MarketWatch
+      </div>
+      <div class="update-frequency">
+        <i class="fas fa-sync-alt"></i> Updates every 2 hours
+      </div>
+    </div>
+    <div class="performance-info">
+      Generated in `r round(execution_time, 1)` seconds
+    </div>
+    <div class="shortcuts-info">
+      <div class="shortcut-label">Keyboard Shortcuts:</div>
+      <div class="shortcuts">
+        <span class="shortcut"><kbd>Alt</kbd> + <kbd>D</kbd> Daily view</span>
+        <span class="shortcut"><kbd>Alt</kbd> + <kbd>W</kbd> Weekly view</span>
+        <span class="shortcut"><kbd>Alt</kbd> + <kbd>M</kbd> Monthly view</span>
+        <span class="shortcut"><kbd>Alt</kbd> + <kbd>F</kbd> Focus search</span>
+      </div>
+    </div>
+  </div>
+</div>
 
 ```{js}
+// Initialize the dashboard
 document.addEventListener('DOMContentLoaded', function() {
-  // Initialize table
-  const initializeTable = () => {
-    const table = document.querySelector('.weather-table')?.DataTable();
-    if (table) {
-      // Hide all columns except daily initially
-      [3, 4].forEach(col => table.column(col).visible(false));
-      
-      // Add keyboard shortcuts
-      document.addEventListener('keydown', function(e) {
-        if (e.altKey) {
-          switch(e.key) {
-            case 'd': showPeriod('daily'); break;
-            case 'w': showPeriod('weekly'); break;
-            case 'm': showPeriod('monthly'); break;
-          }
-        }
-      });
+  // Initialize DataTable
+  const table = $('#market-weather-table').DataTable({
+    paging: true,
+    searching: true,
+    order: [[0, 'asc'], [2, 'desc']], // Order by region then daily return
+    pageLength: 25,
+    lengthChange: false,
+    columnDefs: [
+      { targets: 3, visible: false }, // Hide weekly column initially
+      { targets: 4, visible: false }, // Hide monthly column initially
+      { orderable: false, targets: [0, 5] } // These columns are not sortable
+    ],
+    language: {
+      search: "",
+      info: "Showing _START_ to _END_ of _TOTAL_ markets",
+      paginate: {
+        previous: "<i class='fas fa-chevron-left'></i>",
+        next: "<i class='fas fa-chevron-right'></i>"
+      }
     }
-  };
-
-  // Handle iframe resizing
-  const resizeObserver = new ResizeObserver(entries => {
-    const height = document.body.scrollHeight;
-    window.parent.postMessage({ type: 'resize', height }, '*');
   });
   
-  resizeObserver.observe(document.body);
+  // Connect search box
+  $('#market-search').on('keyup', function() {
+    table.search(this.value).draw();
+  });
   
-  // Initialize
-  setTimeout(initializeTable, 0);
+  // Period buttons
+  $('.period-btn').on('click', function() {
+    const period = $(this).data('period');
+    $('.period-btn').removeClass('active');
+    $(this).addClass('active');
+    
+    // Show/hide columns based on period
+    if (period === 'daily') {
+      table.column(2).visible(true);
+      table.column(3).visible(false);
+      table.column(4).visible(false);
+    } else if (period === 'weekly') {
+      table.column(2).visible(false);
+      table.column(3).visible(true);
+      table.column(4).visible(false);
+    } else if (period === 'monthly') {
+      table.column(2).visible(false);
+      table.column(3).visible(false);
+      table.column(4).visible(true);
+    }
+  });
+  
+  // Region filter buttons
+  $('.region-btn').on('click', function() {
+    const region = $(this).data('region');
+    $('.region-btn').removeClass('active');
+    $(this).addClass('active');
+    
+    if (region === 'all') {
+      table.column(0).search('').draw();
+    } else {
+      table.column(0).search(region).draw();
+    }
+  });
+  
+  // Theme toggle
+  $('#theme-toggle').on('click', function() {
+    const dashboard = document.querySelector('.global-market-pulse');
+    if (dashboard.getAttribute('data-theme') === 'dark') {
+      dashboard.setAttribute('data-theme', 'light');
+      localStorage.setItem('marketTheme', 'light');
+    } else {
+      dashboard.setAttribute('data-theme', 'dark');
+      localStorage.setItem('marketTheme', 'dark');
+    }
+  });
+  
+  // Load saved theme preference
+  const savedTheme = localStorage.getItem('marketTheme');
+  if (savedTheme) {
+    document.querySelector('.global-market-pulse').setAttribute('data-theme', savedTheme);
+  }
+  
+  // Keyboard shortcuts
+  document.addEventListener('keydown', function(e) {
+    if (e.altKey) {
+      switch(e.key) {
+        case 'd': $('.period-btn[data-period="daily"]').click(); break;
+        case 'w': $('.period-btn[data-period="weekly"]').click(); break;
+        case 'm': $('.period-btn[data-period="monthly"]').click(); break;
+        case 'f': $('#market-search').focus(); e.preventDefault(); break;
+      }
+    }
+  });
+  
+  // Draw world market map if the div exists
+  const mapContainer = document.getElementById('world-market-map');
+  if (mapContainer && window.Chart) {
+    try {
+      // Parse market data from the hidden JSON
+      const marketData = JSON.parse(document.getElementById('market-data').textContent);
+      
+      // Simple world map visualization using Chart.js
+      // This is a simplified representation - a real map would need more sophisticated geo mapping
+      renderWorldMap(marketData);
+    } catch (e) {
+      console.error('Error rendering world map:', e);
+      mapContainer.innerHTML = '<div class="map-error">Error loading market map visualization</div>';
+    }
+  }
+  
+  // Resize iframe if we're in an iframe
+  function updateHeight() {
+    const height = document.body.scrollHeight;
+    window.parent.postMessage({ type: "resize", height: height }, "*");
+  }
+  setTimeout(updateHeight, 1000);
+  window.addEventListener('resize', updateHeight);
+  
+  // Function to render a simplified world map visualization
+  function renderWorldMap(marketData) {
+    // Group data by region
+    const regionData = {};
+    
+    marketData.forEach(market => {
+      if (!regionData[market.region]) {
+        regionData[market.region] = {
+          avgReturn: 0,
+          count: 0,
+          positiveCount: 0,
+          negativeCount: 0
+        };
+      }
+      
+      if (!isNaN(market.daily_return)) {
+        regionData[market.region].avgReturn += market.daily_return;
+        regionData[market.region].count++;
+        
+        if (market.daily_return >= 0) {
+          regionData[market.region].positiveCount++;
+        } else {
+          regionData[market.region].negativeCount++;
+        }
+      }
+    });
+    
+    // Calculate averages
+    Object.keys(regionData).forEach(region => {
+      if (regionData[region].count > 0) {
+        regionData[region].avgReturn = regionData[region].avgReturn / regionData[region].count;
+      }
+    });
+    
+    // Prepare data for the chart
+    const regions = Object.keys(regionData);
+    const avgReturns = regions.map(r => regionData[r].avgReturn);
+    const posPercentages = regions.map(r => 
+      regionData[r].count > 0 ? 
+      (regionData[r].positiveCount / regionData[r].count) * 100 : 0
+    );
+    
+    // Generate colors based on returns
+    const backgroundColors = avgReturns.map(value => {
+      if (value >= 3) return 'rgba(0, 200, 83, 0.7)';      // Strong positive
+      if (value >= 1) return 'rgba(100, 221, 23, 0.7)';    // Positive
+      if (value >= 0) return 'rgba(174, 234, 0, 0.7)';     // Slightly positive
+      if (value >= -1) return 'rgba(255, 235, 59, 0.7)';   // Neutral
+      if (value >= -3) return 'rgba(255, 167, 38, 0.7)';   // Negative
+      return 'rgba(213, 0, 0, 0.7)';                      // Strong negative
+    });
+    
+    // Create the chart
+    const ctx = document.getElementById('world-market-map').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: regions,
+        datasets: [
+          {
+            label: 'Average Daily Return (%)',
+            data: avgReturns.map(v => parseFloat(v.toFixed(2))),
+            backgroundColor: backgroundColors,
+            borderWidth: 1,
+            barPercentage: 0.6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Regional Market Performance',
+            font: {
+              size: 16
+            }
+          },
+          tooltip: {
+            callbacks: {
+              afterLabel: function(context) {
+                const regionIndex = context.dataIndex;
+                const region = regions[regionIndex];
+                const positivePct = posPercentages[regionIndex].toFixed(0);
+                return `${positivePct}% of markets positive`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            title: {
+              display: true,
+              text: 'Return (%)'
+            },
+            grid: {
+              color: 'rgba(0, 0, 0, 0.1)'
+            }
+          },
+          x: {
+            grid: {
+              display: false
+            }
+          }
+        }
+      }
+    });
+  }
 });
 ```
