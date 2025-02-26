@@ -143,4 +143,119 @@ jobs:
             })
           }
           
-          if(length(failed_packages
+          if(length(failed_packages) > 0) {
+            stop("Failed to verify packages: ", paste(failed_packages, collapse=", "))
+          }
+          
+          # Print package versions
+          installed.packages()[required_packages, "Version"]
+
+      - name: Render report
+        id: render
+        run: |
+          quarto render market-weather.qmd --output-dir _site
+          
+          # Create and populate .nojekyll file to prevent GitHub Pages from using Jekyll
+          touch _site/.nojekyll
+          
+          # Copy additional assets if they exist
+          if [ -f "world-map-data.json" ]; then
+            cp world-map-data.json _site/
+          fi
+        env:
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact
+        if: success()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        if: success()
+        uses: actions/deploy-pages@v4
+
+      - name: Handle failure
+        if: failure()
+        run: |
+          # Create error page
+          mkdir -p _site
+          cat > _site/index.html << 'EOL'
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Market Weather Report - Manual Restart Required</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                body {
+                  font-family: system-ui, -apple-system, sans-serif;
+                  line-height: 1.5;
+                  padding: 2rem;
+                  max-width: 800px;
+                  margin: 0 auto;
+                  background-color: #f5f7ff;
+                  color: #2A2F4F;
+                }
+                .error-container {
+                  background: #fff3cd;
+                  border: 1px solid #ffeeba;
+                  border-radius: 12px;
+                  padding: 2rem;
+                  text-align: center;
+                  margin-top: 2rem;
+                  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                }
+                h1 { 
+                  color: #856404; 
+                  font-size: 1.8rem;
+                }
+                .btn {
+                  display: inline-block;
+                  margin-top: 1rem;
+                  padding: 0.6rem 1.2rem;
+                  background-color: #7047EB;
+                  color: white;
+                  text-decoration: none;
+                  border-radius: 6px;
+                  font-weight: 500;
+                  transition: background-color 0.2s;
+                }
+                .btn:hover {
+                  background-color: #5324DD;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="error-container">
+                <h1>⚠️ Market Weather Update Required</h1>
+                <p>The Global Market Pulse dashboard has encountered an error and requires manual intervention.</p>
+                <p>Please visit the GitHub Actions page to restart the workflow.</p>
+                <p>Last attempt: $(date -u "+%Y-%m-%d %H:%M UTC")</p>
+                <p>Error details are available in the workflow run logs.</p>
+                <a href="https://github.com/$GITHUB_REPOSITORY/actions" class="btn">View GitHub Actions</a>
+              </div>
+            </body>
+          </html>
+          EOL
+          
+          # Create .nojekyll file
+          touch _site/.nojekyll
+
+          # Create GitHub issue for manual intervention
+          gh issue create \
+            --title "Market Weather Report: Manual Restart Required" \
+            --body "The Market Weather Report workflow failed at $(date -u) and requires manual restart. Please check the logs and restart the workflow manually." \
+            --label "incident" \
+            || echo "Could not create issue. Please check manually."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload error artifact
+        if: failure()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy error page
+        if: failure()
+        uses: actions/deploy-pages@v4
