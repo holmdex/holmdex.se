@@ -18,7 +18,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: System Information
+      - name: System Information and Diagnostics
         run: |
           echo "Operating System:"
           cat /etc/os-release
@@ -29,16 +29,10 @@ jobs:
           echo "Current Directory:"
           pwd
           echo "-------------------------"
-          echo "Directory Contents:"
-          ls -R
-
-      - name: Setup R
-        uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: '4.3.2'
-
-      - name: Install System Dependencies
-        run: |
+          echo "R and Package Installation Diagnostic Info:"
+          R --version
+          echo "-------------------------"
+          echo "System Requirements Check:"
           sudo apt-get update
           sudo apt-get install -y \
             libcurl4-openssl-dev \
@@ -48,25 +42,36 @@ jobs:
             libharfbuzz-dev \
             libfreetype6-dev \
             libpng-dev \
+            libmagick++-dev \
             pandoc
 
-      - name: Install R Package Dependencies
+      - name: Install R and Required Packages
         run: |
+          # Explicit libcurl installation
+          sudo apt-get install -y libcurl4-openssl-dev
+
+          # Install R packages with verbose output and error handling
           R -e "
-          install.packages(c(
-            'tidyverse', 
-            'quantmod', 
-            'rvest', 
-            'httr', 
-            'jsonlite', 
-            'lubridate', 
-            'DT', 
-            'scales'
-          ), repos = 'https://cloud.r-project.org')
-          
-          # Verify package installation
-          installed_packages <- installed.packages()[,1]
-          required_packages <- c(
+          # Function to install packages with robust error handling
+          install_robust <- function(packages) {
+            for (pkg in packages) {
+              tryCatch({
+                if (!require(pkg, character.only = TRUE)) {
+                  install.packages(pkg, repos = 'https://cloud.r-project.org', 
+                                   lib = .libPaths()[1], 
+                                   dependencies = c('Depends', 'Imports', 'LinkingTo'))
+                  library(pkg, character.only = TRUE)
+                  cat(sprintf('Successfully installed and loaded %s\n', pkg))
+                }
+              }, error = function(e) {
+                cat(sprintf('Error installing %s: %s\n', pkg, e$message))
+                quit(status = 1)
+              })
+            }
+          }
+
+          # List of packages to install
+          packages_to_install <- c(
             'tidyverse', 
             'quantmod', 
             'rvest', 
@@ -76,8 +81,13 @@ jobs:
             'DT', 
             'scales'
           )
-          
-          missing_packages <- setdiff(required_packages, installed_packages)
+
+          # Attempt package installation
+          install_robust(packages_to_install)
+
+          # Verify installations
+          installed_packages <- installed.packages()[,1]
+          missing_packages <- setdiff(packages_to_install, installed_packages)
           
           if (length(missing_packages) > 0) {
             cat('Failed to install the following packages:\n')
@@ -88,46 +98,59 @@ jobs:
           }
           "
 
-      - name: Validate R Functions File
-        run: |
-          R -e "
-          tryCatch({
-            source('market-weather-functions.R')
-            cat('market-weather-functions.R sourced successfully!\n')
-          }, error = function(e) {
-            cat('Error in market-weather-functions.R:\n')
-            print(e)
-            quit(status = 1)
-          })
-          "
-
-      - name: Validate Indices File
-        run: |
-          R -e "
-          tryCatch({
-            source('market-weather-indices.R')
-            cat('market-weather-indices.R sourced successfully!\n')
-          }, error = function(e) {
-            cat('Error in market-weather-indices.R:\n')
-            print(e)
-            quit(status = 1)
-          })
-          "
-
       - name: Install Quarto
-        uses: quarto-dev/quarto-actions/setup@v2
-        with:
-          version: prerelease
+        run: |
+          # Download and install Quarto
+          wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.4.549/quarto-1.4.549-linux-amd64.deb
+          sudo dpkg -i quarto-1.4.549-linux-amd64.deb
+          quarto --version
+
+      - name: Validate R Environment
+        run: |
+          R -e "
+          # Check package versions
+          package_versions <- lapply(
+            c('tidyverse', 'quantmod', 'rvest', 'httr', 'jsonlite', 'lubridate', 'DT', 'scales'), 
+            function(pkg) packageVersion(pkg)
+          )
+          names(package_versions) <- c('tidyverse', 'quantmod', 'rvest', 'httr', 'jsonlite', 'lubridate', 'DT', 'scales')
+          print(package_versions)
+          "
+
+      - name: Verify File Dependencies
+        run: |
+          # Check for required files
+          required_files=(
+            "market-weather.qmd"
+            "market-weather-functions.R"
+            "market-weather-indices.R"
+            "market-weather.css"
+          )
+          
+          all_files_exist=true
+          
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing required file: $file"
+              all_files_exist=false
+            else
+              echo "✅ Found $file"
+              file "$file"  # Display file type and encoding
+            fi
+          done
+          
+          if [ "$all_files_exist" = false ]; then
+            exit 1
+          fi
 
       - name: Render Quarto Document
         run: |
-          quarto render market-weather.qmd --output-dir _site || {
-            echo "Quarto rendering failed"
-            exit 1
-          }
-
-      - name: Display Rendering Results
-        run: |
+          quarto render market-weather.qmd \
+            --output-dir _site || {
+              echo "Quarto rendering failed"
+              exit 1
+            }
+          
           ls -la _site
           
           if [ -f "_site/market-weather.html" ]; then
@@ -138,15 +161,16 @@ jobs:
             exit 1
           fi
 
-      - name: Debug Logs
+      - name: Debug Output
         if: failure()
         run: |
-          echo "Diagnostic information for debugging:"
-          echo "R Version:"
-          R --version
+          echo "R Library Paths:"
+          R -e ".libPaths()"
+          
           echo "-------------------------"
-          echo "Quarto Version:"
-          quarto --version
+          echo "Installed Packages:"
+          R -e "installed.packages()[,1]"
+          
           echo "-------------------------"
-          echo "Pandoc Version:"
-          pandoc --version
+          echo "System Package Information:"
+          dpkg -l | grep -E 'libcurl|libssl|libxml2|libharfbuzz|libfreetype|libpng|pandoc'
