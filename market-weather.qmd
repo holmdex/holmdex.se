@@ -25,6 +25,13 @@ format:
 
 start_time <- Sys.time()
 
+# Define error handler function to handle potential errors gracefully
+handle_setup_error <- function(e) {
+  message("ERROR: ", e$message)
+  errors <<- append(errors, list(setup = e$message))
+  return(NULL)
+}
+
 # Load required packages with error handling
 required_packages <- c(
   'tidyverse',  # For data manipulation
@@ -37,40 +44,57 @@ required_packages <- c(
   'scales'      # For formatting
 )
 
-load_packages <- function(packages) {
-  lapply(packages, function(pkg) {
-    if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
-      stop(sprintf("Required package '%s' is not installed", pkg))
-    }
-  })
-}
-
 # Setup error tracking
 errors <- list()
 weather_summary <- NULL
 
 tryCatch({
-  # Load packages
-  suppressPackageStartupMessages(load_packages(required_packages))
+  # Load packages with error handling
+  for (pkg in required_packages) {
+    if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+      warning(sprintf("Required package '%s' is not installed. Attempting to install...", pkg))
+      install.packages(pkg, repos = "https://cloud.r-project.org")
+      
+      if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+        stop(sprintf("Failed to install package '%s'", pkg))
+      }
+    }
+  }
   
-  # Source helper functions
-  source("market-weather-functions.R")
+  # Source helper functions and market indices
+  tryCatch({
+    source("market-weather-functions.R")
+  }, error = function(e) {
+    stop(paste("Error loading market-weather-functions.R:", e$message))
+  })
+  
+  tryCatch({
+    source("market-weather-indices.R")
+  }, error = function(e) {
+    stop(paste("Error loading market-weather-indices.R:", e$message))
+  })
   
   # Time periods with business day adjustment
   current_date <- Sys.Date()
   is_weekend <- weekdays(current_date) %in% c("Saturday", "Sunday")
+  
+  # If it's a weekend, look back a bit further to get Friday's data
   start_date <- current_date - days(if(is_weekend) 32 else 30)
   
-  # Fetch and process data
-  market_data <- fetch_all_market_data(market_indices, start_date)
+  # Fetch and process data with comprehensive error handling
+  market_data <- tryCatch({
+    fetch_all_market_data(market_indices, start_date)
+  }, error = handle_setup_error)
   
   if (!is.null(market_data) && nrow(market_data) > 0) {
-    weather_summary <- calculate_market_weather(market_data)
+    weather_summary <- tryCatch({
+      calculate_market_weather(market_data)
+    }, error = handle_setup_error)
+  } else {
+    errors$market_data <- "Failed to retrieve market data"
   }
   
-}, error = function(e) {
-  errors$setup <- e$message
-})
+}, error = handle_setup_error)
 
 execution_time <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
 ```
@@ -127,12 +151,12 @@ execution_time <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
     
     # Get VIX data if available
     vix_data <- weather_summary %>%
-      filter(str_detect(index_name, "VIX")) %>%
+      filter(str_detect(index_name, "VIX") | str_detect(index_name, "Fear")) %>%
       slice(1)
     
     # Get US markets data
     us_markets <- weather_summary %>%
-      filter(region == "US" & !str_detect(index_name, "VIX"))
+      filter(region == "US" & !str_detect(index_name, "VIX") & !str_detect(index_name, "Fear"))
     
     # Format global average
     global_avg_formatted <- ifelse(global_avg >= 0, 
@@ -277,9 +301,24 @@ execution_time <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
     cat('<i class="fas fa-exclamation-triangle"></i>')
     cat('<h2>Market Data Unavailable</h2>')
     cat('<p>We were unable to retrieve current market data. Please try again later.</p>')
+    
+    # Show specific error details if available
     if (length(errors) > 0) {
-      cat(paste0('<p class="error-details">Error: ', errors$setup, '</p>'))
+      error_messages <- paste(unlist(errors), collapse = "<br>")
+      cat(paste0('<div class="error-details">Error details:<br>', error_messages, '</div>'))
     }
+    
+    # Add troubleshooting instructions
+    cat('<div class="troubleshooting-tips">')
+    cat('<h3>Troubleshooting Tips:</h3>')
+    cat('<ul>')
+    cat('<li>Check your internet connection</li>')
+    cat('<li>Verify data source availability</li>')
+    cat('<li>Try refreshing the page</li>')
+    cat('<li>Data providers may be experiencing issues</li>')
+    cat('</ul>')
+    cat('</div>')
+    
     cat('</div>')
   }
   ```
@@ -338,7 +377,7 @@ execution_time <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
   
   if (!is.null(weather_summary) && nrow(weather_summary) > 0) {
     # Convert data to JSON for JavaScript
-    json_data <- toJSON(weather_summary, pretty = TRUE)
+    json_data <- jsonlite::toJSON(weather_summary, pretty = TRUE)
     
     # Create the table
     cat('<table id="market-weather-table" class="display">')
@@ -458,7 +497,7 @@ execution_time <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
   <div class="dashboard-footer">
     <div class="data-sources">
       <div class="source-info">
-        <i class="fas fa-database"></i> Data sources: Yahoo Finance, Stooq, Investing.com, MarketWatch
+        <i class="fas fa-database"></i> Data sources: Yahoo Finance, Stooq, Investing.com, MarketWatch, Finviz, TradingView
       </div>
       <div class="update-frequency">
         <i class="fas fa-sync-alt"></i> Updates every 2 hours
@@ -474,6 +513,7 @@ execution_time <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
         <span class="shortcut"><kbd>Alt</kbd> + <kbd>W</kbd> Weekly view</span>
         <span class="shortcut"><kbd>Alt</kbd> + <kbd>M</kbd> Monthly view</span>
         <span class="shortcut"><kbd>Alt</kbd> + <kbd>F</kbd> Focus search</span>
+        <span class="shortcut"><kbd>Alt</kbd> + <kbd>T</kbd> Toggle theme</span>
       </div>
     </div>
   </div>
@@ -482,17 +522,19 @@ execution_time <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
 ```{js}
 // Initialize the dashboard
 document.addEventListener('DOMContentLoaded', function() {
-  // Initialize DataTable
+  // Initialize DataTable with improved configuration
   const table = $('#market-weather-table').DataTable({
     paging: true,
     searching: true,
     order: [[0, 'asc'], [2, 'desc']], // Order by region then daily return
     pageLength: 25,
     lengthChange: false,
+    responsive: true,
     columnDefs: [
       { targets: 3, visible: false }, // Hide weekly column initially
       { targets: 4, visible: false }, // Hide monthly column initially
-      { orderable: false, targets: [0, 5] } // These columns are not sortable
+      { orderable: false, targets: [0, 5] }, // These columns are not sortable
+      { responsivePriority: 1, targets: [0, 1, 2, 5] } // Prioritize these columns on small screens
     ],
     language: {
       search: "",
@@ -500,16 +542,45 @@ document.addEventListener('DOMContentLoaded', function() {
       paginate: {
         previous: "<i class='fas fa-chevron-left'></i>",
         next: "<i class='fas fa-chevron-right'></i>"
-      }
+      },
+      zeroRecords: "No matching markets found",
+      emptyTable: "No market data available"
+    },
+    drawCallback: function() {
+      // Enhance accessibility by adding aria labels
+      $('.return-pill').each(function() {
+        const value = $(this).text();
+        $(this).attr('aria-label', `Return value: ${value}`);
+      });
     }
   });
   
-  // Connect search box
+  // Connect search box with enhanced functionality
   $('#market-search').on('keyup', function() {
     table.search(this.value).draw();
+    // Update URL with search parameter for bookmarking
+    if (history.pushState) {
+      const searchParams = new URLSearchParams(window.location.search);
+      if (this.value) {
+        searchParams.set('search', this.value);
+      } else {
+        searchParams.delete('search');
+      }
+      const newUrl = window.location.protocol + "//" + window.location.host + 
+                     window.location.pathname + '?' + searchParams.toString();
+      window.history.pushState({path: newUrl}, '', newUrl);
+    }
   });
   
-  // Period buttons
+  // Restore search from URL parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const searchParam = urlParams.get('search');
+  if (searchParam) {
+    $('#market-search').val(searchParam);
+    table.search(searchParam).draw();
+  }
+  
+  // Period buttons with enhanced functionality
   $('.period-btn').on('click', function() {
     const period = $(this).data('period');
     $('.period-btn').removeClass('active');
@@ -529,9 +600,27 @@ document.addEventListener('DOMContentLoaded', function() {
       table.column(3).visible(false);
       table.column(4).visible(true);
     }
+    
+    // Update URL with period parameter for bookmarking
+    if (history.pushState) {
+      const searchParams = new URLSearchParams(window.location.search);
+      searchParams.set('period', period);
+      const newUrl = window.location.protocol + "//" + window.location.host + 
+                    window.location.pathname + '?' + searchParams.toString();
+      window.history.pushState({path: newUrl}, '', newUrl);
+    }
+    
+    // Fix layout issues after changing columns
+    table.columns.adjust().responsive.recalc();
   });
   
-  // Region filter buttons
+  // Restore period selection from URL parameter
+  const periodParam = urlParams.get('period');
+  if (periodParam && ['daily', 'weekly', 'monthly'].includes(periodParam)) {
+    $(`.period-btn[data-period="${periodParam}"]`).click();
+  }
+  
+  // Region filter buttons with improved functionality
   $('.region-btn').on('click', function() {
     const region = $(this).data('region');
     $('.region-btn').removeClass('active');
@@ -542,34 +631,88 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
       table.column(0).search(region).draw();
     }
+    
+    // Update URL with region parameter
+    if (history.pushState) {
+      const searchParams = new URLSearchParams(window.location.search);
+      searchParams.set('region', region);
+      const newUrl = window.location.protocol + "//" + window.location.host + 
+                     window.location.pathname + '?' + searchParams.toString();
+      window.history.pushState({path: newUrl}, '', newUrl);
+    }
   });
   
-  // Theme toggle
+  // Restore region filter from URL parameter
+  const regionParam = urlParams.get('region');
+  if (regionParam) {
+    $(`.region-btn[data-region="${regionParam}"]`).click();
+  }
+  
+  // Theme toggle with localStorage persistence
   $('#theme-toggle').on('click', function() {
     const dashboard = document.querySelector('.global-market-pulse');
-    if (dashboard.getAttribute('data-theme') === 'dark') {
-      dashboard.setAttribute('data-theme', 'light');
-      localStorage.setItem('marketTheme', 'light');
+    const currentTheme = dashboard.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    dashboard.setAttribute('data-theme', newTheme);
+    localStorage.setItem('marketTheme', newTheme);
+    
+    // Update icon
+    const icon = $(this).find('i');
+    if (newTheme === 'dark') {
+      icon.removeClass('fa-moon').addClass('fa-sun');
     } else {
-      dashboard.setAttribute('data-theme', 'dark');
-      localStorage.setItem('marketTheme', 'dark');
+      icon.removeClass('fa-sun').addClass('fa-moon');
     }
   });
   
   // Load saved theme preference
   const savedTheme = localStorage.getItem('marketTheme');
   if (savedTheme) {
-    document.querySelector('.global-market-pulse').setAttribute('data-theme', savedTheme);
+    const dashboard = document.querySelector('.global-market-pulse');
+    dashboard.setAttribute('data-theme', savedTheme);
+    
+    // Update icon to match current theme
+    if (savedTheme === 'dark') {
+      $('#theme-toggle i').removeClass('fa-moon').addClass('fa-sun');
+    }
   }
   
-  // Keyboard shortcuts
+  // Enhanced keyboard shortcuts
   document.addEventListener('keydown', function(e) {
-    if (e.altKey) {
-      switch(e.key) {
-        case 'd': $('.period-btn[data-period="daily"]').click(); break;
-        case 'w': $('.period-btn[data-period="weekly"]').click(); break;
-        case 'm': $('.period-btn[data-period="monthly"]').click(); break;
-        case 'f': $('#market-search').focus(); e.preventDefault(); break;
+    // Only apply shortcuts if not typing in input elements
+    if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+      if (e.altKey) {
+        switch(e.key.toLowerCase()) {
+          case 'd': 
+            $('.period-btn[data-period="daily"]').click(); 
+            break;
+          case 'w': 
+            $('.period-btn[data-period="weekly"]').click(); 
+            break;
+          case 'm': 
+            $('.period-btn[data-period="monthly"]').click(); 
+            break;
+          case 'f': 
+            $('#market-search').focus(); 
+            e.preventDefault(); 
+            break;
+          case 't': 
+            $('#theme-toggle').click(); 
+            break;
+          case 'a': 
+            $('.region-btn[data-region="all"]').click(); 
+            break;
+          case 'u': 
+            $('.region-btn[data-region="US"]').click(); 
+            break;
+          case 'e': 
+            $('.region-btn[data-region="Europe"]').click(); 
+            break;
+          case 's': 
+            $('.region-btn[data-region="Asia"]').click(); 
+            break;
+        }
       }
     }
   });
@@ -581,12 +724,11 @@ document.addEventListener('DOMContentLoaded', function() {
       // Parse market data from the hidden JSON
       const marketData = JSON.parse(document.getElementById('market-data').textContent);
       
-      // Simple world map visualization using Chart.js
-      // This is a simplified representation - a real map would need more sophisticated geo mapping
+      // Enhanced world map visualization
       renderWorldMap(marketData);
     } catch (e) {
       console.error('Error rendering world map:', e);
-      mapContainer.innerHTML = '<div class="map-error">Error loading market map visualization</div>';
+      mapContainer.innerHTML = '<div class="map-error">Error loading market map visualization. ' + e.message + '</div>';
     }
   }
   
@@ -598,59 +740,120 @@ document.addEventListener('DOMContentLoaded', function() {
   setTimeout(updateHeight, 1000);
   window.addEventListener('resize', updateHeight);
   
-  // Function to render a simplified world map visualization
+  // Function to render an enhanced world map visualization
   function renderWorldMap(marketData) {
-    // Group data by region
+    // Group data by region with enhanced metrics
     const regionData = {};
     
     marketData.forEach(market => {
       if (!regionData[market.region]) {
         regionData[market.region] = {
           avgReturn: 0,
+          totalReturn: 0,
           count: 0,
+          validCount: 0,
           positiveCount: 0,
-          negativeCount: 0
+          negativeCount: 0,
+          strongPositive: 0, // >3%
+          strongNegative: 0, // <-3%
+          markets: []
         };
       }
       
+      // Add market to region's market list
+      regionData[market.region].markets.push({
+        name: market.index_name.split(' | ')[0], // Just the name part
+        return: market.daily_return,
+        icon: market.weather_icon
+      });
+      
+      // Update region metrics
       if (!isNaN(market.daily_return)) {
-        regionData[market.region].avgReturn += market.daily_return;
-        regionData[market.region].count++;
+        regionData[market.region].totalReturn += market.daily_return;
+        regionData[market.region].validCount++;
         
         if (market.daily_return >= 0) {
           regionData[market.region].positiveCount++;
+          if (market.daily_return >= 3) {
+            regionData[market.region].strongPositive++;
+          }
         } else {
           regionData[market.region].negativeCount++;
+          if (market.daily_return <= -3) {
+            regionData[market.region].strongNegative++;
+          }
         }
       }
+      
+      regionData[market.region].count++;
     });
     
-    // Calculate averages
+    // Calculate average returns and percentages
     Object.keys(regionData).forEach(region => {
-      if (regionData[region].count > 0) {
-        regionData[region].avgReturn = regionData[region].avgReturn / regionData[region].count;
+      const rData = regionData[region];
+      if (rData.validCount > 0) {
+        rData.avgReturn = rData.totalReturn / rData.validCount;
+        rData.positivePercent = (rData.positiveCount / rData.validCount) * 100;
+        rData.strongPositivePercent = (rData.strongPositive / rData.validCount) * 100;
+        rData.strongNegativePercent = (rData.strongNegative / rData.validCount) * 100;
       }
     });
     
     // Prepare data for the chart
-    const regions = Object.keys(regionData);
-    const avgReturns = regions.map(r => regionData[r].avgReturn);
-    const posPercentages = regions.map(r => 
-      regionData[r].count > 0 ? 
-      (regionData[r].positiveCount / regionData[r].count) * 100 : 0
-    );
-    
-    // Generate colors based on returns
-    const backgroundColors = avgReturns.map(value => {
-      if (value >= 3) return 'rgba(0, 200, 83, 0.7)';      // Strong positive
-      if (value >= 1) return 'rgba(100, 221, 23, 0.7)';    // Positive
-      if (value >= 0) return 'rgba(174, 234, 0, 0.7)';     // Slightly positive
-      if (value >= -1) return 'rgba(255, 235, 59, 0.7)';   // Neutral
-      if (value >= -3) return 'rgba(255, 167, 38, 0.7)';   // Negative
-      return 'rgba(213, 0, 0, 0.7)';                      // Strong negative
+    const regions = Object.keys(regionData).sort((a, b) => {
+      // Custom sort order for regions
+      const order = ["US", "Europe", "Asia", "Nordics", "Pacific", "Americas", "Africa", "MiddleEast"];
+      return order.indexOf(a) - order.indexOf(b);
     });
     
-    // Create the chart
+    const avgReturns = regions.map(r => {
+      return regionData[r].validCount > 0 ? parseFloat(regionData[r].avgReturn.toFixed(2)) : 0;
+    });
+    
+    const posPercentages = regions.map(r => {
+      return regionData[r].validCount > 0 ? 
+        parseFloat(regionData[r].positivePercent.toFixed(0)) : 0;
+    });
+    
+    // Generate colors based on returns with enhanced color scheme
+    const backgroundColors = avgReturns.map(value => {
+      if (value >= 3) return 'rgba(0, 200, 83, 0.8)';      // Strong positive
+      if (value >= 1) return 'rgba(100, 221, 23, 0.7)';    // Positive
+      if (value >= 0) return 'rgba(174, 234, 0, 0.6)';     // Slightly positive
+      if (value >= -1) return 'rgba(255, 193, 7, 0.6)';    // Neutral
+      if (value >= -3) return 'rgba(255, 152, 0, 0.7)';    // Negative
+      return 'rgba(213, 0, 0, 0.8)';                       // Strong negative
+    });
+    
+    // Create enhanced tooltip content
+    const tooltipCallbacks = {
+      afterLabel: function(context) {
+        const regionIndex = context.dataIndex;
+        const region = regions[regionIndex];
+        const rData = regionData[region];
+        
+        // Format the tooltip lines
+        const lines = [
+          `${posPercentages[regionIndex].toFixed(0)}% of markets positive`,
+          `${rData.count} total markets`,
+          `${rData.strongPositive} markets up >3%`,
+          `${rData.strongNegative} markets down >3%`
+        ];
+        
+        // Add top market if available
+        if (rData.markets.length > 0) {
+          // Sort markets by return
+          const sortedMarkets = [...rData.markets].sort((a, b) => (b.return || -999) - (a.return || -999));
+          if (sortedMarkets[0].return != null) {
+            lines.push(`Top: ${sortedMarkets[0].name} (${sortedMarkets[0].return.toFixed(2)}%)`);
+          }
+        }
+        
+        return lines;
+      }
+    };
+    
+  // Create the chart with enhanced configuration
     const ctx = document.getElementById('world-market-map').getContext('2d');
     new Chart(ctx, {
       type: 'bar',
@@ -659,10 +862,13 @@ document.addEventListener('DOMContentLoaded', function() {
         datasets: [
           {
             label: 'Average Daily Return (%)',
-            data: avgReturns.map(v => parseFloat(v.toFixed(2))),
+            data: avgReturns,
             backgroundColor: backgroundColors,
+            borderColor: backgroundColors.map(color => color.replace('0.7', '1').replace('0.6', '1').replace('0.8', '1')),
             borderWidth: 1,
-            barPercentage: 0.6
+            borderRadius: 4,
+            barPercentage: 0.7,
+            categoryPercentage: 0.8
           }
         ]
       },
@@ -670,22 +876,29 @@ document.addEventListener('DOMContentLoaded', function() {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
+          legend: {
+            display: false  // Hide legend for cleaner look
+          },
           title: {
             display: true,
             text: 'Regional Market Performance',
+            color: getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim(),
             font: {
-              size: 16
+              size: 16,
+              weight: 'bold'
+            },
+            padding: {
+              bottom: 15
             }
           },
           tooltip: {
-            callbacks: {
-              afterLabel: function(context) {
-                const regionIndex = context.dataIndex;
-                const region = regions[regionIndex];
-                const positivePct = posPercentages[regionIndex].toFixed(0);
-                return `${positivePct}% of markets positive`;
-              }
-            }
+            callbacks: tooltipCallbacks,
+            backgroundColor: 'rgba(50, 50, 50, 0.9)',
+            titleFont: {
+              weight: 'bold'
+            },
+            padding: 10,
+            cornerRadius: 6
           }
         },
         scales: {
@@ -693,20 +906,33 @@ document.addEventListener('DOMContentLoaded', function() {
             beginAtZero: false,
             title: {
               display: true,
-              text: 'Return (%)'
+              text: 'Return (%)',
+              color: getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim()
             },
             grid: {
               color: 'rgba(0, 0, 0, 0.1)'
+            },
+            ticks: {
+              color: getComputedStyle(document.documentElement).getPropertyValue('--text-light').trim()
             }
           },
           x: {
             grid: {
               display: false
+            },
+            ticks: {
+              color: getComputedStyle(document.documentElement).getPropertyValue('--text-light').trim()
             }
           }
+        },
+        animation: {
+          duration: 1500,
+          easing: 'easeOutQuart'
         }
       }
     });
   }
 });
 ```
+
+</div>
