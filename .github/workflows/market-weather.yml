@@ -174,11 +174,11 @@ jobs:
         env:
           GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload artifact
-        if: success()
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: _site
+     - name: Upload artifact
+  if: success()
+  uses: actions/upload-pages-artifact@v3
+  with:
+    path: _site
 
       - name: Deploy to GitHub Pages
         if: success()
@@ -268,10 +268,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload error artifact
-        if: failure()
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: _site
+  if: failure()
+  uses: actions/upload-pages-artifact@v3
+  with:
+    path: _site
 
       - name: Deploy error page
         if: failure()
