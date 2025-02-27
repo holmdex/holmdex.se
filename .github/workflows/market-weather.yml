@@ -1,4 +1,4 @@
-name: Market Weather Update
+name: Market Weather Dashboard
 
 on:
   schedule:
@@ -29,7 +29,7 @@ jobs:
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
-          r-version: '4.3.1'  # Updated to latest stable R version
+          r-version: '4.3.1'
 
       - name: Install system dependencies
         run: |
@@ -52,12 +52,12 @@ jobs:
       - name: Setup Pandoc
         uses: r-lib/actions/setup-pandoc@v2
         with:
-          pandoc-version: '3.1.9'  # Latest stable version
+          pandoc-version: '3.1.9'
 
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         with:
-          version: prerelease  # Use latest prerelease version
+          version: prerelease
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -101,16 +101,9 @@ jobs:
         run: |
           quarto render market-weather.qmd
           
-          # Ensure output directory exists
           mkdir -p _site
-          
-          # Move rendered files to _site
           mv market-weather.html _site/index.html
-          
-          # Create .nojekyll file
           touch _site/.nojekyll
-          
-          # Create timestamp
           date -u > _site/build_timestamp.txt
 
       - name: Upload Pages artifact
@@ -143,7 +136,7 @@ jobs:
             github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: 'Market Weather Update Workflow Failed',
+              title: 'Market Weather Dashboard Workflow Failed',
               body: `Workflow failed for commit ${context.sha}. 
               
 See the [Actions tab](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details.`
