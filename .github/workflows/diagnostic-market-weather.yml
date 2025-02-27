@@ -18,21 +18,13 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: System Information and Diagnostics
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.3.2'
+
+      - name: Install system dependencies
         run: |
-          echo "Operating System:"
-          cat /etc/os-release
-          echo "-------------------------"
-          echo "Current User:"
-          whoami
-          echo "-------------------------"
-          echo "Current Directory:"
-          pwd
-          echo "-------------------------"
-          echo "R and Package Installation Diagnostic Info:"
-          R --version
-          echo "-------------------------"
-          echo "System Requirements Check:"
           sudo apt-get update
           sudo apt-get install -y \
             libcurl4-openssl-dev \
@@ -45,12 +37,19 @@ jobs:
             libmagick++-dev \
             pandoc
 
-      - name: Install R and Required Packages
+      - name: System and R Information
         run: |
-          # Explicit libcurl installation
-          sudo apt-get install -y libcurl4-openssl-dev
+          echo "Operating System:"
+          cat /etc/os-release
+          echo "-------------------------"
+          echo "R Version:"
+          R --version
+          echo "-------------------------"
+          echo "R Library Paths:"
+          R -e ".libPaths()"
 
-          # Install R packages with verbose output and error handling
+      - name: Install R Packages
+        run: |
           R -e "
           # Function to install packages with robust error handling
           install_robust <- function(packages) {
@@ -58,8 +57,7 @@ jobs:
               tryCatch({
                 if (!require(pkg, character.only = TRUE)) {
                   install.packages(pkg, repos = 'https://cloud.r-project.org', 
-                                   lib = .libPaths()[1], 
-                                   dependencies = c('Depends', 'Imports', 'LinkingTo'))
+                                   dependencies = TRUE)
                   library(pkg, character.only = TRUE)
                   cat(sprintf('Successfully installed and loaded %s\n', pkg))
                 }
@@ -99,27 +97,12 @@ jobs:
           "
 
       - name: Install Quarto
-        run: |
-          # Download and install Quarto
-          wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.4.549/quarto-1.4.549-linux-amd64.deb
-          sudo dpkg -i quarto-1.4.549-linux-amd64.deb
-          quarto --version
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: prerelease
 
-      - name: Validate R Environment
+      - name: Verify Required Files
         run: |
-          R -e "
-          # Check package versions
-          package_versions <- lapply(
-            c('tidyverse', 'quantmod', 'rvest', 'httr', 'jsonlite', 'lubridate', 'DT', 'scales'), 
-            function(pkg) packageVersion(pkg)
-          )
-          names(package_versions) <- c('tidyverse', 'quantmod', 'rvest', 'httr', 'jsonlite', 'lubridate', 'DT', 'scales')
-          print(package_versions)
-          "
-
-      - name: Verify File Dependencies
-        run: |
-          # Check for required files
           required_files=(
             "market-weather.qmd"
             "market-weather-functions.R"
@@ -135,7 +118,7 @@ jobs:
               all_files_exist=false
             else
               echo "✅ Found $file"
-              file "$file"  # Display file type and encoding
+              file "$file"
             fi
           done
           
@@ -164,10 +147,6 @@ jobs:
       - name: Debug Output
         if: failure()
         run: |
-          echo "R Library Paths:"
-          R -e ".libPaths()"
-          
-          echo "-------------------------"
           echo "Installed Packages:"
           R -e "installed.packages()[,1]"
           
