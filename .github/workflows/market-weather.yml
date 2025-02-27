@@ -66,7 +66,7 @@ jobs:
           version: '1.4.549'
           tinytex: true
 
-      - name: Create cache directories
+      - name: Create data directories
         run: |
           mkdir -p data/cache
           mkdir -p data/backup
@@ -75,7 +75,7 @@ jobs:
       - name: Verify required files
         id: verify-files
         run: |
-          required_files=("market-weather.qmd" "market-weather-functions.R" "market-weather.css")
+          required_files=("market-weather.qmd" "market-weather-functions.R" "market-weather-indices.R" "market-weather.css")
           for file in "${required_files[@]}"; do
             if [ ! -f "$file" ]; then
               echo "::error::Required file $file not found"
@@ -83,6 +83,13 @@ jobs:
             fi
             echo "✓ Found $file"
           done
+
+      - name: Cache R packages
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: r-${{ hashFiles('**/packages.txt') }}
+          restore-keys: r-
 
       - name: Install R packages
         id: install-packages
@@ -97,7 +104,11 @@ jobs:
             'jsonlite',    # For JSON parsing
             'lubridate',   # For date handling
             'DT',          # For interactive tables
-            'scales'       # For formatting
+            'scales',      # For formatting
+            'dplyr',       # For data wrangling
+            'ggplot2',     # For visualization
+            'purrr',       # For functional programming
+            'tidyr'        # For data tidying
           )
           
           # More robust package installation
@@ -128,7 +139,7 @@ jobs:
           required_packages <- c(
             'tidyverse', 'quantmod', 'rvest', 'httr', 
             'jsonlite', 'lubridate', 'DT', 'scales', 'dplyr', 
-            'readr', 'ggplot2', 'tidyr'
+            'readr', 'ggplot2', 'tidyr', 'purrr'
           )
           
           # Verify each package can be loaded
@@ -158,10 +169,8 @@ jobs:
           # Create and populate .nojekyll file to prevent GitHub Pages from using Jekyll
           touch _site/.nojekyll
           
-          # Copy additional assets if they exist
-          if [ -f "world-map-data.json" ]; then
-            cp world-map-data.json _site/
-          fi
+          # Create timestamp file for debugging
+          echo "Last rendered: $(date -u)" > _site/update_timestamp.txt
         env:
           GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
 
@@ -184,7 +193,7 @@ jobs:
           <!DOCTYPE html>
           <html>
             <head>
-              <title>Market Weather Report - Manual Restart Required</title>
+              <title>Global Market Pulse - Service Temporarily Unavailable</title>
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <style>
                 body {
@@ -213,7 +222,7 @@ jobs:
                   display: inline-block;
                   margin-top: 1rem;
                   padding: 0.6rem 1.2rem;
-                  background-color: #7047EB;
+                  background-color: #6247EB;
                   color: white;
                   text-decoration: none;
                   border-radius: 6px;
@@ -221,18 +230,23 @@ jobs:
                   transition: background-color 0.2s;
                 }
                 .btn:hover {
-                  background-color: #5324DD;
+                  background-color: #4024DD;
+                }
+                .timestamp {
+                  margin-top: 20px;
+                  font-size: 0.9rem;
+                  color: #666;
                 }
               </style>
             </head>
             <body>
               <div class="error-container">
-                <h1>⚠️ Market Weather Update Required</h1>
-                <p>The Global Market Pulse dashboard has encountered an error and requires manual intervention.</p>
-                <p>Please visit the GitHub Actions page to restart the workflow.</p>
-                <p>Last attempt: $(date -u "+%Y-%m-%d %H:%M UTC")</p>
-                <p>Error details are available in the workflow run logs.</p>
-                <a href="https://github.com/$GITHUB_REPOSITORY/actions" class="btn">View GitHub Actions</a>
+                <h1>⚠️ Global Market Pulse: Temporary Service Interruption</h1>
+                <p>We're currently experiencing technical difficulties with the market data update process.</p>
+                <p>Our team has been automatically notified and is working to restore service.</p>
+                <p>Please check back soon. Market data typically refreshes every 2 hours.</p>
+                <p class="timestamp">Last attempt: $(date -u "+%Y-%m-%d %H:%M UTC")</p>
+                <a href="https://github.com/$GITHUB_REPOSITORY/actions" class="btn">View Status</a>
               </div>
             </body>
           </html>
@@ -240,12 +254,15 @@ jobs:
           
           # Create .nojekyll file
           touch _site/.nojekyll
+          
+          # Create timestamp file
+          echo "Failed rendering attempt: $(date -u)" > _site/failure_timestamp.txt
 
           # Create GitHub issue for manual intervention
           gh issue create \
-            --title "Market Weather Report: Manual Restart Required" \
-            --body "The Market Weather Report workflow failed at $(date -u) and requires manual restart. Please check the logs and restart the workflow manually." \
-            --label "incident" \
+            --title "Global Market Pulse: Update Failure $(date -u "+%Y-%m-%d %H:%M UTC")" \
+            --body "The Global Market Pulse workflow failed at $(date -u) and may require manual intervention. Please check the logs for details: https://github.com/$GITHUB_REPOSITORY/actions" \
+            --label "incident,bug" \
             || echo "Could not create issue. Please check manually."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -259,3 +276,11 @@ jobs:
       - name: Deploy error page
         if: failure()
         uses: actions/deploy-pages@v4
+        
+      - name: Archive data backups
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: market-data-backup
+          path: data/backup
+          retention-days: 7
