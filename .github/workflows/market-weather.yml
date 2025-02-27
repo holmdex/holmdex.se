@@ -4,38 +4,38 @@ on:
   schedule:
     - cron: '0 */2 * * *'  # Run every 2 hours
   workflow_dispatch:        # Manual trigger option
+  push:
+    branches: [main]
 
-# Ensure only one workflow runs at a time
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
 concurrency:
-  group: market-weather
+  group: "pages"
   cancel-in-progress: true
 
 jobs:
-  update-market-weather:
+  # Build job
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-      issues: write  # Needed for creating issues on failure
-
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
-          r-version: '4.2.1'
+          r-version: '4.3.1'  # Updated to latest stable R version
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential \
-            gcc \
-            g++ \
-            gfortran \
             libcurl4-openssl-dev \
             libssl-dev \
             libxml2-dev \
@@ -46,241 +46,105 @@ jobs:
             libpng-dev \
             libtiff5-dev \
             libjpeg-dev \
-            libglpk-dev \
-            libgit2-dev \
             pandoc \
             cmake
-          
-          # Verify GCC installation
-          gcc --version
-          g++ --version
 
       - name: Setup Pandoc
         uses: r-lib/actions/setup-pandoc@v2
         with:
-          pandoc-version: '3.1.1'
+          pandoc-version: '3.1.9'  # Latest stable version
 
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         with:
-          version: '1.4.549'
-          tinytex: true
+          version: prerelease  # Use latest prerelease version
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
 
       - name: Create data directories
         run: |
           mkdir -p data/cache
           mkdir -p data/backup
-          echo "Created data directories"
 
       - name: Verify required files
-        id: verify-files
         run: |
-          required_files=("market-weather.qmd" "market-weather-functions.R" "market-weather-indices.R" "market-weather.css")
+          required_files=(
+            "market-weather.qmd"
+            "market-weather-functions.R"
+            "market-weather-indices.R"
+            "market-weather.css"
+          )
           for file in "${required_files[@]}"; do
             if [ ! -f "$file" ]; then
-              echo "::error::Required file $file not found"
+              echo "❌ Missing required file: $file"
               exit 1
             fi
-            echo "✓ Found $file"
+            echo "✅ Found $file"
           done
 
-      - name: Cache R packages
-        uses: actions/cache@v3
+      - name: Install R dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          path: ${{ env.R_LIBS_USER }}
-          key: r-${{ hashFiles('**/packages.txt') }}
-          restore-keys: r-
+          packages: |
+            any::tidyverse
+            any::quantmod
+            any::rvest
+            any::httr
+            any::jsonlite
+            any::lubridate
+            any::DT
+            any::scales
+          cache: true
 
-      - name: Install R packages
-        id: install-packages
-        shell: Rscript {0}
+      - name: Render Quarto Project
         run: |
-          options(repos = c(CRAN = "https://cloud.r-project.org"))
-          required_packages <- c(
-            'tidyverse',   # For data manipulation
-            'quantmod',    # For Yahoo Finance
-            'rvest',       # For web scraping
-            'httr',        # For HTTP requests
-            'jsonlite',    # For JSON parsing
-            'lubridate',   # For date handling
-            'DT',          # For interactive tables
-            'scales',      # For formatting
-            'dplyr',       # For data wrangling
-            'ggplot2',     # For visualization
-            'purrr',       # For functional programming
-            'tidyr'        # For data tidying
-          )
+          quarto render market-weather.qmd
           
-          # More robust package installation
-          install_if_missing <- function(packages) {
-            for(pkg in packages) {
-              if(!require(pkg, character.only = TRUE, quietly = TRUE)) {
-                message(sprintf("Installing %s...", pkg))
-                install.packages(pkg, dependencies = TRUE)
-                if(!require(pkg, character.only = TRUE)) {
-                  stop(sprintf("Failed to install %s", pkg))
-                }
-              }
-              message(sprintf("✓ Successfully loaded %s", pkg))
-            }
-          }
-          
-          tryCatch({
-            install_if_missing(required_packages)
-          }, error = function(e) {
-            message("Error installing packages: ", e$message)
-            quit(status = 1)
-          })
-
-      - name: Verify R packages
-        id: verify-packages
-        shell: Rscript {0}
-        run: |
-          required_packages <- c(
-            'tidyverse', 'quantmod', 'rvest', 'httr', 
-            'jsonlite', 'lubridate', 'DT', 'scales', 'dplyr', 
-            'readr', 'ggplot2', 'tidyr', 'purrr'
-          )
-          
-          # Verify each package can be loaded
-          failed_packages <- character(0)
-          for(pkg in required_packages) {
-            tryCatch({
-              library(pkg, character.only = TRUE)
-              message(sprintf("✓ Verified %s", pkg))
-            }, error = function(e) {
-              failed_packages <<- c(failed_packages, pkg)
-              message(sprintf("✗ Failed to load %s: %s", pkg, e$message))
-            })
-          }
-          
-          if(length(failed_packages) > 0) {
-            stop("Failed to verify packages: ", paste(failed_packages, collapse=", "))
-          }
-          
-          # Print package versions
-          installed.packages()[required_packages, "Version"]
-
-      - name: Render report
-        id: render
-        run: |
-          quarto render market-weather.qmd --output-dir _site
-          
-          # Create and populate .nojekyll file to prevent GitHub Pages from using Jekyll
-          touch _site/.nojekyll
-          
-          # Create timestamp file for debugging
-          echo "Last rendered: $(date -u)" > _site/update_timestamp.txt
-        env:
-          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-
-     - name: Upload artifact
-  if: success()
-  uses: actions/upload-pages-artifact@v3
-  with:
-    path: _site
-
-      - name: Deploy to GitHub Pages
-        if: success()
-        uses: actions/deploy-pages@v4
-
-      - name: Handle failure
-        if: failure()
-        run: |
-          # Create error page
+          # Ensure output directory exists
           mkdir -p _site
-          cat > _site/index.html << 'EOL'
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Global Market Pulse - Service Temporarily Unavailable</title>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <style>
-                body {
-                  font-family: system-ui, -apple-system, sans-serif;
-                  line-height: 1.5;
-                  padding: 2rem;
-                  max-width: 800px;
-                  margin: 0 auto;
-                  background-color: #f5f7ff;
-                  color: #2A2F4F;
-                }
-                .error-container {
-                  background: #fff3cd;
-                  border: 1px solid #ffeeba;
-                  border-radius: 12px;
-                  padding: 2rem;
-                  text-align: center;
-                  margin-top: 2rem;
-                  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-                }
-                h1 { 
-                  color: #856404; 
-                  font-size: 1.8rem;
-                }
-                .btn {
-                  display: inline-block;
-                  margin-top: 1rem;
-                  padding: 0.6rem 1.2rem;
-                  background-color: #6247EB;
-                  color: white;
-                  text-decoration: none;
-                  border-radius: 6px;
-                  font-weight: 500;
-                  transition: background-color 0.2s;
-                }
-                .btn:hover {
-                  background-color: #4024DD;
-                }
-                .timestamp {
-                  margin-top: 20px;
-                  font-size: 0.9rem;
-                  color: #666;
-                }
-              </style>
-            </head>
-            <body>
-              <div class="error-container">
-                <h1>⚠️ Global Market Pulse: Temporary Service Interruption</h1>
-                <p>We're currently experiencing technical difficulties with the market data update process.</p>
-                <p>Our team has been automatically notified and is working to restore service.</p>
-                <p>Please check back soon. Market data typically refreshes every 2 hours.</p>
-                <p class="timestamp">Last attempt: $(date -u "+%Y-%m-%d %H:%M UTC")</p>
-                <a href="https://github.com/$GITHUB_REPOSITORY/actions" class="btn">View Status</a>
-              </div>
-            </body>
-          </html>
-          EOL
+          
+          # Move rendered files to _site
+          mv market-weather.html _site/index.html
           
           # Create .nojekyll file
           touch _site/.nojekyll
           
-          # Create timestamp file
-          echo "Failed rendering attempt: $(date -u)" > _site/failure_timestamp.txt
+          # Create timestamp
+          date -u > _site/build_timestamp.txt
 
-          # Create GitHub issue for manual intervention
-          gh issue create \
-            --title "Global Market Pulse: Update Failure $(date -u "+%Y-%m-%d %H:%M UTC")" \
-            --body "The Global Market Pulse workflow failed at $(date -u) and may require manual intervention. Please check the logs for details: https://github.com/$GITHUB_REPOSITORY/actions" \
-            --label "incident,bug" \
-            || echo "Could not create issue. Please check manually."
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload error artifact
-  if: failure()
-  uses: actions/upload-pages-artifact@v3
-  with:
-    path: _site
-
-      - name: Deploy error page
-        if: failure()
-        uses: actions/deploy-pages@v4
-        
-      - name: Archive data backups
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: market-data-backup
-          path: data/backup
-          retention-days: 7
+          path: _site
+
+  # Deployment job
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # Optional: Error handling and notification
+  error-handling:
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub Issue on Failure
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Market Weather Update Workflow Failed',
+              body: `Workflow failed for commit ${context.sha}. 
+              
+See the [Actions tab](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details.`
+            })
