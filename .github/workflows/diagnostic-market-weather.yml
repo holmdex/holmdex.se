@@ -1,0 +1,53 @@
+name: Diagnostic Market Weather Dashboard
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: List Repository Contents
+        run: |
+          echo "Repository root contents:"
+          pwd
+          ls -la
+          
+          echo "-------------------------"
+          echo "Workflows directory:"
+          ls -la .github/workflows/
+          
+          echo "-------------------------"
+          echo "File contents and permissions:"
+          for file in market-weather.qmd market-weather-functions.R market-weather-indices.R market-weather.css; do
+            echo "FILE: $file"
+            ls -l "$file"
+            head -n 10 "$file"
+            echo "-------------------------"
+          done
+
+      - name: Check File Encodings
+        run: |
+          for file in market-weather.qmd market-weather-functions.R market-weather-indices.R market-weather.css; do
+            echo "File: $file"
+            file -i "$file"
+          done
+
+      - name: Verify R Environment
+        run: |
+          R --version
+          Rscript -e "sessionInfo()"
+
+      - name: Install R Packages
+        run: |
+          R -e "install.packages(c('tidyverse', 'quantmod', 'rvest', 'httr', 'jsonlite', 'lubridate', 'DT', 'scales'), repos = 'https://cloud.r-project.org')"
+
+      - name: Test Quarto Rendering
+        run: |
+          quarto --version
+          quarto render market-weather.qmd || echo "Rendering failed"
