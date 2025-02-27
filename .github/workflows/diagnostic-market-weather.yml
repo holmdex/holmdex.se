@@ -1,53 +1,152 @@
-name: Diagnostic Market Weather Dashboard
+name: Market Weather Diagnostic Workflow
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths:
+      - '.github/workflows/diagnostic-market-weather.yml'
+      - 'market-weather-functions.R'
+      - 'market-weather-indices.R'
+      - 'market-weather.qmd'
+      - 'market-weather.css'
 
 jobs:
-  diagnose:
+  comprehensive-diagnosis:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: List Repository Contents
+      - name: System Information
         run: |
-          echo "Repository root contents:"
+          echo "Operating System:"
+          cat /etc/os-release
+          echo "-------------------------"
+          echo "Current User:"
+          whoami
+          echo "-------------------------"
+          echo "Current Directory:"
           pwd
-          ls -la
-          
           echo "-------------------------"
-          echo "Workflows directory:"
-          ls -la .github/workflows/
+          echo "Directory Contents:"
+          ls -R
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.3.2'
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libxml2-dev \
+            libfontconfig1-dev \
+            libharfbuzz-dev \
+            libfreetype6-dev \
+            libpng-dev \
+            pandoc
+
+      - name: Install R Package Dependencies
+        run: |
+          R -e "
+          install.packages(c(
+            'tidyverse', 
+            'quantmod', 
+            'rvest', 
+            'httr', 
+            'jsonlite', 
+            'lubridate', 
+            'DT', 
+            'scales'
+          ), repos = 'https://cloud.r-project.org')
           
-          echo "-------------------------"
-          echo "File contents and permissions:"
-          for file in market-weather.qmd market-weather-functions.R market-weather-indices.R market-weather.css; do
-            echo "FILE: $file"
-            ls -l "$file"
-            head -n 10 "$file"
-            echo "-------------------------"
-          done
+          # Verify package installation
+          installed_packages <- installed.packages()[,1]
+          required_packages <- c(
+            'tidyverse', 
+            'quantmod', 
+            'rvest', 
+            'httr', 
+            'jsonlite', 
+            'lubridate', 
+            'DT', 
+            'scales'
+          )
+          
+          missing_packages <- setdiff(required_packages, installed_packages)
+          
+          if (length(missing_packages) > 0) {
+            cat('Failed to install the following packages:\n')
+            cat(missing_packages, sep = '\n')
+            quit(status = 1)
+          } else {
+            cat('All required packages installed successfully!\n')
+          }
+          "
 
-      - name: Check File Encodings
+      - name: Validate R Functions File
         run: |
-          for file in market-weather.qmd market-weather-functions.R market-weather-indices.R market-weather.css; do
-            echo "File: $file"
-            file -i "$file"
-          done
+          R -e "
+          tryCatch({
+            source('market-weather-functions.R')
+            cat('market-weather-functions.R sourced successfully!\n')
+          }, error = function(e) {
+            cat('Error in market-weather-functions.R:\n')
+            print(e)
+            quit(status = 1)
+          })
+          "
 
-      - name: Verify R Environment
+      - name: Validate Indices File
         run: |
+          R -e "
+          tryCatch({
+            source('market-weather-indices.R')
+            cat('market-weather-indices.R sourced successfully!\n')
+          }, error = function(e) {
+            cat('Error in market-weather-indices.R:\n')
+            print(e)
+            quit(status = 1)
+          })
+          "
+
+      - name: Install Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: prerelease
+
+      - name: Render Quarto Document
+        run: |
+          quarto render market-weather.qmd --output-dir _site || {
+            echo "Quarto rendering failed"
+            exit 1
+          }
+
+      - name: Display Rendering Results
+        run: |
+          ls -la _site
+          
+          if [ -f "_site/market-weather.html" ]; then
+            echo "HTML file successfully generated"
+            head -n 50 "_site/market-weather.html"
+          else
+            echo "No HTML file generated"
+            exit 1
+          fi
+
+      - name: Debug Logs
+        if: failure()
+        run: |
+          echo "Diagnostic information for debugging:"
+          echo "R Version:"
           R --version
-          Rscript -e "sessionInfo()"
-
-      - name: Install R Packages
-        run: |
-          R -e "install.packages(c('tidyverse', 'quantmod', 'rvest', 'httr', 'jsonlite', 'lubridate', 'DT', 'scales'), repos = 'https://cloud.r-project.org')"
-
-      - name: Test Quarto Rendering
-        run: |
+          echo "-------------------------"
+          echo "Quarto Version:"
           quarto --version
-          quarto render market-weather.qmd || echo "Rendering failed"
+          echo "-------------------------"
+          echo "Pandoc Version:"
+          pandoc --version
