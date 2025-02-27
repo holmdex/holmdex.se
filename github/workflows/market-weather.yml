@@ -1,0 +1,217 @@
+name: Global Market Pulse Dashboard
+
+# Advanced workflow with comprehensive error handling and reporting
+on:
+  schedule:
+    - cron: '0 */2 * * *'  # Bi-hourly updates
+  workflow_dispatch:        # Manual trigger for on-demand updates
+    inputs:
+      debug_mode:
+        description: 'Enable verbose debugging'
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - 'market-weather.qmd'
+      - 'market-weather-*.R'
+      - 'market-weather.css'
+      - '.github/workflows/market-weather.yml'
+
+# Comprehensive permissions for GitHub Actions
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: write
+  checks: write
+  discussions: write
+  issues: write
+  pull-requests: write
+
+# Prevent concurrent deployments
+concurrency:
+  group: "market-pulse-pages"
+  cancel-in-progress: true
+
+# Global environment variables
+env:
+  R_VERSION: '4.3.2'
+  QUARTO_VERSION: 'prerelease'
+  PYTHON_VERSION: '3.10'
+
+jobs:
+  validate-dependencies:
+    runs-on: ubuntu-latest
+    outputs:
+      dependencies_validated: ${{ steps.check_dependencies.outputs.status }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Validate Required Files
+        id: check_dependencies
+        run: |
+          required_files=(
+            "market-weather.qmd"
+            "market-weather-functions.R"
+            "market-weather-indices.R"
+            "market-weather.css"
+          )
+          all_files_exist=true
+          
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing required file: $file"
+              all_files_exist=false
+            else
+              echo "✅ Found $file"
+            fi
+          done
+          
+          if [ "$all_files_exist" = false ]; then
+            echo "status=false" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "status=true" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-deploy:
+    needs: validate-dependencies
+    if: needs.validate-dependencies.outputs.dependencies_validated == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ env.R_VERSION }}
+
+      - name: Setup Pandoc
+        uses: r-lib/actions/setup-pandoc@v2
+        with:
+          pandoc-version: 'latest'
+
+      - name: Setup Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: ${{ env.QUARTO_VERSION }}
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libxml2-dev \
+            libfontconfig1-dev \
+            libharfbuzz-dev \
+            libfreetype6-dev \
+            libpng-dev
+
+      - name: Install R Dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::tidyverse
+            any::quantmod
+            any::rvest
+            any::httr
+            any::jsonlite
+            any::lubridate
+            any::DT
+            any::scales
+          cache: true
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Prepare Output Directory
+        run: |
+          mkdir -p _site
+          touch _site/.nojekyll
+
+      - name: Render Quarto Document
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          quarto render market-weather.qmd \
+            --output-dir _site \
+            ${{ github.event.inputs.debug_mode == 'true' && '--verbose' || '' }}
+
+      - name: Generate Build Metadata
+        run: |
+          echo "Build Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" > _site/build_info.txt
+          echo "Workflow Run ID: ${{ github.run_id }}" >> _site/build_info.txt
+          echo "Repository: ${{ github.repository }}" >> _site/build_info.txt
+          echo "Ref: ${{ github.ref }}" >> _site/build_info.txt
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+          retention-days: 7
+
+  deploy:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # Comprehensive error handling and notification
+  notify-failure:
+    if: failure()
+    needs: [validate-dependencies, build-and-deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub Issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const failedWorkflow = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId
+            });
+
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Market Pulse Dashboard Workflow Failed',
+              body: `### Workflow Failure Detected
+
+**Workflow:** ${failedWorkflow.data.name}
+**Triggering Event:** ${failedWorkflow.data.event}
+**Branch:** ${failedWorkflow.data.head_branch}
+
+[View Full Workflow Logs](${failedWorkflow.data.html_url})
+
+#### Troubleshooting Tips:
+- Check system dependencies
+- Verify R package compatibility
+- Ensure Quarto rendering works locally
+- Review recent code changes`
+            })
+
+      - name: Slack Notification
+        if: env.SLACK_WEBHOOK != ''
+        uses: 8398a7/action-slack@v3
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        with:
+          status: ${{ job.status }}
+          text: '🚨 Market Pulse Dashboard deployment failed!'
