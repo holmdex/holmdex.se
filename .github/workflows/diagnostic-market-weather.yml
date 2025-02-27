@@ -23,6 +23,13 @@ jobs:
         with:
           r-version: '4.3.2'
 
+      - name: Set up R Package Cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: ${{ runner.os }}-r-${{ hashFiles('**/DESCRIPTION') }}
+          restore-keys: ${{ runner.os }}-r-
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -37,63 +44,123 @@ jobs:
             libmagick++-dev \
             pandoc
 
-      - name: System and R Information
-        run: |
-          echo "Operating System:"
-          cat /etc/os-release
-          echo "-------------------------"
-          echo "R Version:"
-          R --version
-          echo "-------------------------"
-          echo "R Library Paths:"
-          R -e ".libPaths()"
-
       - name: Install R Packages
+        env:
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
         run: |
           R -e "
-          # Function to install packages with robust error handling
+          # Advanced package installation with multiple strategies
           install_robust <- function(packages) {
-            for (pkg in packages) {
-              tryCatch({
-                if (!require(pkg, character.only = TRUE)) {
-                  install.packages(pkg, repos = 'https://cloud.r-project.org', 
-                                   dependencies = TRUE)
-                  library(pkg, character.only = TRUE)
-                  cat(sprintf('Successfully installed and loaded %s\n', pkg))
-                }
-              }, error = function(e) {
-                cat(sprintf('Error installing %s: %s\n', pkg, e$message))
-                quit(status = 1)
-              })
+            # List of package repositories to try
+            repos <- c(
+              'https://cloud.r-project.org',  # CRAN primary
+              'https://packagemanager.posit.co/cran/__linux__/jammy/latest',  # Posit package manager
+              'https://cran.rstudio.com/'  # RStudio mirror
+            )
+            
+            # Packages that might need special handling
+            special_packages <- c('tidyverse')
+            
+            # Function to install individual package with multiple attempts
+            install_package <- function(pkg) {
+              # Attempt 1: Standard installation
+              for (repo in repos) {
+                tryCatch({
+                  if (pkg %in% special_packages) {
+                    # For complex packages like tidyverse, use more comprehensive installation
+                    install.packages(pkg, repos = repo, dependencies = c('Depends', 'Imports', 'LinkingTo'), type = 'binary')
+                  } else {
+                    install.packages(pkg, repos = repo, dependencies = TRUE, type = 'binary')
+                  }
+                  
+                  # Verify installation
+                  if (requireNamespace(pkg, quietly = TRUE)) {
+                    cat(sprintf('Successfully installed %s from %s\n', pkg, repo))
+                    return(TRUE)
+                  }
+                }, error = function(e) {
+                  cat(sprintf('Error installing %s from %s: %s\n', pkg, repo, e$message))
+                  NULL
+                })
+              }
+              
+              # If all repos fail
+              cat(sprintf('CRITICAL: Failed to install %s after multiple attempts\n', pkg))
+              FALSE
             }
+            
+            # Track installation results
+            installation_results <- sapply(packages, install_package)
+            
+            # Throw error if any package failed
+            if (any(installation_results == FALSE)) {
+              failed_packages <- packages[installation_results == FALSE]
+              cat('Failed to install the following packages:\n')
+              cat(failed_packages, sep = '\n')
+              quit(status = 1)
+            }
+            
+            TRUE
           }
 
           # List of packages to install
           packages_to_install <- c(
-            'tidyverse', 
-            'quantmod', 
-            'rvest', 
-            'httr', 
-            'jsonlite', 
-            'lubridate', 
-            'DT', 
-            'scales'
+            'tidyverse',   # Data manipulation ecosystem
+            'quantmod',    # Financial data
+            'rvest',       # Web scraping
+            'httr',        # HTTP requests
+            'jsonlite',    # JSON parsing
+            'lubridate',   # Date manipulation
+            'DT',          # Interactive tables
+            'scales'       # Scaling and formatting
           )
 
-          # Attempt package installation
+          # Print R version and library paths for debugging
+          cat('R Version:\n')
+          print(R.version)
+          cat('\nLibrary Paths:\n')
+          .libPaths()
+
+          # Attempt robust package installation
           install_robust(packages_to_install)
 
-          # Verify installations
+          # Verify installations with detailed output
           installed_packages <- installed.packages()[,1]
+          package_versions <- lapply(packages_to_install, function(pkg) {
+            ver <- tryCatch(
+              packageVersion(pkg),
+              error = function(e) 'Not Installed'
+            )
+            return(ver)
+          })
+          names(package_versions) <- packages_to_install
+
+          # Print package installation details
+          cat('\nPackage Installation Verification:\n')
+          for (pkg in packages_to_install) {
+            cat(sprintf('%s: %s\n', pkg, package_versions[[pkg]]))
+          }
+
+          # Final check
           missing_packages <- setdiff(packages_to_install, installed_packages)
-          
           if (length(missing_packages) > 0) {
-            cat('Failed to install the following packages:\n')
+            cat('CRITICAL: Failed to install the following packages:\n')
             cat(missing_packages, sep = '\n')
             quit(status = 1)
           } else {
-            cat('All required packages installed successfully!\n')
+            cat('\nAll required packages installed successfully!\n')
           }
+          "
+
+      - name: Verify R Environment
+        run: |
+          R -e "
+          # Print session information
+          sessionInfo()
+
+          # Print available packages
+          installed_packages <- installed.packages()[,1]
+          print(installed_packages)
           "
 
       - name: Install Quarto
