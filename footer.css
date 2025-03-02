@@ -1,0 +1,403 @@
+/* Footer Styles to Match Header Aesthetics */
+:root {
+  --primary-dark: #0A2540;    /* Deep blue */
+  --primary-mid: #224870;     /* Medium blue */
+  --primary-light: #A9CCE3;   /* Light blue */
+  --background: #F9F9F9;      /* Bone */
+  --accent: #25A75E;          /* Green accent */
+  --accent-light: #5BC88A;    /* Lighter green */
+  --accent-dark: #1E8A4C;     /* Darker green */
+  --neutral-gray: #6C7A89;    /* Medium gray */
+  --light-gray: #D5DBDB;      /* Light gray */
+  --light-text: #F9F9F9;      /* Light text */
+}
+
+/* Hide ONLY WordPress default footer - more specific selectors */
+.site-footer:not(.holmdex-footer),
+footer.site-footer,
+#colophon,
+.footer-widgets,
+.footer-widget-area,
+.site-info {
+  display: none !important;
+}
+
+/* Footer Base Styles */
+.holmdex-footer {
+  position: relative;
+  width: 100%;
+  z-index: 10;
+  color: var(--light-text);
+  padding: 60px 0 0;
+  margin-bottom: 0;
+  background-color: var(--primary-dark); /* Fallback if gradient doesn't load */
+}
+
+/* Gradient Background Animation (matching header) */
+.footer-gradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(-45deg, #0A2540, #1a3a5f, #25A75E, #A9CCE3);
+  background-size: 400% 400%;
+  animation: gradient-bg 15s ease infinite;
+  opacity: 1;
+  z-index: -1;
+}
+
+@keyframes gradient-bg {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Container */
+.holmdex-footer .container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Footer Content Layout */
+.footer-content {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding-bottom: 40px;
+}
+
+.footer-column {
+  flex: 1;
+  min-width: 200px;
+  margin-bottom: 30px;
+  padding-right: 20px;
+}
+
+.brand-column {
+  flex: 2;
+  min-width: 300px;
+}
+
+/* Footer Logo Styling (matching header logo) */
+.footer-logo {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--light-text);
+  text-decoration: none;
+  letter-spacing: 1px;
+  transition: transform 0.3s ease;
+  display: inline-block;
+  margin-bottom: 10px;
+}
+
+.footer-logo span {
+  color: var(--accent);
+}
+
+.footer-logo:hover {
+  transform: scale(1.05);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+/* Tagline */
+.tagline {
+  font-size: 1rem;
+  opacity: 0.9;
+  margin-bottom: 20px;
+  color: var(--light-text);
+}
+
+/* Footer Column Headings */
+.footer-column h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 15px;
+  position: relative;
+  padding-bottom: 8px;
+  color: var(--light-text);
+}
+
+.footer-column h3:after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 40px;
+  height: 2px;
+  background-color: var(--accent);
+}
+
+/* Footer Lists */
+.footer-column ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-column li {
+  margin-bottom: 10px;
+}
+
+/* Footer Links - text outline effect matching header */
+.footer-column a {
+  color: var(--light-text);
+  text-decoration: none;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  background: transparent; /* Ensure background is transparent */
+}
+
+.footer-column a i,
+.footer-column a span {
+  position: relative;
+  transition: all 0.3s ease;
+  text-shadow: 0 0 0 transparent;
+}
+
+.footer-column a i {
+  margin-right: 8px;
+  width: 20px;
+  text-align: center;
+  opacity: 0.8;
+}
+
+/* UPDATED: Hover effect to match header style */
+.footer-column a:hover span,
+.footer-column a:hover {
+  background-color: transparent; /* Ensure background stays transparent */
+}
+
+.footer-column a:hover span,
+.footer-column a:hover i {
+  color: white;
+  text-shadow: 0 0 1px white, 
+               0 0 2px white, 
+               0 0 3px var(--accent),
+               0 0 4px var(--accent),
+               0 0 5px var(--accent-light);
+  letter-spacing: 0.02em;
+  transform: scale(1.05);
+  opacity: 1;
+}
+
+/* Social Media Links */
+.social-links {
+  display: flex;
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.social-links a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--light-text);
+  transition: all 0.3s;
+  text-decoration: none;
+}
+
+.social-links a i {
+  font-size: 1.1rem;
+  margin-right: 0; /* Override the general icon margin */
+  width: auto; /* Override the general icon width */
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+/* UPDATED: Social links hover effect to match header style */
+.social-links a:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-3px);
+}
+
+.social-links a:hover i {
+  color: white;
+  text-shadow: 0 0 1px white, 
+               0 0 2px white, 
+               0 0 3px var(--accent),
+               0 0 4px var(--accent),
+               0 0 5px var(--accent-light);
+  transform: scale(1.2);
+}
+
+/* Legal Disclaimer Section */
+.disclaimer-section {
+  margin-bottom: 30px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 20px;
+}
+
+.disclaimer-toggle {
+  background: none;
+  border: none;
+  color: var(--light-text);
+  padding: 10px 15px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  transition: all 0.3s;
+}
+
+.disclaimer-toggle:hover {
+  color: var(--accent);
+  text-shadow: 0 0 1px white, 
+               0 0 2px var(--accent),
+               0 0 3px var(--accent-light);
+}
+
+.toggle-icon {
+  transition: transform 0.3s;
+  margin-left: auto;
+}
+
+.disclaimer-toggle[aria-expanded="true"] .toggle-icon {
+  transform: rotate(-180deg);
+}
+
+.disclaimer-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.6s ease, padding 0.6s ease;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  color: var(--light-text);
+}
+
+.disclaimer-content.expanded {
+  max-height: 2000px;
+  padding: 20px;
+}
+
+.disclaimer-content p {
+  margin-bottom: 15px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--light-text);
+}
+
+.disclaimer-content ul {
+  padding-left: 20px;
+  margin-bottom: 15px;
+}
+
+.disclaimer-content li {
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  color: var(--light-text);
+}
+
+/* Copyright Bar */
+.copyright-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.9rem;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.copyright-bar p {
+  margin: 0;
+  color: var(--light-text);
+}
+
+.mini-links {
+  display: flex;
+  gap: 20px;
+}
+
+.mini-links a {
+  color: var(--light-text);
+  text-decoration: none;
+  transition: all 0.3s;
+  position: relative;
+}
+
+/* UPDATED: Mini links hover effect to match header style */
+.mini-links a:hover {
+  color: white;
+  text-shadow: 0 0 1px white, 
+               0 0 2px white, 
+               0 0 3px var(--accent),
+               0 0 4px var(--accent),
+               0 0 5px var(--accent-light);
+  transform: scale(1.05);
+}
+
+/* Force all text in footer to be white */
+.holmdex-footer, 
+.holmdex-footer p, 
+.holmdex-footer h3, 
+.holmdex-footer a, 
+.holmdex-footer li, 
+.holmdex-footer button, 
+.disclaimer-content, 
+.disclaimer-content p, 
+.disclaimer-content li {
+  color: var(--light-text) !important;
+}
+
+/* Fix for WordPress themes with fixed heights - more targeted approach */
+.site-footer {
+  margin-top: auto;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+  .holmdex-footer {
+    padding-top: 40px;
+  }
+  
+  .footer-content {
+    flex-direction: column;
+  }
+  
+  .footer-column {
+    width: 100%;
+    padding-right: 0;
+    margin-bottom: 30px;
+  }
+  
+  .footer-column:last-child {
+    margin-bottom: 20px;
+  }
+  
+  .copyright-bar {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+  
+  .mini-links {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
+
+/* Small Mobile Adjustments */
+@media (max-width: 480px) {
+  .footer-logo {
+    font-size: 1.4rem;
+  }
+  
+  .mini-links {
+    gap: 10px;
+  }
+  
+  .mini-links a {
+    font-size: 0.8rem;
+  }
+}
