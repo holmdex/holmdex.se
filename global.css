@@ -1,0 +1,884 @@
+/* 
+====================================
+ HOLMDEX GLOBAL STYLES
+====================================
+This file contains global styles to standardize appearance and behavior 
+throughout the Holmdex website, ensuring consistency between header, 
+footer, and content areas.
+*/
+
+/* 
+====================================
+ VARIABLES
+====================================
+*/
+:root {
+  /* Primary Colors */
+  --primary-dark: #0A2540;    /* Deep blue */
+  --primary-mid: #224870;     /* Medium blue */
+  --primary-light: #A9CCE3;   /* Light blue */
+  --background: #F9F9F9;      /* Light background */
+  --accent: #25A75E;          /* Green accent */
+  --accent-light: #5BC88A;    /* Lighter green */
+  --accent-dark: #1E8A4C;     /* Darker green */
+  --neutral-gray: #6C7A89;    /* Medium gray */
+  --light-gray: #D5DBDB;      /* Light gray */
+  --light-text: #F9F9F9;      /* Light text */
+  
+  /* Secondary colors */
+  --warning: #f39c12;         /* Orange for warnings/notifications */
+  --danger: #e74c3c;          /* Red for errors/danger */
+  --success: #2ecc71;         /* Green for success */
+  --info: #3498db;            /* Blue for information */
+  
+  /* Font sizes */
+  --text-xs: 0.75rem;    /* 12px */
+  --text-sm: 0.875rem;   /* 14px */
+  --text-base: 1rem;     /* 16px */
+  --text-lg: 1.125rem;   /* 18px */
+  --text-xl: 1.25rem;    /* 20px */
+  --text-2xl: 1.5rem;    /* 24px */
+  --text-3xl: 1.875rem;  /* 30px */
+  --text-4xl: 2.25rem;   /* 36px */
+  
+  /* Spacing */
+  --space-xs: 0.25rem;   /* 4px */
+  --space-sm: 0.5rem;    /* 8px */
+  --space-md: 1rem;      /* 16px */
+  --space-lg: 1.5rem;    /* 24px */
+  --space-xl: 2rem;      /* 32px */
+  --space-2xl: 3rem;     /* 48px */
+  --space-3xl: 4rem;     /* 64px */
+  
+  /* Borders */
+  --radius-sm: 0.25rem;  /* 4px */
+  --radius-md: 0.5rem;   /* 8px */
+  --radius-lg: 1rem;     /* 16px */
+  --radius-full: 9999px;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
+  
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 300ms ease;
+  --transition-slow: 500ms ease;
+  
+  /* Z-indices */
+  --z-negative: -1;
+  --z-elevate: 1;
+  --z-dropdown: 10;
+  --z-sticky: 100;
+  --z-fixed: 200;
+  --z-modal: 300;
+  --z-popover: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+  
+  /* Gradient Animation */
+  --gradient-animation: gradient-bg 15s ease infinite;
+}
+
+/* 
+====================================
+ GLOBAL RESETS
+====================================
+*/
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Ensure site fills viewport height */
+html, body {
+  height: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Nunito', sans-serif;
+  line-height: 1.6;
+  color: var(--primary-dark);
+  background-color: var(--background);
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Make main content fill available space */
+main {
+  flex: 1 0 auto;
+}
+
+/* Basic heading styles */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--primary-dark);
+  margin-bottom: var(--space-md);
+}
+
+/* Container for consistent width */
+.container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 var(--space-md);
+}
+
+/* Force all text in dark backgrounds to be white */
+[class*="dark"] h1, 
+[class*="dark"] h2, 
+[class*="dark"] h3, 
+[class*="dark"] h4, 
+[class*="dark"] h5, 
+[class*="dark"] h6, 
+[class*="dark"] p, 
+[class*="dark"] a, 
+[class*="dark"] li, 
+[class*="dark"] span {
+  color: var(--light-text);
+}
+
+/* WordPress admin bar compatibility */
+body.admin-bar .holmdex-header {
+  top: 32px;
+}
+
+@media screen and (max-width: 782px) {
+  body.admin-bar .holmdex-header {
+    top: 46px;
+  }
+}
+
+/* 
+====================================
+ GRADIENT BACKGROUNDS
+====================================
+*/
+.gradient-bg {
+  background: linear-gradient(-45deg, #0A2540, #1a3a5f, #25A75E, #A9CCE3);
+  background-size: 400% 400%;
+  animation: var(--gradient-animation);
+}
+
+@keyframes gradient-bg {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* 
+====================================
+ HEADER & FOOTER SHARED ELEMENTS
+====================================
+*/
+
+/* Gradient backgrounds for header and footer */
+.header-gradient,
+.footer-gradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(-45deg, #0A2540, #1a3a5f, #25A75E, #A9CCE3);
+  background-size: 400% 400%;
+  animation: gradient-bg 15s ease infinite;
+  opacity: 1;
+  z-index: -1;
+}
+
+@keyframes gradient-bg {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Logo styling (both header and footer) */
+.logo,
+.footer-logo {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--light-text);
+  text-decoration: none;
+  letter-spacing: 1px;
+  transition: transform 0.3s ease;
+}
+
+.logo span,
+.footer-logo span {
+  color: var(--accent);
+}
+
+/* Logo hover effects */
+.logo:hover,
+.footer-logo:hover {
+  transform: scale(1.05);
+  color: var(--light-text); /* Keep text white */
+}
+
+.logo:hover span,
+.footer-logo:hover span {
+  color: var(--accent); /* Keep span green */
+  text-shadow: none; /* Explicitly remove any glow */
+}
+
+/* Navigation items in header and footer */
+.nav-menu a,
+.footer-column a:not(.footer-logo):not(.social-links a) {
+  color: var(--light-text);
+  text-decoration: none;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+}
+
+.nav-menu a i,
+.footer-column a:not(.footer-logo) i:not(.social-links a i) {
+  opacity: 0.8;
+  transition: all 0.3s ease;
+}
+
+/* Nav items hover effects */
+.nav-menu a span,
+.nav-menu a i,
+.footer-column a:not(.footer-logo):not(.social-links a) span,
+.footer-column a:not(.footer-logo):not(.social-links a) i {
+  position: relative;
+  transition: all 0.3s ease;
+  text-shadow: 0 0 0 transparent;
+}
+
+.nav-menu a:hover span,
+.nav-menu a:hover i,
+.nav-menu li.current-menu-item a span,
+.nav-menu li.current-menu-item a i,
+.footer-column a:not(.footer-logo):not(.social-links a):hover span,
+.footer-column a:not(.footer-logo):not(.social-links a):hover i {
+  color: white;
+  text-shadow: 0 0 1px white, 
+               0 0 2px white, 
+               0 0 3px rgba(255, 255, 255, 0.8),
+               0 0 4px rgba(255, 255, 255, 0.6),
+               0 0 5px rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.02em;
+  transform: scale(1.05);
+  opacity: 1;
+}
+
+/* Social links hover effects */
+.social-links a:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-3px);
+}
+
+.social-links a:hover i {
+  color: white;
+  text-shadow: 0 0 1px white, 
+               0 0 2px white, 
+               0 0 3px rgba(255, 255, 255, 0.8),
+               0 0 4px rgba(255, 255, 255, 0.6),
+               0 0 5px rgba(255, 255, 255, 0.4);
+  transform: scale(1.2);
+}
+
+/* Mini links hover effects */
+.mini-links a:hover {
+  color: white;
+  text-shadow: 0 0 1px white, 
+               0 0 2px white, 
+               0 0 3px rgba(255, 255, 255, 0.8),
+               0 0 4px rgba(255, 255, 255, 0.6),
+               0 0 5px rgba(255, 255, 255, 0.4);
+  transform: scale(1.05);
+}
+
+/* Disclaimer toggle hover */
+.disclaimer-toggle:hover {
+  color: white;
+  text-shadow: 0 0 1px white, 
+               0 0 2px white, 
+               0 0 3px rgba(255, 255, 255, 0.8),
+               0 0 4px rgba(255, 255, 255, 0.6),
+               0 0 5px rgba(255, 255, 255, 0.4);
+}
+
+/* 
+====================================
+ LINKS & BUTTONS
+====================================
+*/
+/* Base Link Styles */
+a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: all var(--transition-normal);
+}
+
+a:hover, a:focus {
+  color: var(--accent-dark);
+}
+
+/* Logo specific styling to override other hover effects */
+.logo:hover, .footer-logo:hover {
+  transform: scale(1.05);
+  color: var(--light-text); /* Keep logo text white on hover */
+}
+
+.logo:hover span, .footer-logo:hover span {
+  color: var(--accent); /* Keep 'dex' part green on hover */
+  text-shadow: none; /* Remove any text shadow */
+}
+
+/* Button Base */
+.btn, 
+button:not([class*="wp-"]):not([class*="menu"]):not([class*="mce"]):not([class*="search"]), 
+input[type="button"], 
+input[type="submit"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75em 1.5em;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  border: none;
+  font-size: var(--text-base);
+  text-decoration: none;
+  gap: var(--space-sm);
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* Primary Button */
+.btn-primary, 
+.wp-block-button:not(.is-style-outline) .wp-block-button__link {
+  background-color: var(--accent);
+  color: var(--light-text);
+}
+
+.btn-primary:hover, 
+.btn-primary:focus,
+.wp-block-button:not(.is-style-outline) .wp-block-button__link:hover,
+.wp-block-button:not(.is-style-outline) .wp-block-button__link:focus {
+  background-color: var(--accent-dark);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  color: var(--light-text);
+}
+
+/* Secondary Button */
+.btn-secondary,
+.wp-block-button.is-style-outline .wp-block-button__link {
+  background-color: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+.btn-secondary:hover, 
+.btn-secondary:focus,
+.wp-block-button.is-style-outline .wp-block-button__link:hover,
+.wp-block-button.is-style-outline .wp-block-button__link:focus {
+  background-color: rgba(37, 167, 94, 0.1);
+  border-color: var(--accent-dark);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  color: var(--accent-dark);
+}
+
+/* Text outline effects for links and buttons */
+.text-outline,
+.holmdex-header .nav-menu a span,
+.holmdex-header .nav-menu a i,
+.holmdex-footer .footer-column a span,
+.holmdex-footer .footer-column a i {
+  position: relative;
+  transition: all var(--transition-normal);
+  text-shadow: 0 0 0 transparent;
+}
+
+/* Standardized hover effect for outlined text */
+.text-outline:hover,
+.holmdex-header .nav-menu a:hover span,
+.holmdex-header .nav-menu a:hover i,
+.holmdex-header .nav-menu li.current-menu-item a span,
+.holmdex-header .nav-menu li.current-menu-item a i,
+.holmdex-footer .footer-column a:hover span,
+.holmdex-footer .footer-column a:hover i {
+  color: white;
+  text-shadow: 0 0 1px white, 
+               0 0 2px white, 
+               0 0 3px rgba(255, 255, 255, 0.8),
+               0 0 4px rgba(255, 255, 255, 0.6),
+               0 0 5px rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.02em;
+  transform: scale(1.05);
+}
+
+/* 
+====================================
+ NAVIGATION ELEMENTS
+====================================
+*/
+/* Base navigation list styles */
+.nav-list {
+  list-style: none;
+  display: flex;
+  padding: 0;
+  margin: 0;
+}
+
+/* Common hover effect for nav items */
+.nav-item a {
+  transition: all var(--transition-normal);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.nav-item a:hover {
+  transform: translateY(-2px);
+}
+
+/* Current/active navigation item */
+.nav-item.active a,
+.nav-item.current-menu-item a {
+  font-weight: 700;
+}
+
+/* Icon styling in navigation */
+.nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-normal);
+  opacity: 0.8;
+}
+
+a:hover .nav-icon {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* 
+====================================
+ CARDS & CONTAINERS
+====================================
+*/
+/* Basic card styling */
+.card {
+  background-color: var(--light-text);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  transition: all var(--transition-normal);
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Card sections */
+.card-header {
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--light-gray);
+}
+
+.card-body {
+  padding: var(--space-md);
+}
+
+.card-footer {
+  padding: var(--space-md);
+  border-top: 1px solid var(--light-gray);
+}
+
+/* 
+====================================
+ FORM ELEMENTS
+====================================
+*/
+/* Base form styling */
+form {
+  margin-bottom: var(--space-lg);
+}
+
+/* Input styling */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
+input[type="search"],
+textarea,
+select {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--light-gray);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  transition: all var(--transition-normal);
+  background-color: var(--light-text);
+  color: var(--primary-dark);
+  font-family: inherit;
+}
+
+/* Focus states */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 167, 94, 0.2);
+}
+
+/* Labels */
+label {
+  display: block;
+  margin-bottom: var(--space-sm);
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+/* Form groups */
+.form-group {
+  margin-bottom: var(--space-md);
+}
+
+/* Custom checkbox and radio styling */
+input[type="checkbox"],
+input[type="radio"] {
+  margin-right: var(--space-sm);
+}
+
+/* 
+====================================
+ INTERACTIVE ELEMENTS
+====================================
+*/
+/* Interactive card hover effects */
+.interactive-card {
+  transition: all var(--transition-normal);
+  cursor: pointer;
+}
+
+.interactive-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Interactive images */
+.interactive-image {
+  overflow: hidden;
+  position: relative;
+}
+
+.interactive-image img {
+  transition: transform var(--transition-normal);
+}
+
+.interactive-image:hover img {
+  transform: scale(1.05);
+}
+
+/* 3D-like hover effect */
+.hover-3d {
+  transition: transform var(--transition-normal);
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+.hover-3d:hover {
+  transform: translateY(-5px) rotateX(2deg) rotateY(-2deg);
+}
+
+/* Pulsate animation for attention */
+.pulsate {
+  animation: pulsate 2s ease-in-out infinite;
+}
+
+@keyframes pulsate {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* Fade in animation */
+.fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+  opacity: 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 
+====================================
+ TOOLTIPS & POPOVERS
+====================================
+*/
+/* Basic tooltip */
+.tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip .tooltip-text {
+  visibility: hidden;
+  width: 120px;
+  background-color: var(--primary-dark);
+  color: var(--light-text);
+  text-align: center;
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-sm);
+  position: absolute;
+  z-index: var(--z-tooltip);
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+  font-size: var(--text-xs);
+  font-weight: normal;
+  pointer-events: none;
+}
+
+.tooltip .tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: var(--primary-dark) transparent transparent transparent;
+}
+
+.tooltip:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* 
+====================================
+ ACCESSIBILITY IMPROVEMENTS
+====================================
+*/
+/* Focus visible indicator */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Skip link for keyboard navigation */
+.skip-link {
+  background: var(--accent);
+  color: var(--light-text);
+  font-weight: 700;
+  left: 50%;
+  padding: var(--space-sm) var(--space-md);
+  position: absolute;
+  transform: translateY(-110%) translateX(-50%);
+  transition: transform var(--transition-normal);
+  z-index: var(--z-tooltip);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.skip-link:focus {
+  transform: translateY(0) translateX(-50%);
+  outline: 2px solid var(--accent-dark);
+}
+
+/* Visually hidden elements (for screen readers) */
+.visually-hidden {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+}
+
+/* 
+====================================
+ ANIMATION CLASSES
+====================================
+*/
+/* Fade in animations */
+.fade-in-up {
+  animation: fadeInUp 0.8s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-down {
+  animation: fadeInDown 0.8s ease-out forwards;
+}
+
+@keyframes fadeInDown {
+  from { 
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-left {
+  animation: fadeInLeft 0.8s ease-out forwards;
+}
+
+@keyframes fadeInLeft {
+  from { 
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.fade-in-right {
+  animation: fadeInRight 0.8s ease-out forwards;
+}
+
+@keyframes fadeInRight {
+  from { 
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Reveal animation for sections */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 0.8s ease;
+}
+
+.reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 
+====================================
+ BACK TO TOP BUTTON
+====================================
+*/
+.back-to-top {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: var(--primary-dark);
+  color: var(--light-text);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(20px);
+  visibility: hidden;
+  transition: all var(--transition-normal);
+  z-index: var(--z-fixed);
+}
+
+.back-to-top.visible {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+}
+
+.back-to-top:hover, .back-to-top:focus {
+  background-color: var(--accent);
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* 
+====================================
+ MEDIA QUERIES
+====================================
+*/
+/* Medium screens (tablets) */
+@media screen and (max-width: 992px) {
+  :root {
+    --text-4xl: 2rem;
+    --text-3xl: 1.75rem;
+    --text-2xl: 1.5rem;
+    --space-3xl: 3rem;
+  }
+}
+
+/* Small screens (mobile) */
+@media screen and (max-width: 768px) {
+  :root {
+    --text-4xl: 1.75rem;
+    --text-3xl: 1.5rem;
+    --text-2xl: 1.25rem;
+    --text-xl: 1.125rem;
+    --space-2xl: 2rem;
+    --space-3xl: 2.5rem;
+  }
+  
+  /* Adjust back to top button */
+  .back-to-top {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+  }
+}
+
+/* Extra small screens */
+@media screen and (max-width: 480px) {
+  :root {
+    --space-3xl: 2rem;
+    --space-2xl: 1.5rem;
+  }
+  
+  /* Further reduce button size */
+  .back-to-top {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+    bottom: 15px;
+    right: 15px;
+  }
+}
