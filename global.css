@@ -194,12 +194,6 @@ body.admin-bar .holmdex-header {
   z-index: -1;
 }
 
-@keyframes gradient-bg {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
 /* Logo styling (both header and footer) */
 .logo,
 .footer-logo {
@@ -216,22 +210,27 @@ body.admin-bar .holmdex-header {
   color: var(--accent);
 }
 
-/* Logo hover effects */
+/* Logo hover effects - ONLY scale, no text changes or glows */
 .logo:hover,
-.footer-logo:hover {
+.logo:focus,
+.footer-logo:hover,
+.footer-logo:focus {
   transform: scale(1.05);
-  color: var(--light-text); /* Keep text white */
+  color: var(--light-text);
+  text-shadow: none;
 }
 
 .logo:hover span,
-.footer-logo:hover span {
-  color: var(--accent); /* Keep span green */
-  text-shadow: none; /* Explicitly remove any glow */
+.logo:focus span,
+.footer-logo:hover span,
+.footer-logo:focus span {
+  color: var(--accent);
+  text-shadow: none;
 }
 
 /* Navigation items in header and footer */
 .nav-menu a,
-.footer-column a:not(.footer-logo):not(.social-links a) {
+.footer-column a:not(.footer-logo) {
   color: var(--light-text);
   text-decoration: none;
   transition: all 0.3s;
@@ -240,7 +239,7 @@ body.admin-bar .holmdex-header {
 }
 
 .nav-menu a i,
-.footer-column a:not(.footer-logo) i:not(.social-links a i) {
+.footer-column a:not(.footer-logo) i {
   opacity: 0.8;
   transition: all 0.3s ease;
 }
@@ -325,17 +324,6 @@ a:hover, a:focus {
   color: var(--accent-dark);
 }
 
-/* Logo specific styling to override other hover effects */
-.logo:hover, .footer-logo:hover {
-  transform: scale(1.05);
-  color: var(--light-text); /* Keep logo text white on hover */
-}
-
-.logo:hover span, .footer-logo:hover span {
-  color: var(--accent); /* Keep 'dex' part green on hover */
-  text-shadow: none; /* Remove any text shadow */
-}
-
 /* Button Base */
 .btn, 
 button:not([class*="wp-"]):not([class*="menu"]):not([class*="mce"]):not([class*="search"]), 
@@ -394,24 +382,14 @@ input[type="submit"] {
 }
 
 /* Text outline effects for links and buttons */
-.text-outline,
-.holmdex-header .nav-menu a span,
-.holmdex-header .nav-menu a i,
-.holmdex-footer .footer-column a span,
-.holmdex-footer .footer-column a i {
+.text-outline {
   position: relative;
   transition: all var(--transition-normal);
   text-shadow: 0 0 0 transparent;
 }
 
 /* Standardized hover effect for outlined text */
-.text-outline:hover,
-.holmdex-header .nav-menu a:hover span,
-.holmdex-header .nav-menu a:hover i,
-.holmdex-header .nav-menu li.current-menu-item a span,
-.holmdex-header .nav-menu li.current-menu-item a i,
-.holmdex-footer .footer-column a:hover span,
-.holmdex-footer .footer-column a:hover i {
+.text-outline:hover {
   color: white;
   text-shadow: 0 0 1px white, 
                0 0 2px white, 
@@ -465,6 +443,26 @@ input[type="submit"] {
 a:hover .nav-icon {
   opacity: 1;
   transform: scale(1.1);
+}
+
+/* Current menu items - white glow instead of green color */
+.nav-menu li.current-menu-item a,
+.nav-menu li.current-menu-item a span,
+.nav-menu li.current-menu-item a i,
+.nav-menu li.current_page_item a,
+.nav-menu li.current_page_item a span,
+.nav-menu li.current_page_item a i,
+.footer-column li.current-menu-item a,
+.footer-column li.current-menu-item a span,
+.footer-column li.current-menu-item a i,
+.footer-column li.current_page_item a,
+.footer-column li.current_page_item a span,
+.footer-column li.current_page_item a i {
+  color: white;
+  text-shadow: 0 0 1px white, 
+               0 0 2px white, 
+               0 0 3px rgba(255, 255, 255, 0.6);
+  font-weight: 600;
 }
 
 /* 
@@ -830,6 +828,59 @@ input[type="radio"] {
   background-color: var(--accent);
   transform: translateY(-5px);
   box-shadow: var(--shadow-lg);
+}
+
+/* 
+====================================
+ CRITICAL FIXES FOR LOGO HOVER EFFECTS
+====================================
+*/
+/* Ensure logo only scales without text effects during hover */
+.logo:hover,
+.logo:focus,
+.footer-logo:hover,
+.footer-logo:focus {
+  transform: scale(1.05) !important;
+  color: var(--light-text) !important;
+  text-shadow: none !important;
+}
+
+/* Preserve accent color for the span portion while preventing glow effects */
+.logo:hover span,
+.logo:focus span,
+.footer-logo:hover span,
+.footer-logo:focus span {
+  color: var(--accent) !important;
+  text-shadow: none !important;
+  transform: none !important;
+  letter-spacing: normal !important;
+}
+
+/* Fix for current page indicators - use white glow instead of green */
+.current-menu-item a, 
+.current_page_item a,
+.active-page,
+.footer-column .current-menu-item a, 
+.footer-column .current_page_item a {
+  color: white !important;
+  text-shadow: 0 0 1px white, 
+               0 0 2px white, 
+               0 0 3px rgba(255, 255, 255, 0.6) !important;
+  font-weight: 600;
+}
+
+.current-menu-item a span, 
+.current-menu-item a i, 
+.current_page_item a span, 
+.current_page_item a i,
+.footer-column .current-menu-item a span, 
+.footer-column .current-menu-item a i, 
+.footer-column .current_page_item a span, 
+.footer-column .current_page_item a i {
+  color: white !important;
+  text-shadow: 0 0 1px white, 
+               0 0 2px white, 
+               0 0 3px rgba(255, 255, 255, 0.6) !important;
 }
 
 /* 
