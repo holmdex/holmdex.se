@@ -1,0 +1,270 @@
+/* Global Header CSS with Letter Outline Effect */
+:root {
+  --primary-dark: #0A2540;    /* Deep blue */
+  --primary-mid: #224870;     /* Medium blue */
+  --primary-light: #A9CCE3;   /* Light blue */
+  --background: #F9F9F9;      /* Bone */
+  --accent: #25A75E;          /* Green accent */
+  --accent-light: #5BC88A;    /* Lighter green */
+  --accent-dark: #1E8A4C;     /* Darker green */
+  --neutral-gray: #6C7A89;    /* Medium gray */
+  --light-gray: #D5DBDB;      /* Light gray */
+  --light-text: #F9F9F9;      /* Light text */
+}
+
+/* Container */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Header Base Styles */
+.holmdex-header {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  z-index: 1000;
+  height: 70px;
+  display: flex;
+  align-items: center;
+}
+
+/* Gradient Background Animation */
+.header-gradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(-45deg, #0A2540, #1a3a5f, #25A75E, #A9CCE3);
+  background-size: 400% 400%;
+  animation: gradient-bg 15s ease infinite;
+  opacity: 1;
+  z-index: -1;
+}
+
+@keyframes gradient-bg {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Header Inner Container */
+.header-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Logo Styling */
+.logo-container {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.logo {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--light-text);
+  text-decoration: none;
+  letter-spacing: 1px;
+  transition: transform 0.3s ease;
+  padding: 0 10px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.logo span {
+  color: var(--accent);
+}
+
+/* Navigation Menu */
+.nav-menu {
+  height: 100%;
+}
+
+.nav-menu ul {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+.nav-menu li {
+  height: 100%;
+  position: relative;
+}
+
+.nav-menu a {
+  color: var(--light-text);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.95rem;
+  position: relative;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 15px;
+  height: 100%;
+}
+
+/* Text outline effect */
+.nav-menu a span,
+.nav-menu a i {
+  position: relative;
+  transition: all 0.3s ease;
+  text-shadow: 0 0 0 transparent;
+}
+
+.nav-menu a:hover span,
+.nav-menu a:hover i,
+.nav-menu li.current-menu-item a span,
+.nav-menu li.current-menu-item a i {
+  color: white;
+  text-shadow: 0 0 1px white, 
+               0 0 2px white, 
+               0 0 3px var(--accent),
+               0 0 4px var(--accent),
+               0 0 5px var(--accent-light);
+  letter-spacing: 0.02em;
+  transform: scale(1.05);
+}
+
+.nav-menu a i {
+  margin-right: 8px;
+  font-size: 1rem;
+  opacity: 0.8;
+}
+
+.nav-menu a:hover i {
+  opacity: 1;
+}
+
+/* Active menu item styling */
+.nav-menu li.current-menu-item a {
+  color: white;
+}
+
+/* Mobile Menu Button */
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--light-text);
+  font-size: 1.5rem;
+  cursor: pointer;
+  z-index: 100;
+  padding: 10px;
+  transition: color 0.3s;
+}
+
+.mobile-menu-btn:hover {
+  color: white;
+}
+
+/* Mobile Menu Overlay */
+.menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s;
+  z-index: 98;
+}
+
+.menu-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Admin Bar Compatibility */
+body.admin-bar .holmdex-header {
+  top: 32px;
+}
+
+@media screen and (max-width: 782px) {
+  body.admin-bar .holmdex-header {
+    top: 46px;
+  }
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+  .holmdex-header {
+    height: 60px;
+  }
+  
+  .logo {
+    font-size: 1.6rem;
+  }
+  
+  .mobile-menu-btn {
+    display: block;
+  }
+  
+  .nav-menu {
+    position: fixed;
+    top: 0;
+    right: -100%;
+    width: 250px;
+    height: 100vh;
+    background-color: var(--primary-dark);
+    padding-top: 70px;
+    transition: right 0.3s ease;
+    z-index: 99;
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
+  }
+  
+  .nav-menu.active {
+    right: 0;
+  }
+  
+  .nav-menu ul {
+    flex-direction: column;
+    height: auto;
+  }
+  
+  .nav-menu li {
+    height: auto;
+  }
+  
+  .nav-menu a {
+    padding: 15px 25px;
+    height: auto;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    justify-content: flex-start;
+  }
+  
+  .nav-menu a i {
+    width: 25px;
+    text-align: center;
+    margin-right: 15px;
+  }
+}
+
+/* Small Mobile Adjustments */
+@media (max-width: 480px) {
+  .holmdex-header {
+    height: 50px;
+  }
+  
+  .logo {
+    font-size: 1.4rem;
+  }
+  
+  .mobile-menu-btn {
+    font-size: 1.2rem;
+  }
+}
