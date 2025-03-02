@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holmdex - Your Financial Hub</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* Base styles */
+        :root {
+            --primary: #2c3e50;
+            --primary-light: #34495e;
+            --primary-dark: #1a2530;
+            --accent: #3498db;
+            --accent-light: #5dade2;
+            --accent-dark: #217dbb;
+            --light: #f5f7fa;
+            --gray: #95a5a6;
+            --dark: #2c3e50;
+            --white: #ffffff;
+            --shadow: 0 4px 12px rgba(0,0,0,0.1);
+            --radius: 8px;
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Nunito', sans-serif;
+            line-height: 1.6;
+            color: var(--dark);
+            background-color: var(--white);
+        }
+        
+        h1, h2, h3 {
+            font-family: 'Roboto', sans-serif;
+            font-weight: 700;
+        }
+        
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Header notice */
+        .construction-notice {
+            background-color: var(--accent);
+            text-align: center;
+            padding: 10px;
+            position: relative;
+            color: var(--white);
+            font-weight: 600;
+        }
+        
+        .close-btn {
+            background: transparent;
+            border: none;
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: var(--white);
+            font-size: 18px;
+        }
+        
+        /* Hero section */
+        .hero {
+            text-align: center;
+            padding: 70px 0;
+            background-color: var(--light);
+        }
+        
+        .hero h1 {
+            font-size: 42px;
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+        
+        .hero .tagline {
+            font-size: 20px;
+            max-width: 700px;
+            margin: 0 auto 30px;
+            color: var(--primary-light);
+        }
+        
+        .contact-info {
+            margin-top: 40px;
+            font-size: 18px;
+            color: var(--gray);
+        }
+        
+        .contact-info a {
+            color: var(--accent);
+            font-weight: 700;
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 2px;
+            transition: var(--transition);
+        }
+        
+        .contact-info a:hover {
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+        
+        /* Services grid */
+        .section-title {
+            text-align: center;
+            font-size: 32px;
+            margin: 70px 0 40px;
+            color: var(--primary);
+            position: relative;
+            padding-bottom: 15px;
+        }
+        
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background-color: var(--accent);
+        }
+        
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            padding: 0 10px;
+            margin-bottom: 70px;
+        }
+        
+        .service-card {
+            background-color: var(--white);
+            border-radius: var(--radius);
+            padding: 30px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+            border: 1px solid transparent;
+        }
+        
+        .service-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            border-color: var(--light);
+        }
+        
+        .service-card h3 {
+            margin: 15px 0;
+            font-size: 22px;
+            color: var(--primary);
+        }
+        
+        .service-card i {
+            font-size: 36px;
+            color: var(--accent);
+            margin-bottom: 5px;
+        }
+        
+        .service-card p {
+            color: var(--gray);
+            margin-bottom: 10px;
+            flex-grow: 1;
+        }
+        
+        /* Sources section */
+        .sources-section {
+            background-color: var(--light);
+            padding: 70px 0;
+            margin: 70px 0;
+        }
+        
+        .sources-section h3 {
+            text-align: center;
+            font-size: 26px;
+            margin-bottom: 20px;
+            color: var(--primary);
+        }
+        
+        .sources-section p {
+            text-align: center;
+            margin-bottom: 30px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            color: var(--gray);
+        }
+        
+        .news-sources-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .news-source-btn {
+            background-color: var(--white);
+            border-radius: var(--radius);
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            min-width: 180px;
+        }
+        
+        .news-source-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+        
+        .source-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background-color: var(--light);
+            border-radius: 50%;
+            margin-right: 12px;
+        }
+        
+        .source-country {
+            margin-left: auto;
+            font-size: 20px;
+        }
+        
+        .inline-link {
+            color: var(--accent);
+            font-weight: 600;
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 2px;
+            transition: var(--transition);
+        }
+        
+        .inline-link:hover {
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+        
+        /* CTA section */
+        .cta-section {
+            padding: 70px 0;
+            background-color: var(--primary);
+            color: var(--white);
+            text-align: center;
+        }
+        
+        .cta-section h3 {
+            font-size: 28px;
+            margin-bottom: 25px;
+        }
+        
+        .cta-list {
+            list-style: none;
+            max-width: 500px;
+            margin: 0 auto 30px;
+            text-align: left;
+        }
+        
+        .cta-list li {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .cta-list li::before {
+            content: "✓";
+            color: var(--accent-light);
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            padding: 12px 30px;
+            background-color: var(--accent);
+            color: var(--white);
+            font-weight: 700;
+            border-radius: var(--radius);
+            font-size: 18px;
+            transition: var(--transition);
+        }
+        
+        .cta-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            background-color: var(--accent-dark);
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 32px;
+            }
+            
+            .hero .tagline {
+                font-size: 18px;
+            }
+            
+            .section-title {
+                font-size: 28px;
+            }
+            
+            .services-grid {
+                grid-template-columns: 1fr;
+                max-width: 500px;
+                margin: 0 auto 50px;
+            }
+            
+            .news-sources-grid {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .news-source-btn {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+        
+        /* Animation for notice */
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Construction Notice -->
+    <div class="construction-notice" id="constructionNotice">
+        <i class="fas fa-hard-hat"></i> Holmdex is currently under construction
+        <button class="close-btn" onclick="closeNotice()"><i class="fas fa-times"></i></button>
+    </div>
+    
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <h1>Holmdex</h1>
+            <p class="tagline">A hub for finance - Our comprehensive suite of professional services caters to a diverse clientele, from individual investors to financial institutions</p>
+            
+            <div class="contact-info">
+                For inquiries or consultations, contact us at <a href="mailto:info@holmdex.se">info@holmdex.se</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Services Section -->
+    <section>
+        <div class="container">
+            <h2 class="section-title">Our Services</h2>
+            
+            <div class="services-grid">
+                <a href="https://www.holmdex.se/" class="service-card">
+                    <i class="fas fa-newspaper"></i>
+                    <h3>Posts</h3>
+                    <p>Save time and see economic news here instead of clicking through annoying paywalls. Get curated financial insights in one place.</p>
+                </a>
+    
+                <a href="https://www.holmdex.se/markets/" class="service-card">
+                    <i class="fas fa-chart-line"></i>
+                    <h3>Markets</h3>
+                    <p>Follow the market live with embedded graphs from legitimate and popular financial websites, all in one convenient location.</p>
+                </a>
+    
+                <a href="https://www.holmdex.se/daily-report/" class="service-card">
+                    <i class="fas fa-file-alt"></i>
+                    <h3>Daily Report</h3>
+                    <p>Track the daily, weekly, monthly, and yearly state of economies with our AI-enhanced comprehensive market reports.</p>
+                </a>
+    
+                <a href="https://www.holmdex.se/faq/" class="service-card">
+                    <i class="fas fa-question-circle"></i>
+                    <h3>FAQ</h3>
+                    <p>Find answers to commonly asked questions and thoughts. An ideal starting point for newcomers to investing.</p>
+                </a>
+    
+                <a href="https://www.holmdex.se/about-us/" class="service-card">
+                    <i class="fas fa-users"></i>
+                    <h3>About Us</h3>
+                    <p>Learn about who we are, our mission, and the companies that inspired us through their aesthetics or functionality.</p>
+                </a>
+    
+                <a href="mailto:info@holmdex.se" class="service-card">
+                    <i class="fas fa-headset"></i>
+                    <h3>Support</h3>
+                    <p>Having trouble understanding concepts? Send us an email and we'll reply as quickly as possible to help you.</p>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Trusted Sources Section -->
+    <section class="sources-section">
+        <div class="container">
+            <h3><i class="fas fa-shield-alt"></i> Trusted Sources</h3>
+            <p>We only use licensed and/or other recognized sources for our data and insights:</p>
+            
+            <div class="news-sources-grid">
+                <a href="https://www.morningstar.com/" target="_blank" class="news-source-btn">
+                    <span class="source-logo"><i class="fas fa-star"></i></span>
+                    <span class="source-name">Morningstar</span>
+                    <span class="source-country">🇺🇸</span>
+                </a>
+                
+                <a href="https://financialpost.com/" target="_blank" class="news-source-btn">
+                    <span class="source-logo"><i class="fas fa-newspaper"></i></span>
+                    <span class="source-name">Financial Post</span>
+                    <span class="source-country">🇨🇦</span>
+                </a>
+                
+                <a href="https://www.deraktionaer.de/" target="_blank" class="news-source-btn">
+                    <span class="source-logo"><i class="fas fa-chart-pie"></i></span>
+                    <span class="source-name">Der Aktionär</span>
+                    <span class="source-country">🇩🇪</span>
+                </a>
+                
+                <a href="https://www.zonebourse.com/" target="_blank" class="news-source-btn">
+                    <span class="source-logo"><i class="fas fa-chart-line"></i></span>
+                    <span class="source-name">Zonebourse</span>
+                    <span class="source-country">🇫🇷</span>
+                </a>
+                
+                <a href="https://www.placera.se/" target="_blank" class="news-source-btn">
+                    <span class="source-logo"><i class="fas fa-university"></i></span>
+                    <span class="source-name">Placera</span>
+                    <span class="source-country">🇸🇪</span>
+                </a>
+                
+                <a href="https://www.jpx.co.jp/english/" target="_blank" class="news-source-btn">
+                    <span class="source-logo"><i class="fas fa-yen-sign"></i></span>
+                    <span class="source-name">Japan Exchange</span>
+                    <span class="source-country">🇯🇵</span>
+                </a>
+                
+                <a href="https://www.caixinglobal.com/" target="_blank" class="news-source-btn">
+                    <span class="source-logo"><i class="fas fa-yuan-sign"></i></span>
+                    <span class="source-name">Caixin Global</span>
+                    <span class="source-country">🇨🇳</span>
+                </a>
+                
+                <a href="https://www.afr.com/" target="_blank" class="news-source-btn">
+                    <span class="source-logo"><i class="fas fa-comment-dollar"></i></span>
+                    <span class="source-name">AFR</span>
+                    <span class="source-country">🇦🇺</span>
+                </a>
+            </div>
+            
+            <p style="margin-top: 30px;">For a complete list, please check our <a href="https://www.holmdex.se/faq/" class="inline-link">FAQ section</a>.</p>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <h3>Take control of your financial future</h3>
+            <ul class="cta-list">
+                <li>Access high-quality market information</li>
+                <li>Make informed decisions based on data</li>
+                <li>Stay updated with our daily reports</li>
+                <li>Learn about finance at your own pace</li>
+            </ul>
+            <a href="https://www.holmdex.se/" class="cta-button">Start exploring</a>
+        </div>
+    </section>
+
+    <script>
+        // Function to close the construction notice
+        function closeNotice() {
+            const notice = document.getElementById('constructionNotice');
+            notice.style.animation = 'fadeOut 0.3s forwards';
+            setTimeout(() => {
+                notice.style.display = 'none';
+            }, 300);
+            
+            // Save to localStorage so it stays closed on refresh
+            localStorage.setItem('noticeHidden', 'true');
+        }
+        
+        // Check if the notice has been closed before
+        document.addEventListener('DOMContentLoaded', function() {
+            if (localStorage.getItem('noticeHidden') === 'true') {
+                document.getElementById('constructionNotice').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
