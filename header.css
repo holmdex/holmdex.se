@@ -1,53 +1,22 @@
-/* Global Header CSS with Letter Outline Effect */
-:root {
-  --primary-dark: #0A2540;    /* Deep blue */
-  --primary-mid: #224870;     /* Medium blue */
-  --primary-light: #A9CCE3;   /* Light blue */
-  --background: #F9F9F9;      /* Bone */
-  --accent: #25A75E;          /* Green accent */
-  --accent-light: #5BC88A;    /* Lighter green */
-  --accent-dark: #1E8A4C;     /* Darker green */
-  --neutral-gray: #6C7A89;    /* Medium gray */
-  --light-gray: #D5DBDB;      /* Light gray */
-  --light-text: #F9F9F9;      /* Light text */
-}
-
-/* Container */
-.container {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0 20px;
-}
+/* 
+====================================
+ HOLMDEX HEADER STYLES
+====================================
+Structural styles only - hover effects in global.css
+*/
 
 /* Header Base Styles */
 .holmdex-header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   width: 100%;
   z-index: 1000;
   height: 70px;
   display: flex;
   align-items: center;
-}
-
-/* Gradient Background Animation */
-.header-gradient {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(-45deg, #0A2540, #1a3a5f, #25A75E, #A9CCE3);
-  background-size: 400% 400%;
-  animation: gradient-bg 15s ease infinite;
-  opacity: 1;
-  z-index: -1;
-}
-
-@keyframes gradient-bg {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  will-change: transform;
 }
 
 /* Header Inner Container */
@@ -59,7 +28,7 @@
   height: 100%;
 }
 
-/* Logo Styling */
+/* Logo Styling - Structure Only */
 .logo-container {
   display: flex;
   align-items: center;
@@ -67,23 +36,14 @@
 }
 
 .logo {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: var(--light-text);
-  text-decoration: none;
-  letter-spacing: 1px;
-  transition: transform 0.3s ease;
   padding: 0 10px;
   height: 100%;
   display: flex;
   align-items: center;
+  /* All other logo styling in global.css */
 }
 
-.logo span {
-  color: var(--accent);
-}
-
-/* Navigation Menu */
+/* Navigation Menu - Structure Only */
 .nav-menu {
   height: 100%;
 }
@@ -102,49 +62,19 @@
 }
 
 .nav-menu a {
-  color: var(--light-text);
-  text-decoration: none;
-  font-weight: 500;
-  font-size: 0.95rem;
   position: relative;
-  transition: all 0.3s;
+  padding: 0 15px;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 15px;
-  height: 100%;
-}
-
-/* Text outline effect */
-.nav-menu a span,
-.nav-menu a i {
-  position: relative;
-  transition: all 0.3s ease;
-  text-shadow: 0 0 0 transparent;
-}
-
-.nav-menu a:hover span,
-.nav-menu a:hover i,
-.nav-menu li.current-menu-item a span,
-.nav-menu li.current-menu-item a i {
-  color: white;
-  text-shadow: 0 0 1px white, 
-               0 0 2px white, 
-               0 0 3px var(--accent),
-               0 0 4px var(--accent),
-               0 0 5px var(--accent-light);
-  letter-spacing: 0.02em;
-  transform: scale(1.05);
+  /* All hover effects in global.css */
 }
 
 .nav-menu a i {
   margin-right: 8px;
   font-size: 1rem;
-  opacity: 0.8;
-}
-
-.nav-menu a:hover i {
-  opacity: 1;
+  /* All hover effects in global.css */
 }
 
 /* Active menu item styling */
@@ -267,4 +197,13 @@ body.admin-bar .holmdex-header {
   .mobile-menu-btn {
     font-size: 1.2rem;
   }
+}
+
+/* Header Animation Classes (used by JS) */
+.holmdex-header.header-hidden {
+  transform: translateY(-100%);
+}
+
+.holmdex-header.scrolled {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
