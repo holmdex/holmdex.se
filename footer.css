@@ -1,16 +1,9 @@
-/* Footer Styles to Match Header Aesthetics */
-:root {
-  --primary-dark: #0A2540;    /* Deep blue */
-  --primary-mid: #224870;     /* Medium blue */
-  --primary-light: #A9CCE3;   /* Light blue */
-  --background: #F9F9F9;      /* Bone */
-  --accent: #25A75E;          /* Green accent */
-  --accent-light: #5BC88A;    /* Lighter green */
-  --accent-dark: #1E8A4C;     /* Darker green */
-  --neutral-gray: #6C7A89;    /* Medium gray */
-  --light-gray: #D5DBDB;      /* Light gray */
-  --light-text: #F9F9F9;      /* Light text */
-}
+/* 
+====================================
+ HOLMDEX FOOTER STYLES
+====================================
+Structural styles only - hover effects in global.css
+*/
 
 /* Hide ONLY WordPress default footer - more specific selectors */
 .site-footer:not(.holmdex-footer),
@@ -33,33 +26,6 @@ footer.site-footer,
   background-color: var(--primary-dark); /* Fallback if gradient doesn't load */
 }
 
-/* Gradient Background Animation (matching header) */
-.footer-gradient {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(-45deg, #0A2540, #1a3a5f, #25A75E, #A9CCE3);
-  background-size: 400% 400%;
-  animation: gradient-bg 15s ease infinite;
-  opacity: 1;
-  z-index: -1;
-}
-
-@keyframes gradient-bg {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* Container */
-.holmdex-footer .container {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0 20px;
-}
-
 /* Footer Content Layout */
 .footer-content {
   display: flex;
@@ -80,25 +46,11 @@ footer.site-footer,
   min-width: 300px;
 }
 
-/* Footer Logo Styling (matching header logo) */
+/* Footer Logo Styling - Structure Only */
 .footer-logo {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: var(--light-text);
-  text-decoration: none;
-  letter-spacing: 1px;
-  transition: transform 0.3s ease;
   display: inline-block;
   margin-bottom: 10px;
-}
-
-.footer-logo span {
-  color: var(--accent);
-}
-
-.footer-logo:hover {
-  transform: scale(1.05);
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  /* All other logo styling in global.css */
 }
 
 /* Tagline */
@@ -140,47 +92,17 @@ footer.site-footer,
   margin-bottom: 10px;
 }
 
-/* Footer Links - text outline effect matching header */
-.footer-column a {
-  color: var(--light-text);
-  text-decoration: none;
-  transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  background: transparent; /* Ensure background is transparent */
+/* Footer Links - Structure Only */
+.footer-column a:not(.footer-logo):not(.social-links a) {
+  background: transparent;
+  /* All hover effects in global.css */
 }
 
-.footer-column a i,
-.footer-column a span {
-  position: relative;
-  transition: all 0.3s ease;
-  text-shadow: 0 0 0 transparent;
-}
-
-.footer-column a i {
+.footer-column a:not(.footer-logo):not(.social-links a) i {
   margin-right: 8px;
   width: 20px;
   text-align: center;
-  opacity: 0.8;
-}
-
-/* UPDATED: Hover effect to match header style */
-.footer-column a:hover span,
-.footer-column a:hover {
-  background-color: transparent; /* Ensure background stays transparent */
-}
-
-.footer-column a:hover span,
-.footer-column a:hover i {
-  color: white;
-  text-shadow: 0 0 1px white, 
-               0 0 2px white, 
-               0 0 3px var(--accent),
-               0 0 4px var(--accent),
-               0 0 5px var(--accent-light);
-  letter-spacing: 0.02em;
-  transform: scale(1.05);
-  opacity: 1;
+  /* All hover effects in global.css */
 }
 
 /* Social Media Links */
@@ -201,30 +123,15 @@ footer.site-footer,
   color: var(--light-text);
   transition: all 0.3s;
   text-decoration: none;
+  /* All hover effects in global.css */
 }
 
 .social-links a i {
   font-size: 1.1rem;
-  margin-right: 0; /* Override the general icon margin */
-  width: auto; /* Override the general icon width */
+  margin-right: 0;
+  width: auto;
   position: relative;
-  transition: all 0.3s ease;
-}
-
-/* UPDATED: Social links hover effect to match header style */
-.social-links a:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-3px);
-}
-
-.social-links a:hover i {
-  color: white;
-  text-shadow: 0 0 1px white, 
-               0 0 2px white, 
-               0 0 3px var(--accent),
-               0 0 4px var(--accent),
-               0 0 5px var(--accent-light);
-  transform: scale(1.2);
+  /* All hover effects in global.css */
 }
 
 /* Legal Disclaimer Section */
@@ -247,13 +154,7 @@ footer.site-footer,
   width: 100%;
   text-align: left;
   transition: all 0.3s;
-}
-
-.disclaimer-toggle:hover {
-  color: var(--accent);
-  text-shadow: 0 0 1px white, 
-               0 0 2px var(--accent),
-               0 0 3px var(--accent-light);
+  /* Hover effects in global.css */
 }
 
 .toggle-icon {
@@ -324,35 +225,42 @@ footer.site-footer,
   text-decoration: none;
   transition: all 0.3s;
   position: relative;
-}
-
-/* UPDATED: Mini links hover effect to match header style */
-.mini-links a:hover {
-  color: white;
-  text-shadow: 0 0 1px white, 
-               0 0 2px white, 
-               0 0 3px var(--accent),
-               0 0 4px var(--accent),
-               0 0 5px var(--accent-light);
-  transform: scale(1.05);
-}
-
-/* Force all text in footer to be white */
-.holmdex-footer, 
-.holmdex-footer p, 
-.holmdex-footer h3, 
-.holmdex-footer a, 
-.holmdex-footer li, 
-.holmdex-footer button, 
-.disclaimer-content, 
-.disclaimer-content p, 
-.disclaimer-content li {
-  color: var(--light-text) !important;
+  /* Hover effects in global.css */
 }
 
 /* Fix for WordPress themes with fixed heights - more targeted approach */
 .site-footer {
   margin-top: auto;
+}
+
+/* Active page indicator */
+.footer-column a.active-page,
+.footer-column a.active-page span,
+.footer-column a.active-page i {
+  font-weight: 600;
+}
+
+/* Footer animation classes (used by JavaScript) */
+.footer-animate {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.footer-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.column-animate {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.column-revealed {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Mobile Styles */
