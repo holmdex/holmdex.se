@@ -182,6 +182,85 @@ body.admin-bar .holmdex-header {
     text-align: center;
     margin-right: 15px;
   }
+  
+  /* Fix for mobile menu items turning green */
+  .nav-menu.active a,
+  .nav-menu.active a span,
+  .nav-menu.active a i,
+  .nav-menu.active li a,
+  .nav-menu.active li a span,
+  .nav-menu.active li a i {
+    color: var(--light-text) !important;
+  }
+  
+  /* Fix specifically for Home menu item */
+  .nav-menu.active li:first-child a,
+  .nav-menu.active li:first-child a span,
+  .nav-menu.active li:first-child a i {
+    color: var(--light-text) !important;
+  }
+  
+  /* Fix for current/active menu items */
+  .nav-menu.active li.current-menu-item a,
+  .nav-menu.active li.current-menu-item a span,
+  .nav-menu.active li.current-menu-item a i,
+  .nav-menu.active li.current_page_item a,
+  .nav-menu.active li.current_page_item a span,
+  .nav-menu.active li.current_page_item a i {
+    color: white !important;
+    text-shadow: 0 0 1px white, 
+                 0 0 2px white, 
+                 0 0 3px rgba(255, 255, 255, 0.6) !important;
+    font-weight: 600;
+  }
+  
+  /* Fix hover effects in mobile menu */
+  .nav-menu.active a:hover,
+  .nav-menu.active a:hover span,
+  .nav-menu.active a:hover i,
+  .nav-menu.active li a:hover,
+  .nav-menu.active li a:hover span,
+  .nav-menu.active li a:hover i {
+    color: white !important;
+    text-shadow: 0 0 1px white, 
+                 0 0 2px white, 
+                 0 0 3px rgba(255, 255, 255, 0.8),
+                 0 0 4px rgba(255, 255, 255, 0.6),
+                 0 0 5px rgba(255, 255, 255, 0.4) !important;
+  }
+  
+  /* Override any accent-color based styles in mobile menu */
+  .nav-menu.active a,
+  .nav-menu.active a:hover,
+  .nav-menu.active a:focus,
+  .nav-menu.active a:active,
+  .nav-menu.active a.active {
+    color: var(--light-text) !important;
+  }
+  
+  /* Override any accent-color for icons in mobile menu */
+  .nav-menu.active a i,
+  .nav-menu.active a:hover i,
+  .nav-menu.active a:focus i,
+  .nav-menu.active a:active i,
+  .nav-menu.active a.active i {
+    color: var(--light-text) !important;
+  }
+  
+  /* Specific override for home icon and text */
+  .nav-menu.active li a .fas.fa-home,
+  .nav-menu.active li:first-child a i,
+  .nav-menu.active li:first-child a span {
+    color: var(--light-text) !important;
+    text-shadow: none !important;
+  }
+  
+  /* Override any :visited state that might be causing the issue */
+  .nav-menu.active li a:visited,
+  .nav-menu.active li a:visited i,
+  .nav-menu.active li a:visited span {
+    color: var(--light-text) !important;
+  }
 }
 
 /* Small Mobile Adjustments */
