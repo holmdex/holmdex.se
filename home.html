@@ -1,4 +1,4 @@
-<!-- HOLMDEX HOMEPAGE - Simplified Version -->
+<!-- HOLMDEX HOMEPAGE - Updated Version -->
 <main id="main-content" class="holmdex-main">
     <!-- Hero Section with Interactive Icons -->
     <section class="hero-section">
@@ -8,42 +8,41 @@
                 <p class="hero-tagline">
                     For businesses and individuals who want to make better financial decisions.
                 </p>
-                
-                <div class="hero-cta">
-                    <a href="/markets/" class="btn btn-primary btn-hero">Markets</a>
-                    <a href="/consulting/" class="btn btn-secondary btn-hero">Services</a>
-                </div>
             </div>
             
             <div class="hero-icons">
                 <!-- Interactive Icons with Tips -->
                 <div class="icon-container">
                     <!-- Market Analysis Icon -->
-                    <div class="interactive-icon" id="icon-analysis">
+                    <div class="interactive-icon" id="icon-analysis" tabindex="0">
                         <div class="icon-circle">
                             <i class="fas fa-chart-line"></i>
                         </div>
+                        <span class="icon-label">Market Analysis</span>
                     </div>
                     
                     <!-- Investment Options Icon -->
-                    <div class="interactive-icon" id="icon-investments">
+                    <div class="interactive-icon" id="icon-investments" tabindex="0">
                         <div class="icon-circle">
                             <i class="fas fa-piggy-bank"></i>
                         </div>
+                        <span class="icon-label">Investment Options</span>
                     </div>
                     
                     <!-- Fee Structure Icon -->
-                    <div class="interactive-icon" id="icon-fees">
+                    <div class="interactive-icon" id="icon-fees" tabindex="0">
                         <div class="icon-circle">
                             <i class="fas fa-percentage"></i>
                         </div>
+                        <span class="icon-label">Fee Impact</span>
                     </div>
                     
                     <!-- Financial Planning Icon -->
-                    <div class="interactive-icon" id="icon-planning">
+                    <div class="interactive-icon" id="icon-planning" tabindex="0">
                         <div class="icon-circle">
                             <i class="fas fa-wallet"></i>
                         </div>
+                        <span class="icon-label">Planning Tools</span>
                     </div>
                 </div>
                 
@@ -126,51 +125,51 @@
         
         <div class="market-slider">
             <div class="slider-track">
-                <!-- Market Items - Will be duplicated by JS for infinite loop -->
+                <!-- Market Items - Will be filled dynamically by JS -->
                 <div class="market-item">
                     <span class="market-name">S&P 500</span>
-                    <span class="market-value up">5,281.40</span>
-                    <span class="market-change">+0.63%</span>
+                    <span class="market-value">Loading...</span>
+                    <span class="market-change">-</span>
                 </div>
                 <div class="market-item">
                     <span class="market-name">NASDAQ</span>
-                    <span class="market-value up">16,742.39</span>
-                    <span class="market-change">+0.85%</span>
+                    <span class="market-value">Loading...</span>
+                    <span class="market-change">-</span>
                 </div>
                 <div class="market-item">
                     <span class="market-name">DOW</span>
-                    <span class="market-value down">39,123.59</span>
-                    <span class="market-change">-0.21%</span>
+                    <span class="market-value">Loading...</span>
+                    <span class="market-change">-</span>
                 </div>
                 <div class="market-item">
                     <span class="market-name">FTSE 100</span>
-                    <span class="market-value up">8,175.24</span>
-                    <span class="market-change">+0.42%</span>
+                    <span class="market-value">Loading...</span>
+                    <span class="market-change">-</span>
                 </div>
                 <div class="market-item">
                     <span class="market-name">DAX</span>
-                    <span class="market-value up">17,932.17</span>
-                    <span class="market-change">+0.75%</span>
+                    <span class="market-value">Loading...</span>
+                    <span class="market-change">-</span>
                 </div>
                 <div class="market-item">
                     <span class="market-name">OMXS30</span>
-                    <span class="market-value down">2,489.72</span>
-                    <span class="market-change">-0.18%</span>
+                    <span class="market-value">Loading...</span>
+                    <span class="market-change">-</span>
                 </div>
                 <div class="market-item">
                     <span class="market-name">BITCOIN</span>
-                    <span class="market-value up">66,781.49</span>
-                    <span class="market-change">+2.15%</span>
+                    <span class="market-value">Loading...</span>
+                    <span class="market-change">-</span>
                 </div>
                 <div class="market-item">
                     <span class="market-name">GOLD</span>
-                    <span class="market-value up">2,345.10</span>
-                    <span class="market-change">+0.27%</span>
+                    <span class="market-value">Loading...</span>
+                    <span class="market-change">-</span>
                 </div>
             </div>
         </div>
         <div class="market-note">
-            <span>15+ minute delay</span>
+            <span>Live market data</span>
             <a href="/markets/" class="market-link">Full market data <i class="fas fa-arrow-right"></i></a>
         </div>
     </section>
@@ -183,36 +182,59 @@
             </div>
             
             <div class="features-grid">
-                <div class="feature-card" data-delay="0">
+                <div class="feature-card" data-delay="0" tabindex="0">
                     <div class="feature-icon">
                         <i class="fas fa-eye"></i>
                     </div>
                     <h3>Transparent</h3>
                     <p>We show you what matters in financial data without unnecessary complexity.</p>
+                    <div class="feature-expanded">
+                        <p>Not trying to sell you courses or anything that can't be backed up by data. We believe financial information should be clear and accessible to everyone.</p>
+                    </div>
                 </div>
                 
-                <div class="feature-card" data-delay="100">
+                <div class="feature-card" data-delay="100" tabindex="0">
                     <div class="feature-icon">
                         <i class="fas fa-balance-scale"></i>
                     </div>
                     <h3>Independent</h3>
                     <p>Our insights aren't tied to specific financial products or institutions.</p>
+                    <div class="feature-expanded">
+                        <p>We use a wide range of trusted sources to provide you with balanced information:</p>
+                        <ul class="source-list">
+                            <li><a href="https://www.placera.se/" target="_blank">Placera</a></li>
+                            <li><a href="https://www.zonebourse.com/" target="_blank">Zone Bourse</a></li>
+                            <li><a href="https://www.morningstar.com/" target="_blank">Morningstar</a></li>
+                            <li><a href="https://www.caixinglobal.com/" target="_blank">Caixin Global</a></li>
+                            <li><a href="https://www.ft.com/" target="_blank">Financial Times</a></li>
+                            <li><a href="https://www.bloomberg.com/" target="_blank">Bloomberg</a></li>
+                        </ul>
+                        <p>We do not support or discuss any politics - we are here to help you make profit, nothing more, nothing less.</p>
+                    </div>
                 </div>
                 
-                <div class="feature-card" data-delay="200">
+                <div class="feature-card" data-delay="200" tabindex="0">
                     <div class="feature-icon">
                         <i class="fas fa-chart-pie"></i>
                     </div>
                     <h3>Visual</h3>
                     <p>We transform complex financial concepts into clear visual presentations.</p>
+                    <div class="feature-expanded">
+                        <p>Graphs shouldn't be hard to understand. We simplify the same tools professionals use so anyone can understand and learn from them.</p>
+                        <p>Our visualizations help you spot trends and patterns quickly, making complex financial data accessible at a glance.</p>
+                    </div>
                 </div>
                 
-                <div class="feature-card" data-delay="300">
+                <div class="feature-card" data-delay="300" tabindex="0">
                     <div class="feature-icon">
                         <i class="fas fa-tools"></i>
                     </div>
                     <h3>Practical</h3>
                     <p>Our tools solve real problems for both businesses and individuals.</p>
+                    <div class="feature-expanded">
+                        <p>Our end goal is to make sure you walk away with more knowledge, regardless if you're running a company or investing on your own.</p>
+                        <p>Every tool and insight we provide is designed with practical applications in mind, helping you make better financial decisions every day.</p>
+                    </div>
                 </div>
             </div>
         </div>
