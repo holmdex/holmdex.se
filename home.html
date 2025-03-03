@@ -1,541 +1,263 @@
-<!-- Holmdex Homepage -->
+<!-- HOLMDEX HOMEPAGE - Simplified Version -->
 <main id="main-content" class="holmdex-main">
-    <!-- Hero Section -->
+    <!-- Hero Section with Interactive Icons -->
     <section class="hero-section">
         <div class="container">
             <div class="hero-content">
-                <p class="site-tagline">Simplified financial insights for everyone</p>
-                <div class="hero-actions">
-                    <a href="/markets/" class="btn btn-primary">Explore Markets</a>
-                    <a href="/about-us/" class="btn btn-primary">About Us</a>
+                <h1 class="hero-title">Financial data made <span class="highlight">useful</span></h1>
+                <p class="hero-tagline">
+                    For businesses and individuals who want to make better financial decisions.
+                </p>
+                
+                <div class="hero-cta">
+                    <a href="/markets/" class="btn btn-primary btn-hero">Markets</a>
+                    <a href="/consulting/" class="btn btn-secondary btn-hero">Services</a>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Market Ticker -->
-        <div class="market-ticker">
-            <div class="ticker-wrapper">
-                <div class="ticker-track" id="ticker-track">
-                    <!-- First Set of Items -->
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">S&P 500</span>
-                        <span class="ticker-value up">5,281.40</span>
-                        <span class="ticker-change">+0.63%</span>
-                    </div>
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">NASDAQ</span>
-                        <span class="ticker-value up">16,742.39</span>
-                        <span class="ticker-change">+0.85%</span>
-                    </div>
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">DOW</span>
-                        <span class="ticker-value down">39,123.59</span>
-                        <span class="ticker-change">-0.21%</span>
-                    </div>
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">FTSE 100</span>
-                        <span class="ticker-value up">8,175.24</span>
-                        <span class="ticker-change">+0.42%</span>
-                    </div>
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">DAX</span>
-                        <span class="ticker-value up">17,932.17</span>
-                        <span class="ticker-change">+0.75%</span>
-                    </div>
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">NIKKEI</span>
-                        <span class="ticker-value down">38,721.33</span>
-                        <span class="ticker-change">-0.31%</span>
-                    </div>
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">HANG SENG</span>
-                        <span class="ticker-value up">16,512.92</span>
-                        <span class="ticker-change">+1.23%</span>
-                    </div>
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">OMXS30</span>
-                        <span class="ticker-value down">2,489.72</span>
-                        <span class="ticker-change">-0.18%</span>
-                    </div>
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">USD/EUR</span>
-                        <span class="ticker-value down">0.9235</span>
-                        <span class="ticker-change">-0.12%</span>
-                    </div>
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">BITCOIN</span>
-                        <span class="ticker-value up">66,781.49</span>
-                        <span class="ticker-change">+2.15%</span>
-                    </div>
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">GOLD</span>
-                        <span class="ticker-value up">2,345.10</span>
-                        <span class="ticker-change">+0.27%</span>
-                    </div>
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">CRUDE OIL</span>
-                        <span class="ticker-value down">78.25</span>
-                        <span class="ticker-change">-0.51%</span>
-                    </div>
-                    <!-- Duplicate for Seamless Looping -->
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">S&P 500</span>
-                        <span class="ticker-value up">5,281.40</span>
-                        <span class="ticker-change">+0.63%</span>
-                    </div>
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">NASDAQ</span>
-                        <span class="ticker-value up">16,742.39</span>
-                        <span class="ticker-change">+0.85%</span>
-                    </div>
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">DOW</span>
-                        <span class="ticker-value down">39,123.59</span>
-                        <span class="ticker-change">-0.21%</span>
-                    </div>
-                    <div class="ticker-item">
-                        <span class="ticker-symbol">FTSE 100</span>
-                        <span class="ticker-value up">8,175.24</span>
-                        <span class="ticker-change">+0.42%</span>
-                    </div>
-                </div>
-            </div>
-            <div class="ticker-disclaimer">
-                <span>Market data delayed by at least 15 minutes</span>
-                <a href="/markets/" class="ticker-link">View full market data <i class="fas fa-chevron-right"></i></a>
-            </div>
-        </div>
-    </section>
-
-    <!-- Investment Fundamentals Section with Card Expansion -->
-    <section class="investment-fundamentals" id="fundamentals">
-        <div class="container">
-            <div class="section-header">
-                <h2>Investment Fundamentals</h2>
-                <p class="section-description">Simple concepts to help you understand investing better</p>
             </div>
             
-            <div class="concept-grid">
-                <!-- Diversification Card -->
-                <div class="concept-card" id="concept-diversification">
-                    <div class="concept-card-header">
-                        <div class="concept-icon">
-                            <i class="fas fa-project-diagram"></i>
-                        </div>
-                        <h3 class="concept-title">Diversification</h3>
-                    </div>
-                    <div class="concept-preview">
-                        <p>Don't put all your eggs in one basket. Spread your investments to reduce risk.</p>
-                        <button class="expand-btn" aria-expanded="false" aria-controls="diversification-content">
-                            <span class="expand-text">Learn More</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </button>
-                    </div>
-                    <div class="concept-content" id="diversification-content">
-                        <div class="concept-full-content">
-                            <h4>Don't Put All Your Eggs in One Basket</h4>
-                            <p>Diversification is simply spreading your money across different investments. If one investment performs poorly, others might do well, helping to balance out your overall performance.</p>
-                            <div class="key-points">
-                                <div class="key-point">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>Mixing different types of investments reduces risk</span>
-                                </div>
-                                <div class="key-point">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>Helps protect your money during market ups and downs</span>
-                                </div>
-                                <div class="key-point">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>Think of it like having backup plans for your money</span>
-                                </div>
-                            </div>
-                            <div class="concept-actions">
-                                <button class="collapse-btn">
-                                    <span>Show Less</span>
-                                    <i class="fas fa-chevron-up"></i>
-                                </button>
-                            </div>
+            <div class="hero-icons">
+                <!-- Interactive Icons with Tips -->
+                <div class="icon-container">
+                    <!-- Market Analysis Icon -->
+                    <div class="interactive-icon" id="icon-analysis">
+                        <div class="icon-circle">
+                            <i class="fas fa-chart-line"></i>
                         </div>
                     </div>
-                </div>
-                
-                <!-- Risk Management Card -->
-                <div class="concept-card" id="concept-risk">
-                    <div class="concept-card-header">
-                        <div class="concept-icon">
-                            <i class="fas fa-balance-scale"></i>
-                        </div>
-                        <h3 class="concept-title">Risk Management</h3>
-                    </div>
-                    <div class="concept-preview">
-                        <p>Understanding the balance between potential returns and risk levels.</p>
-                        <button class="expand-btn" aria-expanded="false" aria-controls="risk-content">
-                            <span class="expand-text">Learn More</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </button>
-                    </div>
-                    <div class="concept-content" id="risk-content">
-                        <div class="concept-full-content">
-                            <h4>Balancing Risk and Reward</h4>
-                            <p>Every investment carries some risk. Generally, investments with higher potential returns come with higher risks. Understanding how much risk you can handle is key to successful investing.</p>
-                            <div class="key-points">
-                                <div class="key-point">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>Higher potential returns usually mean higher risk</span>
-                                </div>
-                                <div class="key-point">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>Your comfort with risk changes as you get older</span>
-                                </div>
-                                <div class="key-point">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>There's no need to take on more risk than you're comfortable with</span>
-                                </div>
-                            </div>
-                            <div class="concept-actions">
-                                <button class="collapse-btn">
-                                    <span>Show Less</span>
-                                    <i class="fas fa-chevron-up"></i>
-                                </button>
-                            </div>
+                    
+                    <!-- Investment Options Icon -->
+                    <div class="interactive-icon" id="icon-investments">
+                        <div class="icon-circle">
+                            <i class="fas fa-piggy-bank"></i>
                         </div>
                     </div>
-                </div>
-                
-                <!-- Time Horizon Card -->
-                <div class="concept-card" id="concept-time">
-                    <div class="concept-card-header">
-                        <div class="concept-icon">
-                            <i class="fas fa-hourglass-half"></i>
-                        </div>
-                        <h3 class="concept-title">Time Horizon</h3>
-                    </div>
-                    <div class="concept-preview">
-                        <p>The longer your investment timeframe, the more growth potential you have.</p>
-                        <button class="expand-btn" aria-expanded="false" aria-controls="time-content">
-                            <span class="expand-text">Learn More</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </button>
-                    </div>
-                    <div class="concept-content" id="time-content">
-                        <div class="concept-full-content">
-                            <h4>Time Is Your Friend</h4>
-                            <p>How long you plan to keep your money invested makes a big difference. The longer you can leave your money to grow, the more time it has to recover from temporary market downturns.</p>
-                            <div class="key-points">
-                                <div class="key-point">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>Starting early gives your money more time to grow</span>
-                                </div>
-                                <div class="key-point">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>Long-term investing helps ride out market ups and downs</span>
-                                </div>
-                                <div class="key-point">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>Money needed soon should be in safer investments</span>
-                                </div>
-                            </div>
-                            <div class="concept-actions">
-                                <button class="collapse-btn">
-                                    <span>Show Less</span>
-                                    <i class="fas fa-chevron-up"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Cost Awareness Card -->
-                <div class="concept-card" id="concept-cost">
-                    <div class="concept-card-header">
-                        <div class="concept-icon">
+                    
+                    <!-- Fee Structure Icon -->
+                    <div class="interactive-icon" id="icon-fees">
+                        <div class="icon-circle">
                             <i class="fas fa-percentage"></i>
                         </div>
-                        <h3 class="concept-title">Cost Awareness</h3>
                     </div>
-                    <div class="concept-preview">
-                        <p>Small fees can significantly impact your investment returns over time.</p>
-                        <button class="expand-btn" aria-expanded="false" aria-controls="cost-content">
-                            <span class="expand-text">Learn More</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </button>
+                    
+                    <!-- Financial Planning Icon -->
+                    <div class="interactive-icon" id="icon-planning">
+                        <div class="icon-circle">
+                            <i class="fas fa-wallet"></i>
+                        </div>
                     </div>
-                    <div class="concept-content" id="cost-content">
-                        <div class="concept-full-content">
-                            <h4>Watch Those Fees</h4>
-                            <p>Fees might seem small, but they add up over time and can significantly reduce your returns. Being aware of all costs associated with your investments is important for maximizing what you earn.</p>
-                            <div class="key-points">
-                                <div class="key-point">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>Even small fees can take a big bite out of your returns</span>
-                                </div>
-                                <div class="key-point">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>Low-cost index funds often perform better than expensive managed funds</span>
-                                </div>
-                                <div class="key-point">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>Always ask about fees before investing</span>
-                                </div>
+                </div>
+                
+                <!-- Icon Tip Expanded Panels -->
+                <div class="tip-panels">
+                    <!-- Market Analysis Panel -->
+                    <div class="tip-panel" id="panel-analysis">
+                        <div class="panel-header">
+                            <h3>Market Analysis</h3>
+                            <button class="panel-close" aria-label="Close panel"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="panel-content">
+                            <p>We break down market trends without the jargon.</p>
+                            <div class="tip-highlight">
+                                <p><strong>For businesses:</strong> Visual illustrations of market impacts on your industry.</p>
+                                <p><strong>For individuals:</strong> Simplified data to inform your investment choices.</p>
                             </div>
-                            <div class="concept-actions">
-                                <button class="collapse-btn">
-                                    <span>Show Less</span>
-                                    <i class="fas fa-chevron-up"></i>
-                                </button>
+                            <a href="/markets/" class="tip-link">View markets <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+                    
+                    <!-- Investment Options Panel -->
+                    <div class="tip-panel" id="panel-investments">
+                        <div class="panel-header">
+                            <h3>Investment Options</h3>
+                            <button class="panel-close" aria-label="Close panel"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="panel-content">
+                            <p>Not all investment products are created equal. We help you spot the differences.</p>
+                            <div class="tip-highlight">
+                                <p><strong>For businesses:</strong> Investment allocation visuals based on your objectives.</p>
+                                <p><strong>For individuals:</strong> Alternative options beyond standard bank products.</p>
                             </div>
+                            <a href="/analytics/" class="tip-link">Compare options <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+                    
+                    <!-- Fee Structure Panel -->
+                    <div class="tip-panel" id="panel-fees">
+                        <div class="panel-header">
+                            <h3>Fee Impact</h3>
+                            <button class="panel-close" aria-label="Close panel"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="panel-content">
+                            <p>Small fee differences add up to major impacts over time.</p>
+                            <div class="tip-highlight">
+                                <p><strong>For businesses:</strong> Analysis of fee structures on your corporate investments.</p>
+                                <p><strong>For individuals:</strong> Tools to find hidden fees in your portfolio.</p>
+                            </div>
+                            <a href="/analytics/" class="tip-link">Calculate impact <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+                    
+                    <!-- Financial Planning Panel -->
+                    <div class="tip-panel" id="panel-planning">
+                        <div class="panel-header">
+                            <h3>Planning Tools</h3>
+                            <button class="panel-close" aria-label="Close panel"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="panel-content">
+                            <p>Visually map your financial future with practical tools.</p>
+                            <div class="tip-highlight">
+                                <p><strong>For businesses:</strong> Visual projections for strategic planning.</p>
+                                <p><strong>For individuals:</strong> Straightforward retirement and expense planning.</p>
+                            </div>
+                            <a href="/consulting/" class="tip-link">Start planning <i class="fas fa-arrow-right"></i></a>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </section>
+    
+    <!-- Market Snapshot Slider -->
+    <section class="market-snapshot">
+        <div class="market-heading">
+            <i class="fas fa-globe-europe"></i>
+            <span>Markets</span>
+        </div>
+        
+        <div class="market-slider">
+            <div class="slider-track">
+                <!-- Market Items - Will be duplicated by JS for infinite loop -->
+                <div class="market-item">
+                    <span class="market-name">S&P 500</span>
+                    <span class="market-value up">5,281.40</span>
+                    <span class="market-change">+0.63%</span>
+                </div>
+                <div class="market-item">
+                    <span class="market-name">NASDAQ</span>
+                    <span class="market-value up">16,742.39</span>
+                    <span class="market-change">+0.85%</span>
+                </div>
+                <div class="market-item">
+                    <span class="market-name">DOW</span>
+                    <span class="market-value down">39,123.59</span>
+                    <span class="market-change">-0.21%</span>
+                </div>
+                <div class="market-item">
+                    <span class="market-name">FTSE 100</span>
+                    <span class="market-value up">8,175.24</span>
+                    <span class="market-change">+0.42%</span>
+                </div>
+                <div class="market-item">
+                    <span class="market-name">DAX</span>
+                    <span class="market-value up">17,932.17</span>
+                    <span class="market-change">+0.75%</span>
+                </div>
+                <div class="market-item">
+                    <span class="market-name">OMXS30</span>
+                    <span class="market-value down">2,489.72</span>
+                    <span class="market-change">-0.18%</span>
+                </div>
+                <div class="market-item">
+                    <span class="market-name">BITCOIN</span>
+                    <span class="market-value up">66,781.49</span>
+                    <span class="market-change">+2.15%</span>
+                </div>
+                <div class="market-item">
+                    <span class="market-name">GOLD</span>
+                    <span class="market-value up">2,345.10</span>
+                    <span class="market-change">+0.27%</span>
+                </div>
+            </div>
+        </div>
+        <div class="market-note">
+            <span>15+ minute delay</span>
+            <a href="/markets/" class="market-link">Full market data <i class="fas fa-arrow-right"></i></a>
+        </div>
+    </section>
 
-    <!-- Services Section -->
-    <section class="services-section">
+    <!-- Why Choose Us Section -->
+    <section class="why-choose-us">
         <div class="container">
-            <div class="section-header">
-                <h2>Our Services</h2>
-                <p class="section-description">Holmdex offers a range of tools and resources to help you navigate the financial markets with confidence.</p>
+            <div class="section-heading">
+                <h2>Why <span class="accent">Holmdex</span>?</h2>
             </div>
             
-            <div class="services-grid">
-                <a href="/consulting/" class="service-card">
-                    <div class="service-icon">
-                        <i class="fas fa-handshake"></i>
+            <div class="features-grid">
+                <div class="feature-card" data-delay="0">
+                    <div class="feature-icon">
+                        <i class="fas fa-eye"></i>
                     </div>
-                    <h3>Consulting</h3>
-                    <p>Get personalized financial guidance and strategies tailored to your unique investment goals and risk tolerance.</p>
-                    <div class="service-footer">
-                        <span class="read-more">Learn More <i class="fas fa-arrow-right"></i></span>
+                    <h3>Transparent</h3>
+                    <p>We show you what matters in financial data without unnecessary complexity.</p>
+                </div>
+                
+                <div class="feature-card" data-delay="100">
+                    <div class="feature-icon">
+                        <i class="fas fa-balance-scale"></i>
+                    </div>
+                    <h3>Independent</h3>
+                    <p>Our insights aren't tied to specific financial products or institutions.</p>
+                </div>
+                
+                <div class="feature-card" data-delay="200">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <h3>Visual</h3>
+                    <p>We transform complex financial concepts into clear visual presentations.</p>
+                </div>
+                
+                <div class="feature-card" data-delay="300">
+                    <div class="feature-icon">
+                        <i class="fas fa-tools"></i>
+                    </div>
+                    <h3>Practical</h3>
+                    <p>Our tools solve real problems for both businesses and individuals.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Services Section -->
+    <section class="key-resources">
+        <div class="container">
+            <div class="section-heading">
+                <h2>Services</h2>
+            </div>
+            
+            <div class="resources-grid">
+                <a href="/markets/" class="resource-card">
+                    <div class="resource-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="resource-content">
+                        <h3>Market Analysis</h3>
+                        <p>Track market trends with visualizations that make sense.</p>
+                        <span class="resource-link">View markets <i class="fas fa-arrow-right"></i></span>
                     </div>
                 </a>
                 
-                <a href="/analytics/" class="service-card">
-                    <div class="service-icon">
+                <a href="/analytics/" class="resource-card">
+                    <div class="resource-icon">
                         <i class="fas fa-chart-bar"></i>
                     </div>
-                    <h3>Analytics</h3>
-                    <p>Access powerful analytical tools and visualizations to help you understand market trends and make data-driven decisions.</p>
-                    <div class="service-footer">
-                        <span class="read-more">Learn More <i class="fas fa-arrow-right"></i></span>
+                    <div class="resource-content">
+                        <h3>Financial Analytics</h3>
+                        <p>Compare investment options and understand their real performance.</p>
+                        <span class="resource-link">Explore tools <i class="fas fa-arrow-right"></i></span>
                     </div>
                 </a>
                 
-                <a href="/reports/" class="service-card">
-                    <div class="service-icon">
-                        <i class="fas fa-file-alt"></i>
+                <a href="/consulting/" class="resource-card">
+                    <div class="resource-icon">
+                        <i class="fas fa-handshake"></i>
                     </div>
-                    <h3>Reports</h3>
-                    <p>Explore our comprehensive reports on market conditions, economic trends, and investment opportunities.</p>
-                    <div class="service-footer">
-                        <span class="read-more">Learn More <i class="fas fa-arrow-right"></i></span>
+                    <div class="resource-content">
+                        <h3>Consulting</h3>
+                        <p>Get tailored guidance and financial illustrations for your specific needs.</p>
+                        <span class="resource-link">Learn more <i class="fas fa-arrow-right"></i></span>
                     </div>
                 </a>
-            </div>
-        </div>
-    </section>
-
-    <!-- Trusted Sources Section -->
-    <section class="sources-section">
-        <div class="container">
-            <div class="section-header">
-                <h2>Trusted Sources</h2>
-                <p class="section-description">We aggregate financial information from reputable sources worldwide to provide you with comprehensive market coverage.</p>
-            </div>
-            
-            <div class="sources-carousel-wrapper">
-                <div class="sources-nav">
-                    <button class="carousel-nav prev" id="sourcesPrev" aria-label="Previous sources">
-                        <i class="fas fa-chevron-left"></i>
-                    </button>
-                    <div class="carousel-indicator" id="carouselIndicator">
-                        <span class="current-page">1</span> / <span class="total-pages">3</span>
-                    </div>
-                    <button class="carousel-nav next" id="sourcesNext" aria-label="Next sources">
-                        <i class="fas fa-chevron-right"></i>
-                    </button>
-                </div>
-                
-                <div class="scroll-track-wrapper">
-                    <div class="scroll-track">
-                        <div class="scroll-thumb" id="scrollThumb"></div>
-                    </div>
-                </div>
-                
-                <div class="sources-carousel" id="sourcesCarousel">
-                    <div class="carousel-container" id="carouselContainer">
-                        <div class="carousel-track" id="sourcesTrack">
-                            <a href="https://www.morningstar.com/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-star"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">Morningstar</span>
-                                        <span class="source-country">🇺🇸 US</span>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="https://www.bloomberg.com/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-chart-line"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">Bloomberg</span>
-                                        <span class="source-country">🇺🇸 US</span>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="https://www.ft.com/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-newspaper"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">Financial Times</span>
-                                        <span class="source-country">🇬🇧 UK</span>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="https://www.wsj.com/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-newspaper"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">Wall Street Journal</span>
-                                        <span class="source-country">🇺🇸 US</span>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="https://www.reuters.com/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-globe-americas"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">Reuters</span>
-                                        <span class="source-country">🌎 Global</span>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="https://www.cnbc.com/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-tv"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">CNBC</span>
-                                        <span class="source-country">🇺🇸 US</span>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="https://www.marketwatch.com/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-search-dollar"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">MarketWatch</span>
-                                        <span class="source-country">🇺🇸 US</span>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="https://www.barrons.com/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-file-invoice-dollar"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">Barron's</span>
-                                        <span class="source-country">🇺🇸 US</span>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="https://www.economist.com/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-book"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">The Economist</span>
-                                        <span class="source-country">🇬🇧 UK</span>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="https://www.investopedia.com/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-graduation-cap"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">Investopedia</span>
-                                        <span class="source-country">🇺🇸 US</span>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="https://financialpost.com/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-newspaper"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">Financial Post</span>
-                                        <span class="source-country">🇨🇦 CA</span>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="https://www.deraktionaer.de/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-chart-pie"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">Der Aktionär</span>
-                                        <span class="source-country">🇩🇪 DE</span>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="https://www.zonebourse.com/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-chart-line"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">Zonebourse</span>
-                                        <span class="source-country">🇫🇷 FR</span>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="https://www.placera.se/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-university"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">Placera</span>
-                                        <span class="source-country">🇸🇪 SE</span>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="https://www.jpx.co.jp/english/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-yen-sign"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">Japan Exchange</span>
-                                        <span class="source-country">🇯🇵 JP</span>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="https://www.caixinglobal.com/" target="_blank" rel="noopener" class="source-item">
-                                <div class="source-inner">
-                                    <div class="source-icon"><i class="fas fa-landmark"></i></div>
-                                    <div class="source-info">
-                                        <span class="source-name">Caixin Global</span>
-                                        <span class="source-country">🇨🇳 CN</span>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-                    </div>
-                    <div class="swipe-indicator">
-                        <span>Swipe to see more</span>
-                        <i class="fas fa-hand-point-right"></i>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="sources-note">
-                <p>Learn more about our <a href="/faq/" class="inline-link">information sources and methodology</a>.</p>
             </div>
         </div>
     </section>
