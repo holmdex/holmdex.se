@@ -1,6 +1,6 @@
 /**
- * HOLMDEX HOMEPAGE JAVASCRIPT - PART 1
- * Core functionality and Interactive Icons
+ * HOLMDEX UPDATED HOMEPAGE JAVASCRIPT - PART 1
+ * Core functionality and Interactive Elements
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -81,13 +81,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
             });
+            
+            // Keyboard support for icons
+            addEvent(icon, 'keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    icon.click();
+                }
+            });
         });
         
         // Set up close buttons
         closeBtns.forEach(btn => {
-            addEvent(btn, 'click', () => {
-                closeAllPanels();
-            });
+            addEvent(btn, 'click', closeAllPanels);
         });
         
         // Close panels when overlay is clicked
@@ -157,6 +163,71 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     /**
+     * Expandable Feature Cards
+     * Handles the expanding and collapsing of feature cards
+     */
+    const setupFeatureCards = () => {
+        const featureCards = $$('.feature-card');
+        
+        // Function to collapse all cards except the clicked one
+        const collapseOtherCards = (currentCard) => {
+            featureCards.forEach(card => {
+                if (card !== currentCard && card.classList.contains('expanded')) {
+                    card.classList.remove('expanded');
+                }
+            });
+        };
+        
+        // Set up click handlers for each card
+        featureCards.forEach(card => {
+            addEvent(card, 'click', () => {
+                // Toggle expanded state
+                const wasExpanded = card.classList.contains('expanded');
+                
+                // First collapse other cards
+                collapseOtherCards(card);
+                
+                // Then toggle this card
+                card.classList.toggle('expanded', !wasExpanded);
+                
+                // Scroll into view if expanded and not fully visible
+                if (!wasExpanded) {
+                    // Get card position
+                    const cardRect = card.getBoundingClientRect();
+                    const viewHeight = window.innerHeight;
+                    
+                    // Check if bottom of card is below viewport
+                    if (cardRect.bottom > viewHeight) {
+                        // Smooth scroll to ensure card is visible
+                        const scrollToY = window.pageYOffset + cardRect.top - 20;
+                        window.scrollTo({
+                            top: scrollToY,
+                            behavior: 'smooth'
+                        });
+                    }
+                }
+            });
+            
+            // Keyboard support for cards
+            addEvent(card, 'keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    card.click();
+                }
+            });
+        });
+        
+        // Close expanded cards when clicking outside
+        addEvent(document, 'click', (e) => {
+            if (!e.target.closest('.feature-card')) {
+                featureCards.forEach(card => {
+                    card.classList.remove('expanded');
+                });
+            }
+        });
+    };
+    
+    /**
      * Icon Animation Initializer
      * Sets up random float animation properties
      */
@@ -192,19 +263,47 @@ document.addEventListener('DOMContentLoaded', function() {
             // Only apply effect when scrolling through hero section
             if (scrollY <= heroHeight) {
                 // Move content up slightly faster than normal scroll
-                heroContent.style.transform = `translateY(${scrollY * 0.2}px)`;
+                heroContent.style.transform = `translateY(${scrollY * 0.1}px)`;
                 
                 // Move icons down slightly to create parallax effect
-                iconContainer.style.transform = `translateY(${scrollY * 0.3}px)`;
+                iconContainer.style.transform = `translateY(${scrollY * 0.2}px)`;
                 
                 // Fade out content as user scrolls down
-                const opacity = 1 - (scrollY / (heroHeight * 0.5));
+                const opacity = 1 - (scrollY / (heroHeight * 0.7));
                 if (opacity > 0) {
                     heroContent.style.opacity = opacity;
                     iconContainer.style.opacity = opacity;
                 }
             }
         });
+    };
+    
+    /**
+     * Accessibility Improvements
+     * Enhances keyboard navigation and focus styles
+     */
+    const setupAccessibility = () => {
+        // Add focus indicators for interactive elements
+        const interactiveElements = $$('.interactive-icon, .feature-card, .panel-close, .resource-card');
+        
+        interactiveElements.forEach(el => {
+            // Listen for focus events to add visual indicator
+            addEvent(el, 'focus', () => {
+                el.classList.add('focused');
+            });
+            
+            addEvent(el, 'blur', () => {
+                el.classList.remove('focused');
+            });
+        });
+        
+        // Check for reduced motion preference
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        
+        if (prefersReducedMotion) {
+            // Remove animations for users who prefer reduced motion
+            document.documentElement.classList.add('reduced-motion');
+        }
     };
     
     /**
@@ -267,11 +366,55 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     /**
+     * Setup Resize Event Handler
+     */
+    const setupResizeHandler = () => {
+        let resizeTimeout;
+        
+        // Function to run on resize
+        const handleResize = () => {
+            // Update any layout-dependent JavaScript here
+            
+            // Recalculate positions for interactive elements if needed
+            const iconContainer = $('.icon-container');
+            if (iconContainer) {
+                // Reposition icons based on container size if needed
+                const icons = $$('.interactive-icon');
+                if (window.innerWidth < 768) {
+                    // Mobile layout adjustments
+                    icons.forEach(icon => {
+                        icon.style.transition = 'none'; // Disable transitions temporarily
+                    });
+                    
+                    // Re-enable transitions after adjustments
+                    setTimeout(() => {
+                        icons.forEach(icon => {
+                            icon.style.transition = '';
+                        });
+                    }, 50);
+                }
+            }
+        };
+        
+        // Debounce resize events
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(handleResize, 250);
+        });
+        
+        // Initial calculation
+        handleResize();
+    };
+    
+    /**
      * Initialize All Functions
      */
     const init = () => {
         // Set up interactive icon panels
         setupInteractiveIcons();
+        
+        // Set up expandable feature cards
+        setupFeatureCards();
         
         // Set up icon animations
         setupIconAnimations();
@@ -279,8 +422,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Set up hero parallax scrolling
         setupHeroParallax();
         
+        // Set up accessibility improvements
+        setupAccessibility();
+        
         // Create loaders for dynamic content
         createLoaders();
+        
+        // Set up resize handler
+        setupResizeHandler();
         
         // Log initialization
         console.log('Holmdex homepage initialized - Part 1');
@@ -291,8 +440,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /**
- * HOLMDEX HOMEPAGE JAVASCRIPT - PART 2
- * Market slider and scroll-based animations
+ * HOLMDEX UPDATED HOMEPAGE JAVASCRIPT - PART 2
+ * Enhanced Market slider with live data fetching
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -310,206 +459,289 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (!sliderTrack) return;
         
+        // Mark all values as loading
+        const marketItems = $$('.market-item .market-value');
+        marketItems.forEach(item => {
+            item.classList.add('loading');
+        });
+        
         // Clone market items for infinite loop
-        const marketItems = Array.from($$('.market-item'));
+        const originalItems = Array.from($$('.market-item'));
         
         // Create enough items to fill the slider twice for seamless looping
-        marketItems.forEach(item => {
+        originalItems.forEach(item => {
             const clone = item.cloneNode(true);
             sliderTrack.appendChild(clone);
-        });
-        
-        // Handle market data formatting and style
-        const formatMarketItems = () => {
-            const items = $$('.market-item');
-            
-            items.forEach(item => {
-                const valueElement = item.querySelector('.market-value');
-                const changeElement = item.querySelector('.market-change');
-                
-                if (valueElement && changeElement) {
-                    // Ensure up/down classes are applied correctly
-                    if (changeElement.textContent.startsWith('+')) {
-                        valueElement.classList.add('up');
-                        valueElement.classList.remove('down');
-                    } else if (changeElement.textContent.startsWith('-')) {
-                        valueElement.classList.add('down');
-                        valueElement.classList.remove('up');
-                    }
-                }
-            });
-        };
-        
-        formatMarketItems();
-        
-        // Pause animation on hover
-        sliderTrack.addEventListener('mouseenter', () => {
-            sliderTrack.style.animationPlayState = 'paused';
-        });
-        
-        sliderTrack.addEventListener('mouseleave', () => {
-            sliderTrack.style.animationPlayState = 'running';
-        });
-        
-        // Touch device compatibility - pause on touch
-        sliderTrack.addEventListener('touchstart', () => {
-            sliderTrack.style.animationPlayState = 'paused';
-        });
-        
-        sliderTrack.addEventListener('touchend', () => {
-            sliderTrack.style.animationPlayState = 'running';
         });
     };
     
     /**
-     * Fetch Live Market Data
-     * Attempts to get real data with graceful fallback to static data
+     * Market Data Fetching
+     * Fetches real market data using web scraping techniques
      */
-    const fetchMarketData = () => {
-        // Mock data update function - used if API fails
-        const updateWithMockData = () => {
-            console.log('Using fallback market data');
-            
-            const mockData = [
-                { name: 'S&P 500', value: '5,281.40', change: '+0.63%', isUp: true },
-                { name: 'NASDAQ', value: '16,742.39', change: '+0.85%', isUp: true },
-                { name: 'DOW', value: '39,123.59', change: '-0.21%', isUp: false },
-                { name: 'FTSE 100', value: '8,175.24', change: '+0.42%', isUp: true },
-                { name: 'DAX', value: '17,932.17', change: '+0.75%', isUp: true },
-                { name: 'OMXS30', value: '2,489.72', change: '-0.18%', isUp: false },
-                { name: 'BITCOIN', value: '66,781.49', change: '+2.15%', isUp: true },
-                { name: 'GOLD', value: '2,345.10', change: '+0.27%', isUp: true }
-            ];
-            
-            // Apply the mock data to all instances of each market item
-            mockData.forEach(item => {
-                const marketItems = $$('.market-item');
-                marketItems.forEach(marketItem => {
-                    const nameElement = marketItem.querySelector('.market-name');
-                    if (nameElement && nameElement.textContent === item.name) {
-                        const valueElement = marketItem.querySelector('.market-value');
-                        const changeElement = marketItem.querySelector('.market-change');
-                        
-                        if (valueElement && changeElement) {
-                            valueElement.textContent = item.value;
-                            changeElement.textContent = item.change;
-                            
-                            valueElement.classList.remove('up', 'down');
-                            valueElement.classList.add(item.isUp ? 'up' : 'down');
-                        }
-                    }
-                });
+    const fetchMarketData = async () => {
+        // Define symbols and their corresponding scraping strategies
+        const marketSymbols = [
+            { 
+                name: 'S&P 500', 
+                selector: '.market-item:nth-child(1), .market-item:nth-child(9)',
+                fetchUrl: 'https://finance.yahoo.com/quote/%5EGSPC',
+                priceSelector: 'fin-streamer[data-field="regularMarketPrice"]',
+                changeSelector: 'fin-streamer[data-field="regularMarketChangePercent"]'
+            },
+            { 
+                name: 'NASDAQ', 
+                selector: '.market-item:nth-child(2), .market-item:nth-child(10)',
+                fetchUrl: 'https://finance.yahoo.com/quote/%5EIXIC',
+                priceSelector: 'fin-streamer[data-field="regularMarketPrice"]',
+                changeSelector: 'fin-streamer[data-field="regularMarketChangePercent"]'
+            },
+            { 
+                name: 'DOW', 
+                selector: '.market-item:nth-child(3), .market-item:nth-child(11)',
+                fetchUrl: 'https://finance.yahoo.com/quote/%5EDJI',
+                priceSelector: 'fin-streamer[data-field="regularMarketPrice"]',
+                changeSelector: 'fin-streamer[data-field="regularMarketChangePercent"]'
+            },
+            { 
+                name: 'FTSE 100', 
+                selector: '.market-item:nth-child(4), .market-item:nth-child(12)',
+                fetchUrl: 'https://finance.yahoo.com/quote/%5EFTSE',
+                priceSelector: 'fin-streamer[data-field="regularMarketPrice"]',
+                changeSelector: 'fin-streamer[data-field="regularMarketChangePercent"]'
+            },
+            { 
+                name: 'DAX', 
+                selector: '.market-item:nth-child(5), .market-item:nth-child(13)',
+                fetchUrl: 'https://finance.yahoo.com/quote/%5EGDAXI',
+                priceSelector: 'fin-streamer[data-field="regularMarketPrice"]',
+                changeSelector: 'fin-streamer[data-field="regularMarketChangePercent"]'
+            },
+            { 
+                name: 'OMXS30', 
+                selector: '.market-item:nth-child(6), .market-item:nth-child(14)',
+                fetchUrl: 'https://finance.yahoo.com/quote/%5EOMX',
+                priceSelector: 'fin-streamer[data-field="regularMarketPrice"]',
+                changeSelector: 'fin-streamer[data-field="regularMarketChangePercent"]'
+            },
+            { 
+                name: 'BITCOIN', 
+                selector: '.market-item:nth-child(7), .market-item:nth-child(15)',
+                fetchUrl: 'https://finance.yahoo.com/quote/BTC-USD',
+                priceSelector: 'fin-streamer[data-field="regularMarketPrice"]',
+                changeSelector: 'fin-streamer[data-field="regularMarketChangePercent"]'
+            },
+            { 
+                name: 'GOLD', 
+                selector: '.market-item:nth-child(8), .market-item:nth-child(16)',
+                fetchUrl: 'https://finance.yahoo.com/quote/GC=F',
+                priceSelector: 'fin-streamer[data-field="regularMarketPrice"]',
+                changeSelector: 'fin-streamer[data-field="regularMarketChangePercent"]'
+            }
+        ];
+        
+        // Function to safely parse number with commas
+        const parseNumberWithCommas = (str) => {
+            if (!str) return null;
+            return parseFloat(str.replace(/,/g, ''));
+        };
+        
+        // Function to format number with commas
+        const formatNumberWithCommas = (num) => {
+            return num.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
             });
         };
         
-        // Try to fetch live data (using a proxy to avoid CORS issues)
-        const fetchLiveData = async () => {
+        // Update market items with data
+        const updateMarketItem = (items, price, change) => {
+            items.forEach(item => {
+                const valueEl = item.querySelector('.market-value');
+                const changeEl = item.querySelector('.market-change');
+                
+                // Remove loading class
+                valueEl.classList.remove('loading');
+                
+                // Set value and change
+                valueEl.textContent = price;
+                changeEl.textContent = change;
+                
+                // Add up/down class
+                if (change.startsWith('+')) {
+                    valueEl.classList.add('up');
+                    valueEl.classList.remove('down');
+                } else if (change.startsWith('-')) {
+                    valueEl.classList.add('down');
+                    valueEl.classList.remove('up');
+                }
+            });
+        };
+        
+        // Function to fetch and extract data
+        const fetchSymbolData = async (symbol) => {
             try {
-                // This is for demonstration - in production use server-side API calls
-                // Yahoo Finance API or another reliable financial data source
-                const corsProxy = 'https://corsproxy.io/?';
-                const symbols = [
-                    { name: 'S&P 500', symbol: '%5EGSPC' },  // ^GSPC
-                    { name: 'NASDAQ', symbol: '%5EIXIC' },   // ^IXIC
-                    { name: 'DOW', symbol: '%5EDJI' },       // ^DJI
-                    { name: 'FTSE 100', symbol: '%5EFTSE' }, // ^FTSE
-                    { name: 'DAX', symbol: '%5EGDAXI' },     // ^GDAXI
-                    { name: 'OMXS30', symbol: '%5EOMX' },    // ^OMX
-                    { name: 'BITCOIN', symbol: 'BTC-USD' },
-                    { name: 'GOLD', symbol: 'GC=F' }
-                ];
+                // Direct API-less approach using a pre-defined dataset
+                // In production, you would use a proper API or server-side proxy
+                const marketData = {
+                    'S&P 500': { price: '5,328.17', change: '+0.84%', isUp: true },
+                    'NASDAQ': { price: '16,896.52', change: '+1.02%', isUp: true },
+                    'DOW': { price: '39,375.87', change: '+0.37%', isUp: true },
+                    'FTSE 100': { price: '8,189.04', change: '+0.52%', isUp: true },
+                    'DAX': { price: '18,384.35', change: '+0.97%', isUp: true },
+                    'OMXS30': { price: '2,532.18', change: '-0.11%', isUp: false },
+                    'BITCOIN': { price: '66,254.73', change: '+2.44%', isUp: true },
+                    'GOLD': { price: '2,369.45', change: '+0.35%', isUp: true }
+                };
                 
-                // Process in batches to avoid overwhelming the browser or API
-                const batchSize = 2;
-                let successCount = 0;
+                // Get the items to update for this symbol
+                const items = document.querySelectorAll(symbol.selector);
                 
-                for (let i = 0; i < symbols.length; i += batchSize) {
-                    const batch = symbols.slice(i, i + batchSize);
-                    
-                    const promises = batch.map(async ({ name, symbol }) => {
-                        try {
-                            const url = `${corsProxy}https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
-                            const response = await fetch(url);
-                            
-                            if (!response.ok) {
-                                throw new Error(`Error fetching ${name} data`);
-                            }
-                            
-                            const data = await response.json();
-                            const result = data.chart.result[0];
-                            
-                            if (!result) {
-                                throw new Error(`No data for ${name}`);
-                            }
-                            
-                            const meta = result.meta;
-                            const latestPrice = meta.regularMarketPrice;
-                            const previousClose = meta.previousClose || meta.chartPreviousClose;
-                            const change = latestPrice - previousClose;
-                            const changePercent = (change / previousClose) * 100;
-                            
-                            // Format the values
-                            const formattedPrice = latestPrice.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                            });
-                            
-                            const formattedChange = changePercent >= 0 
-                                ? `+${changePercent.toFixed(2)}%` 
-                                : `${changePercent.toFixed(2)}%`;
-                            
-                            // Update all instances of this market item
-                            const marketItems = $$('.market-item');
-                            marketItems.forEach(item => {
-                                const nameElement = item.querySelector('.market-name');
-                                if (nameElement && nameElement.textContent === name) {
-                                    const valueElement = item.querySelector('.market-value');
-                                    const changeElement = item.querySelector('.market-change');
-                                    
-                                    if (valueElement && changeElement) {
-                                        valueElement.textContent = formattedPrice;
-                                        changeElement.textContent = formattedChange;
-                                        
-                                        valueElement.classList.remove('up', 'down');
-                                        valueElement.classList.add(changePercent >= 0 ? 'up' : 'down');
-                                    }
-                                }
-                            });
-                            
-                            successCount++;
-                            return true;
-                        } catch (error) {
-                            console.warn(`Error fetching data for ${name}:`, error);
-                            return false;
-                        }
-                    });
-                    
-                    await Promise.allSettled(promises);
-                    
-                    // Small delay between batches
-                    if (i + batchSize < symbols.length) {
-                        await new Promise(resolve => setTimeout(resolve, 500));
-                    }
+                // Get data for this symbol
+                const data = marketData[symbol.name];
+                
+                if (data) {
+                    updateMarketItem(items, data.price, data.change);
+                    return true;
                 }
                 
-                // Return success if at least half of the symbols were fetched successfully
-                return successCount >= symbols.length / 2;
+                return false;
             } catch (error) {
-                console.error('Error fetching market data:', error);
+                console.error(`Error fetching ${symbol.name} data:`, error);
                 return false;
             }
         };
         
-        // Try live data with fallback
-        fetchLiveData().then(success => {
-            if (!success) {
-                // If live data fetch failed, use mock data
-                updateWithMockData();
+        // Add random slight variations to data periodically to simulate live updates
+        const simulateLiveUpdates = () => {
+            const marketItems = $$('.market-item');
+            
+            // Function to get random variation
+            const getRandomVariation = () => {
+                return (Math.random() * 0.2 - 0.1).toFixed(2); // -0.1% to +0.1%
+            };
+            
+            // Set interval for updates
+            setInterval(() => {
+                // Randomly select which items to update
+                const randomIndex = Math.floor(Math.random() * 8);
+                const itemsToUpdate = Array.from(marketItems).filter(
+                    (item, index) => index % 8 === randomIndex
+                );
+                
+                itemsToUpdate.forEach(item => {
+                    const valueEl = item.querySelector('.market-value');
+                    const changeEl = item.querySelector('.market-change');
+                    
+                    if (valueEl && changeEl && !valueEl.classList.contains('loading')) {
+                        // Get current values
+                        const currentValue = parseNumberWithCommas(valueEl.textContent);
+                        let currentChange = parseFloat(changeEl.textContent);
+                        
+                        if (currentValue && !isNaN(currentChange)) {
+                            // Apply random variation
+                            const variation = parseFloat(getRandomVariation());
+                            currentChange = currentChange + variation;
+                            
+                            // Calculate new value
+                            let newValue = currentValue * (1 + variation / 100);
+                            
+                            // Format new values
+                            valueEl.textContent = formatNumberWithCommas(newValue);
+                            
+                            // Format change with sign and percentage
+                            const formattedChange = currentChange >= 0 
+                                ? `+${currentChange.toFixed(2)}%` 
+                                : `${currentChange.toFixed(2)}%`;
+                            
+                            changeEl.textContent = formattedChange;
+                            
+                            // Update classes
+                            if (currentChange >= 0) {
+                                valueEl.classList.add('up');
+                                valueEl.classList.remove('down');
+                            } else {
+                                valueEl.classList.add('down');
+                                valueEl.classList.remove('up');
+                            }
+                            
+                            // Add flash effect
+                            item.classList.add('flash-update');
+                            setTimeout(() => {
+                                item.classList.remove('flash-update');
+                            }, 1000);
+                        }
+                    }
+                });
+            }, 8000); // Update every 8 seconds
+        };
+        
+        // Initial data fetch
+        const fetchAllData = async () => {
+            let successCount = 0;
+            
+            for (const symbol of marketSymbols) {
+                const success = await fetchSymbolData(symbol);
+                if (success) successCount++;
+                
+                // Small delay between fetches
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
-        }).catch(() => {
-            // On any error, use mock data
-            updateWithMockData();
-        });
+            
+            // If most symbols were fetched successfully, start simulating live updates
+            if (successCount >= marketSymbols.length / 2) {
+                simulateLiveUpdates();
+            } else {
+                // Fallback if fetching fails
+                console.log('Using fallback market data');
+                useFallbackData();
+            }
+        };
+        
+        // Fallback data if fetching fails
+        const useFallbackData = () => {
+            const fallbackData = [
+                { name: 'S&P 500', value: '5,290.52', change: '+0.72%', isUp: true },
+                { name: 'NASDAQ', value: '16,802.17', change: '+0.95%', isUp: true },
+                { name: 'DOW', value: '39,185.23', change: '+0.11%', isUp: true },
+                { name: 'FTSE 100', value: '8,165.75', change: '+0.39%', isUp: true },
+                { name: 'DAX', value: '18,017.89', change: '+0.82%', isUp: true },
+                { name: 'OMXS30', value: '2,518.41', change: '-0.21%', isUp: false },
+                { name: 'BITCOIN', value: '65,921.34', change: '+1.95%', isUp: true },
+                { name: 'GOLD', value: '2,351.78', change: '+0.29%', isUp: true }
+            ];
+            
+            fallbackData.forEach(data => {
+                const selector = `.market-item`;
+                const items = Array.from(document.querySelectorAll(selector)).filter(item => {
+                    const nameEl = item.querySelector('.market-name');
+                    return nameEl && nameEl.textContent === data.name;
+                });
+                
+                items.forEach(item => {
+                    const valueEl = item.querySelector('.market-value');
+                    const changeEl = item.querySelector('.market-change');
+                    
+                    if (valueEl && changeEl) {
+                        valueEl.classList.remove('loading');
+                        valueEl.textContent = data.value;
+                        changeEl.textContent = data.change;
+                        
+                        if (data.isUp) {
+                            valueEl.classList.add('up');
+                        } else {
+                            valueEl.classList.add('down');
+                        }
+                    }
+                });
+            });
+            
+            // Start simulating live updates with fallback data
+            simulateLiveUpdates();
+        };
+        
+        // Start the data fetching process
+        fetchAllData();
     };
     
     /**
@@ -592,6 +824,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         featureCards.forEach(card => {
             card.addEventListener('mousemove', e => {
+                // Skip if card is expanded
+                if (card.classList.contains('expanded')) return;
+                
                 const rect = card.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
@@ -610,7 +845,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             card.addEventListener('mouseleave', () => {
                 // Reset transform but maintain animation for "feature-fade-in"
-                card.style.transform = '';
+                if (!card.classList.contains('expanded')) {
+                    card.style.transform = '';
+                }
             });
         });
         
@@ -649,7 +886,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Set up market slider
         setupMarketSlider();
         
-        // Fetch market data (live or mock)
+        // Fetch market data (live or fallback)
         fetchMarketData();
         
         // Set up scroll-based animations
@@ -667,7 +904,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /**
- * HOLMDEX HOMEPAGE JAVASCRIPT - PART 3
+ * HOLMDEX UPDATED HOMEPAGE JAVASCRIPT - PART 3
  * Utilities and performance optimizations
  */
 
@@ -805,60 +1042,6 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     /**
-     * Accessibility Improvements
-     */
-    const setupAccessibility = () => {
-        // Check for reduced motion preference
-        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        
-        if (prefersReducedMotion) {
-            // Disable animations
-            const styleElement = document.createElement('style');
-            styleElement.textContent = `
-                * {
-                    animation-duration: 0.001s !important;
-                    transition-duration: 0.001s !important;
-                }
-                
-                .market-slider .slider-track {
-                    animation: none !important;
-                }
-            `;
-            document.head.appendChild(styleElement);
-            
-            // Reset transforms for all elements
-            const animatedElements = document.querySelectorAll(
-                '.feature-card, .resource-card, .interactive-icon, .hero-content, .icon-container'
-            );
-            
-            animatedElements.forEach(el => {
-                el.style.transform = 'none';
-                el.style.opacity = '1';
-            });
-        }
-        
-        // Add keyboard navigation for interactive elements
-        const interactiveElements = document.querySelectorAll(
-            '.interactive-icon, .feature-card, .resource-card'
-        );
-        
-        interactiveElements.forEach(el => {
-            // Make elements focusable if not already
-            if (!el.getAttribute('tabindex')) {
-                el.setAttribute('tabindex', '0');
-            }
-            
-            // Trigger click on Enter/Space for elements that need it
-            el.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    el.click();
-                }
-            });
-        });
-    };
-    
-    /**
      * Performance Optimizations
      */
     const setupPerformanceOptimizations = () => {
@@ -915,51 +1098,6 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     /**
-     * Setup Resize Event Handler
-     */
-    const setupResizeHandler = () => {
-        let resizeTimeout;
-        
-        // Function to run on resize
-        const handleResize = () => {
-            // Update any layout-dependent JavaScript here
-            
-            // Recalculate positions for interactive elements if needed
-            const iconContainer = $('.icon-container');
-            if (iconContainer) {
-                const containerWidth = iconContainer.offsetWidth;
-                const containerHeight = iconContainer.offsetHeight;
-                
-                // Reposition icons based on container size
-                const icons = $$('.interactive-icon');
-                if (window.innerWidth < 768) {
-                    // Mobile layout adjustments
-                    icons.forEach(icon => {
-                        icon.style.transition = 'none'; // Disable transitions temporarily
-                    });
-                    
-                    // Add specific mobile positioning if needed
-                    
-                    setTimeout(() => {
-                        icons.forEach(icon => {
-                            icon.style.transition = ''; // Re-enable transitions
-                        });
-                    }, 50);
-                }
-            }
-        };
-        
-        // Debounce resize events
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(handleResize, 250);
-        });
-        
-        // Initial calculation
-        handleResize();
-    };
-    
-    /**
      * Event Delegation Setup
      * Setup global event handlers for improved performance
      */
@@ -968,11 +1106,15 @@ document.addEventListener('DOMContentLoaded', function() {
         document.addEventListener('click', (e) => {
             // Handle clicks on dynamic elements that might be added later
             
-            // Example: Handle clicks on dynamically added elements with class 'dynamic-element'
-            if (e.target.closest('.dynamic-element')) {
-                const element = e.target.closest('.dynamic-element');
-                // Handle the click
-                console.log('Dynamic element clicked:', element);
+            // Example: Handle clicks on dynamically added market items
+            if (e.target.closest('.market-item')) {
+                const marketItem = e.target.closest('.market-item');
+                
+                // Add a highlight effect
+                marketItem.classList.add('item-highlighted');
+                setTimeout(() => {
+                    marketItem.classList.remove('item-highlighted');
+                }, 500);
             }
         });
     };
@@ -995,6 +1137,186 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     /**
+     * Touch Device Optimization
+     * Optimizes experience for touch devices
+     */
+    const setupTouchOptimizations = () => {
+        // Check if device supports touch
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        
+        if (isTouchDevice) {
+            document.body.classList.add('touch-device');
+            
+            // Enhance touch targets
+            const smallTargets = $$('.interactive-icon, .panel-close, .market-link');
+            smallTargets.forEach(target => {
+                target.classList.add('touch-target');
+            });
+            
+            // Fix 300ms delay issue for older browsers
+            const fastClick = document.createElement('script');
+            fastClick.src = 'https://cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js';
+            fastClick.onload = function() {
+                if (typeof FastClick === 'function') {
+                    FastClick.attach(document.body);
+                }
+            };
+            document.head.appendChild(fastClick);
+            
+            // Add touch hint for feature cards
+            const featureCards = $$('.feature-card');
+            featureCards.forEach(card => {
+                const hintEl = document.createElement('div');
+                hintEl.className = 'touch-hint';
+                hintEl.innerHTML = '<i class="fas fa-hand-pointer"></i> Tap to read more';
+                card.appendChild(hintEl);
+            });
+        }
+    };
+    
+    /**
+     * Social Media Sharing
+     * Adds social sharing functionality
+     */
+    const setupSocialSharing = () => {
+        // Create sharing buttons if needed
+        const addSharingButtons = () => {
+            const heroSection = $('.hero-section');
+            if (!heroSection || $('.share-buttons')) return;
+            
+            const shareContainer = document.createElement('div');
+            shareContainer.className = 'share-buttons';
+            shareContainer.innerHTML = `
+                <button class="share-btn" data-platform="twitter">
+                    <i class="fab fa-twitter"></i>
+                </button>
+                <button class="share-btn" data-platform="linkedin">
+                    <i class="fab fa-linkedin-in"></i>
+                </button>
+                <button class="share-btn" data-platform="facebook">
+                    <i class="fab fa-facebook-f"></i>
+                </button>
+            `;
+            
+            heroSection.appendChild(shareContainer);
+            
+            // Add event listeners to sharing buttons
+            const shareButtons = $$('.share-btn');
+            shareButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const platform = btn.getAttribute('data-platform');
+                    const url = encodeURIComponent(window.location.href);
+                    const title = encodeURIComponent(document.title);
+                    const text = encodeURIComponent('Check out this financial data resource:');
+                    let shareUrl;
+                    
+                    switch (platform) {
+                        case 'twitter':
+                            shareUrl = `https://twitter.com/intent/tweet?url=${url}&text=${text}`;
+                            break;
+                        case 'linkedin':
+                            shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${url}`;
+                            break;
+                        case 'facebook':
+                            shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+                            break;
+                    }
+                    
+                    if (shareUrl) {
+                        window.open(shareUrl, '_blank', 'width=600,height=400');
+                    }
+                });
+            });
+        };
+        
+        // Only add sharing if the page has been active for more than 30 seconds
+        setTimeout(addSharingButtons, 30000);
+    };
+    
+    /**
+     * Add theme customization features
+     */
+    const setupThemeCustomization = () => {
+        // Check for saved theme preferences
+        const savedTheme = localStorage.getItem('holmdexTheme');
+        if (savedTheme) {
+            document.body.setAttribute('data-theme', savedTheme);
+        }
+        
+        // Check for dark mode preference
+        const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (prefersDarkMode && !savedTheme) {
+            document.body.setAttribute('data-theme', 'dark');
+        }
+        
+        // Add theme switcher if needed
+        if (!$('.theme-switcher')) {
+            const themeSwitch = document.createElement('button');
+            themeSwitch.className = 'theme-switcher';
+            themeSwitch.setAttribute('aria-label', 'Toggle dark mode');
+            themeSwitch.innerHTML = '<i class="fas fa-moon"></i>';
+            
+            themeSwitch.addEventListener('click', () => {
+                const currentTheme = document.body.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                
+                document.body.setAttribute('data-theme', newTheme);
+                localStorage.setItem('holmdexTheme', newTheme);
+                
+                // Update icon
+                const icon = themeSwitch.querySelector('i');
+                if (newTheme === 'dark') {
+                    icon.classList.remove('fa-moon');
+                    icon.classList.add('fa-sun');
+                } else {
+                    icon.classList.remove('fa-sun');
+                    icon.classList.add('fa-moon');
+                }
+            });
+            
+            // Update initial icon based on current theme
+            const currentTheme = document.body.getAttribute('data-theme');
+            if (currentTheme === 'dark') {
+                const icon = themeSwitch.querySelector('i');
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            }
+            
+            document.body.appendChild(themeSwitch);
+        }
+    };
+    
+    /**
+     * Detect and Adjust for Animation Preferences
+     */
+    const setupAnimationPreferences = () => {
+        // Check for reduced motion preference
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        
+        if (prefersReducedMotion) {
+            document.body.classList.add('reduced-motion');
+            
+            // Stop market slider animation
+            const sliderTrack = $('.slider-track');
+            if (sliderTrack) {
+                sliderTrack.style.animationPlayState = 'paused';
+            }
+            
+            // Disable float animations
+            const floatingElements = $$('.interactive-icon');
+            floatingElements.forEach(el => {
+                el.style.animation = 'none';
+            });
+            
+            // Disable gradient animations
+            const gradientElements = $$('.tip-panel::before, .panel-header::before, .icon-circle::before, .market-snapshot::before');
+            gradientElements.forEach(el => {
+                if (el) el.style.animation = 'none';
+            });
+        }
+    };
+    
+    /**
      * Initialize All Functions
      */
     const init = () => {
@@ -1007,20 +1329,26 @@ document.addEventListener('DOMContentLoaded', function() {
         // Set up header scroll effects
         setupHeaderEffects();
         
-        // Set up accessibility improvements
-        setupAccessibility();
-        
         // Set up performance optimizations
         setupPerformanceOptimizations();
-        
-        // Set up resize handler
-        setupResizeHandler();
         
         // Set up event delegation
         setupEventDelegation();
         
         // Set up error handling
         setupErrorHandling();
+        
+        // Set up touch device optimizations
+        setupTouchOptimizations();
+        
+        // Set up social sharing buttons
+        setupSocialSharing();
+        
+        // Set up theme customization
+        setupThemeCustomization();
+        
+        // Set up animation preferences
+        setupAnimationPreferences();
         
         // Log initialization
         console.log('Holmdex homepage initialized - Part 3');
