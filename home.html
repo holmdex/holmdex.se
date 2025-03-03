@@ -1,6 +1,6 @@
-<!-- HOLMDEX HOMEPAGE - Updated Version -->
+<!-- HOLMDEX HOMEPAGE - Professional Version -->
 <main id="main-content" class="holmdex-main">
-    <!-- Hero Section with Interactive Icons -->
+    <!-- Hero Section -->
     <section class="hero-section">
         <div class="container">
             <div class="hero-content">
@@ -9,232 +9,193 @@
                     For businesses and individuals who want to make better financial decisions.
                 </p>
             </div>
-            
-            <div class="hero-icons">
-                <!-- Interactive Icons with Tips -->
-                <div class="icon-container">
-                    <!-- Market Analysis Icon -->
-                    <div class="interactive-icon" id="icon-analysis" tabindex="0">
-                        <div class="icon-circle">
-                            <i class="fas fa-chart-line"></i>
-                        </div>
-                        <span class="icon-label">Market Analysis</span>
-                    </div>
-                    
-                    <!-- Investment Options Icon -->
-                    <div class="interactive-icon" id="icon-investments" tabindex="0">
-                        <div class="icon-circle">
-                            <i class="fas fa-piggy-bank"></i>
-                        </div>
-                        <span class="icon-label">Investment Options</span>
-                    </div>
-                    
-                    <!-- Fee Structure Icon -->
-                    <div class="interactive-icon" id="icon-fees" tabindex="0">
-                        <div class="icon-circle">
-                            <i class="fas fa-percentage"></i>
-                        </div>
-                        <span class="icon-label">Fee Impact</span>
-                    </div>
-                    
-                    <!-- Financial Planning Icon -->
-                    <div class="interactive-icon" id="icon-planning" tabindex="0">
-                        <div class="icon-circle">
-                            <i class="fas fa-wallet"></i>
-                        </div>
-                        <span class="icon-label">Planning Tools</span>
-                    </div>
-                </div>
-                
-                <!-- Icon Tip Expanded Panels -->
-                <div class="tip-panels">
-                    <!-- Market Analysis Panel -->
-                    <div class="tip-panel" id="panel-analysis">
-                        <div class="panel-header">
-                            <h3>Market Analysis</h3>
-                            <button class="panel-close" aria-label="Close panel"><i class="fas fa-times"></i></button>
-                        </div>
-                        <div class="panel-content">
-                            <p>We break down market trends without the jargon.</p>
-                            <div class="tip-highlight">
-                                <p><strong>For businesses:</strong> Visual illustrations of market impacts on your industry.</p>
-                                <p><strong>For individuals:</strong> Simplified data to inform your investment choices.</p>
-                            </div>
-                            <a href="/markets/" class="tip-link">View markets <i class="fas fa-arrow-right"></i></a>
-                        </div>
-                    </div>
-                    
-                    <!-- Investment Options Panel -->
-                    <div class="tip-panel" id="panel-investments">
-                        <div class="panel-header">
-                            <h3>Investment Options</h3>
-                            <button class="panel-close" aria-label="Close panel"><i class="fas fa-times"></i></button>
-                        </div>
-                        <div class="panel-content">
-                            <p>Not all investment products are created equal. We help you spot the differences.</p>
-                            <div class="tip-highlight">
-                                <p><strong>For businesses:</strong> Investment allocation visuals based on your objectives.</p>
-                                <p><strong>For individuals:</strong> Alternative options beyond standard bank products.</p>
-                            </div>
-                            <a href="/analytics/" class="tip-link">Compare options <i class="fas fa-arrow-right"></i></a>
-                        </div>
-                    </div>
-                    
-                    <!-- Fee Structure Panel -->
-                    <div class="tip-panel" id="panel-fees">
-                        <div class="panel-header">
-                            <h3>Fee Impact</h3>
-                            <button class="panel-close" aria-label="Close panel"><i class="fas fa-times"></i></button>
-                        </div>
-                        <div class="panel-content">
-                            <p>Small fee differences add up to major impacts over time.</p>
-                            <div class="tip-highlight">
-                                <p><strong>For businesses:</strong> Analysis of fee structures on your corporate investments.</p>
-                                <p><strong>For individuals:</strong> Tools to find hidden fees in your portfolio.</p>
-                            </div>
-                            <a href="/analytics/" class="tip-link">Calculate impact <i class="fas fa-arrow-right"></i></a>
-                        </div>
-                    </div>
-                    
-                    <!-- Financial Planning Panel -->
-                    <div class="tip-panel" id="panel-planning">
-                        <div class="panel-header">
-                            <h3>Planning Tools</h3>
-                            <button class="panel-close" aria-label="Close panel"><i class="fas fa-times"></i></button>
-                        </div>
-                        <div class="panel-content">
-                            <p>Visually map your financial future with practical tools.</p>
-                            <div class="tip-highlight">
-                                <p><strong>For businesses:</strong> Visual projections for strategic planning.</p>
-                                <p><strong>For individuals:</strong> Straightforward retirement and expense planning.</p>
-                            </div>
-                            <a href="/consulting/" class="tip-link">Start planning <i class="fas fa-arrow-right"></i></a>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </section>
     
-    <!-- Market Snapshot Slider -->
-    <section class="market-snapshot">
-        <div class="market-heading">
-            <i class="fas fa-globe-europe"></i>
-            <span>Markets</span>
+<!-- Trusted Sources Ticker -->
+<section class="trusted-sources">
+    <div class="sources-heading">
+        <div class="container">
+            <div class="sources-label">Analyzing data from trusted sources</div>
         </div>
-        
-        <div class="market-slider">
-            <div class="slider-track">
-                <!-- Market Items - Will be filled dynamically by JS -->
-                <div class="market-item">
-                    <span class="market-name">S&P 500</span>
-                    <span class="market-value">Loading...</span>
-                    <span class="market-change">-</span>
-                </div>
-                <div class="market-item">
-                    <span class="market-name">NASDAQ</span>
-                    <span class="market-value">Loading...</span>
-                    <span class="market-change">-</span>
-                </div>
-                <div class="market-item">
-                    <span class="market-name">DOW</span>
-                    <span class="market-value">Loading...</span>
-                    <span class="market-change">-</span>
-                </div>
-                <div class="market-item">
-                    <span class="market-name">FTSE 100</span>
-                    <span class="market-value">Loading...</span>
-                    <span class="market-change">-</span>
-                </div>
-                <div class="market-item">
-                    <span class="market-name">DAX</span>
-                    <span class="market-value">Loading...</span>
-                    <span class="market-change">-</span>
-                </div>
-                <div class="market-item">
-                    <span class="market-name">OMXS30</span>
-                    <span class="market-value">Loading...</span>
-                    <span class="market-change">-</span>
-                </div>
-                <div class="market-item">
-                    <span class="market-name">BITCOIN</span>
-                    <span class="market-value">Loading...</span>
-                    <span class="market-change">-</span>
-                </div>
-                <div class="market-item">
-                    <span class="market-name">GOLD</span>
-                    <span class="market-value">Loading...</span>
-                    <span class="market-change">-</span>
-                </div>
-            </div>
-        </div>
-        <div class="market-note">
-            <span>Live market data</span>
-            <a href="/markets/" class="market-link">Full market data <i class="fas fa-arrow-right"></i></a>
-        </div>
-    </section>
+    </div>
+    <div class="sources-ticker-container">
+        <div class="sources-ticker">
+            <!-- Global Financial Sites -->
+            <a href="https://www.bloomberg.com/" target="_blank" class="source-item">
+                <i class="fas fa-chart-line"></i>
+                <span>Bloomberg</span>
+            </a>
+            <a href="https://www.morningstar.com/" target="_blank" class="source-item">
+                <i class="fas fa-star"></i>
+                <span>Morningstar</span>
+            </a>
+            <a href="https://www.reuters.com/" target="_blank" class="source-item">
+                <i class="fas fa-globe"></i>
+                <span>Reuters</span>
+            </a>
+            <a href="https://www.ft.com/" target="_blank" class="source-item">
+                <i class="fas fa-newspaper"></i>
+                <span>Financial Times</span>
+            </a>
+            <a href="https://www.cnbc.com/" target="_blank" class="source-item">
+                <i class="fas fa-broadcast-tower"></i>
+                <span>CNBC</span>
+            </a>
 
-    <!-- Why Choose Us Section -->
-    <section class="why-choose-us">
+            <!-- Nordics -->
+            <a href="https://www.placera.se/" target="_blank" class="source-item">
+                <i class="fas fa-landmark"></i>
+                <span>Placera.se</span>
+            </a>
+            <a href="https://www.di.se/" target="_blank" class="source-item">
+                <i class="fas fa-file-invoice-dollar"></i>
+                <span>Dagens Industri</span>
+            </a>
+            <a href="https://www.kauppalehti.fi/" target="_blank" class="source-item">
+                <i class="fas fa-chart-bar"></i>
+                <span>Kauppalehti</span>
+            </a>
+            <a href="https://borsen.dk/" target="_blank" class="source-item">
+                <i class="fas fa-money-bill-wave"></i>
+                <span>Børsen</span>
+            </a>
+            <a href="https://www.dn.no/" target="_blank" class="source-item">
+                <i class="fas fa-file-contract"></i>
+                <span>Dagens Næringsliv</span>
+            </a>
+
+            <!-- European -->
+            <a href="https://www.handelsblatt.com/" target="_blank" class="source-item">
+                <i class="fas fa-euro-sign"></i>
+                <span>Handelsblatt</span>
+            </a>
+            <a href="https://www.zonebourse.com/" target="_blank" class="source-item">
+                <i class="fas fa-exchange-alt"></i>
+                <span>Zone Bourse</span>
+            </a>
+            <a href="https://www.ilsole24ore.com/" target="_blank" class="source-item">
+                <i class="fas fa-sun"></i>
+                <span>Il Sole 24 Ore</span>
+            </a>
+            <a href="https://www.expansion.com/" target="_blank" class="source-item">
+                <i class="fas fa-chart-area"></i>
+                <span>Expansión</span>
+            </a>
+            <a href="https://www.vedomosti.ru/" target="_blank" class="source-item">
+                <i class="fas fa-file-alt"></i>
+                <span>Ведомости</span>
+            </a>
+
+            <!-- Asian -->
+            <a href="https://www.caixinglobal.com/" target="_blank" class="source-item">
+                <i class="fas fa-yen-sign"></i>
+                <span>Caixin Global</span>
+            </a>
+            <a href="https://asia.nikkei.com/" target="_blank" class="source-item">
+                <i class="fas fa-torii-gate"></i>
+                <span>Nikkei Asia</span>
+            </a>
+            <a href="https://www.scmp.com/" target="_blank" class="source-item">
+                <i class="fas fa-building"></i>
+                <span>South China Morning Post</span>
+            </a>
+            <a href="https://www.businesstimes.com.sg/" target="_blank" class="source-item">
+                <i class="fas fa-city"></i>
+                <span>The Business Times</span>
+            </a>
+            <a href="https://economictimes.indiatimes.com/" target="_blank" class="source-item">
+                <i class="fas fa-rupee-sign"></i>
+                <span>Economic Times</span>
+            </a>
+
+            <!-- Oceania & Africa -->
+            <a href="https://www.afr.com/" target="_blank" class="source-item">
+                <i class="fas fa-map-marker-alt"></i>
+                <span>Australian Financial Review</span>
+            </a>
+            <a href="https://www.nzherald.co.nz/business/" target="_blank" class="source-item">
+                <i class="fas fa-mountain"></i>
+                <span>NZ Herald Business</span>
+            </a>
+            <a href="https://businesstech.co.za/" target="_blank" class="source-item">
+                <i class="fas fa-tree"></i>
+                <span>BusinessTech</span>
+            </a>
+            <a href="https://www.businesslive.co.za/" target="_blank" class="source-item">
+                <i class="fas fa-atlas"></i>
+                <span>Business Live SA</span>
+            </a>
+
+            <!-- Americas -->
+            <a href="https://www.theglobeandmail.com/" target="_blank" class="source-item">
+                <i class="fas fa-leaf"></i>
+                <span>The Globe and Mail</span>
+            </a>
+            <a href="https://financialpost.com/" target="_blank" class="source-item">
+                <i class="fas fa-mail-bulk"></i>
+                <span>Financial Post</span>
+            </a>
+            <a href="https://www.eleconomista.com.mx/" target="_blank" class="source-item">
+                <i class="fas fa-coins"></i>
+                <span>El Economista</span>
+            </a>
+            <a href="https://valor.globo.com/" target="_blank" class="source-item">
+                <i class="fas fa-landmark"></i>
+                <span>Valor Econômico</span>
+            </a>
+
+            <!-- Middle East -->
+            <a href="https://www.arabnews.com/business-economy" target="_blank" class="source-item">
+                <i class="fas fa-moon"></i>
+                <span>Arab News</span>
+            </a>
+            <a href="https://gulfbusiness.com/" target="_blank" class="source-item">
+                <i class="fas fa-oil-can"></i>
+                <span>Gulf Business</span>
+            </a>
+        </div>
+    </div>
+</section>
+    
+    <!-- Core Principles Section (renamed from Why Holmdex) -->
+    <section class="core-principles">
         <div class="container">
             <div class="section-heading">
-                <h2>Why <span class="accent">Holmdex</span>?</h2>
+                <h2>Our <span class="accent">Approach</span></h2>
             </div>
             
-            <div class="features-grid">
-                <div class="feature-card" data-delay="0" tabindex="0">
-                    <div class="feature-icon">
+            <div class="principles-grid">
+                <div class="principle-card" data-delay="0" tabindex="0">
+                    <div class="principle-icon">
                         <i class="fas fa-eye"></i>
                     </div>
                     <h3>Transparent</h3>
-                    <p>We show you what matters in financial data without unnecessary complexity.</p>
-                    <div class="feature-expanded">
-                        <p>Not trying to sell you courses or anything that can't be backed up by data. We believe financial information should be clear and accessible to everyone.</p>
-                    </div>
+                    <p>Clear financial data without the jargon. We strip away complexity and present information in a straightforward way anyone can understand.</p>
                 </div>
                 
-                <div class="feature-card" data-delay="100" tabindex="0">
-                    <div class="feature-icon">
-                        <i class="fas fa-balance-scale"></i>
-                    </div>
-                    <h3>Independent</h3>
-                    <p>Our insights aren't tied to specific financial products or institutions.</p>
-                    <div class="feature-expanded">
-                        <p>We use a wide range of trusted sources to provide you with balanced information:</p>
-                        <ul class="source-list">
-                            <li><a href="https://www.placera.se/" target="_blank">Placera</a></li>
-                            <li><a href="https://www.zonebourse.com/" target="_blank">Zone Bourse</a></li>
-                            <li><a href="https://www.morningstar.com/" target="_blank">Morningstar</a></li>
-                            <li><a href="https://www.caixinglobal.com/" target="_blank">Caixin Global</a></li>
-                            <li><a href="https://www.ft.com/" target="_blank">Financial Times</a></li>
-                            <li><a href="https://www.bloomberg.com/" target="_blank">Bloomberg</a></li>
-                        </ul>
-                        <p>We do not support or discuss any politics - we are here to help you make profit, nothing more, nothing less.</p>
-                    </div>
-                </div>
+<div class="principle-card" data-delay="100" tabindex="0">
+    <div class="principle-icon">
+        <i class="fas fa-balance-scale"></i>
+    </div>
+    <h3>Independent</h3>
+    <p>Unbiased insights driven by data, not commissions. We analyze information from diverse global sources to provide objective, balanced perspectives on market trends.</p>
+</div>
                 
-                <div class="feature-card" data-delay="200" tabindex="0">
-                    <div class="feature-icon">
+                <div class="principle-card" data-delay="200" tabindex="0">
+                    <div class="principle-icon">
                         <i class="fas fa-chart-pie"></i>
                     </div>
                     <h3>Visual</h3>
-                    <p>We transform complex financial concepts into clear visual presentations.</p>
-                    <div class="feature-expanded">
-                        <p>Graphs shouldn't be hard to understand. We simplify the same tools professionals use so anyone can understand and learn from them.</p>
-                        <p>Our visualizations help you spot trends and patterns quickly, making complex financial data accessible at a glance.</p>
-                    </div>
+                    <p>Complex data transformed into intuitive visuals. We believe you shouldn't need a finance degree to understand market trends. Our visualizations make patterns clear at a glance.</p>
                 </div>
                 
-                <div class="feature-card" data-delay="300" tabindex="0">
-                    <div class="feature-icon">
+                <div class="principle-card" data-delay="300" tabindex="0">
+                    <div class="principle-icon">
                         <i class="fas fa-tools"></i>
                     </div>
                     <h3>Practical</h3>
-                    <p>Our tools solve real problems for both businesses and individuals.</p>
-                    <div class="feature-expanded">
-                        <p>Our end goal is to make sure you walk away with more knowledge, regardless if you're running a company or investing on your own.</p>
-                        <p>Every tool and insight we provide is designed with practical applications in mind, helping you make better financial decisions every day.</p>
-                    </div>
+                    <p>Actionable tools for real financial decisions. Every insight and tool we provide is designed to help you make better financial choices, whether you're an individual investor or running a business.</p>
                 </div>
             </div>
         </div>
@@ -244,7 +205,7 @@
     <section class="key-resources">
         <div class="container">
             <div class="section-heading">
-                <h2>Services</h2>
+                <h2>Our <span class="accent">Services</span></h2>
             </div>
             
             <div class="resources-grid">
@@ -254,7 +215,7 @@
                     </div>
                     <div class="resource-content">
                         <h3>Market Analysis</h3>
-                        <p>Track market trends with visualizations that make sense.</p>
+                        <p>Clear visualizations of market trends that matter to you.</p>
                         <span class="resource-link">View markets <i class="fas fa-arrow-right"></i></span>
                     </div>
                 </a>
@@ -265,7 +226,7 @@
                     </div>
                     <div class="resource-content">
                         <h3>Financial Analytics</h3>
-                        <p>Compare investment options and understand their real performance.</p>
+                        <p>Compare investment options with straightforward performance metrics.</p>
                         <span class="resource-link">Explore tools <i class="fas fa-arrow-right"></i></span>
                     </div>
                 </a>
@@ -276,7 +237,7 @@
                     </div>
                     <div class="resource-content">
                         <h3>Consulting</h3>
-                        <p>Get tailored guidance and financial illustrations for your specific needs.</p>
+                        <p>Tailored guidance to help achieve your specific financial goals.</p>
                         <span class="resource-link">Learn more <i class="fas fa-arrow-right"></i></span>
                     </div>
                 </a>
