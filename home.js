@@ -1,861 +1,743 @@
 /**
  * Holmdex Homepage JavaScript
- * Provides interactive functionality for all home page components
- * WordPress-compatible version
+ * Handles interactive elements and dynamic content
  */
 
-// Wait for DOM to be fully loaded before executing code
 document.addEventListener('DOMContentLoaded', function() {
-  
-  /********************************************
-   * UTILITY FUNCTIONS
-   ********************************************/
-  
-  /**
-   * Get element by selector with error handling
-   * @param {string} selector - CSS selector
-   * @param {Element} parent - Parent element to search within (optional)
-   * @returns {Element|null} - Selected element or null
-   */
-  function $(selector, parent) {
-    if (!parent) parent = document;
-    return parent.querySelector(selector);
-  }
-  
-  /**
-   * Get all elements by selector with error handling
-   * @param {string} selector - CSS selector
-   * @param {Element} parent - Parent element to search within (optional)
-   * @returns {NodeList} - Selected elements
-   */
-  function $$(selector, parent) {
-    if (!parent) parent = document;
-    return parent.querySelectorAll(selector);
-  }
-  
-  /**
-   * Add event listener with error handling
-   * @param {Element} element - Element to add listener to
-   * @param {string} event - Event name
-   * @param {Function} callback - Callback function
-   */
-  function addEvent(element, event, callback) {
-    if (element) {
-      element.addEventListener(event, callback);
-    }
-  }
-  
-  /**
-   * Add multiple events to an element
-   * @param {Element} element - Element to add listeners to
-   * @param {Array} events - Array of event names
-   * @param {Function} callback - Callback function
-   */
-  function addEvents(element, events, callback) {
-    if (element) {
-      for (var i = 0; i < events.length; i++) {
-        element.addEventListener(events[i], callback);
-      }
-    }
-  }
-  
-  /**
-   * Debounce function to limit function calls
-   * @param {Function} func - Function to debounce
-   * @param {number} wait - Wait time in milliseconds
-   * @returns {Function} - Debounced function
-   */
-  function debounce(func, wait) {
-    if (!wait) wait = 100;
-    var timeout;
-    return function() {
-      var context = this;
-      var args = arguments;
-      clearTimeout(timeout);
-      timeout = setTimeout(function() {
-        func.apply(context, args);
-      }, wait);
+    
+    /**
+     * Utility Functions
+     */
+    
+    // Helper function for element selection
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => document.querySelectorAll(selector);
+    
+    // Helper to add event listeners with error handling
+    const addEvent = (element, event, callback) => {
+        if (element) {
+            element.addEventListener(event, callback);
+        }
     };
-  }
-  
-  /********************************************
-   * CONSTRUCTION NOTICE
-   ********************************************/
-  
-  var constructionNotice = $('#constructionNotice');
-  
-  // Close the construction notice
-  window.closeNotice = function() {
-    if (constructionNotice) {
-      constructionNotice.style.animation = 'fadeOut 0.3s forwards';
-      setTimeout(function() {
-        constructionNotice.style.display = 'none';
-        // Update localStorage to remember user preference
-        localStorage.setItem('noticeHidden', 'true');
-      }, 300);
-    }
-  };
-  
-  // Check if notice was previously closed
-  if (localStorage.getItem('noticeHidden') === 'true' && constructionNotice) {
-    constructionNotice.style.display = 'none';
-  }
-  
-  /********************************************
-   * COOKIE CONSENT BANNER
-   ********************************************/
-  
-  var cookieConsent = $('#cookie-consent');
-  var acceptButton = $('#cookie-accept');
-  var settingsButton = $('#cookie-settings');
-  
-  // Hide banner if consent was previously given
-  if (localStorage.getItem('cookieConsent') === 'accepted' && cookieConsent) {
-    cookieConsent.style.display = 'none';
-  }
-  
-  // Accept all cookies
-  addEvent(acceptButton, 'click', function() {
-    if (cookieConsent) {
-      localStorage.setItem('cookieConsent', 'accepted');
-      cookieConsent.style.animation = 'fadeOut 0.3s forwards';
-      setTimeout(function() {
-        cookieConsent.style.display = 'none';
-      }, 300);
-    }
-  });
-  
-  // Open cookie settings (placeholder functionality)
-  addEvent(settingsButton, 'click', function() {
-    // Future implementation: open modal with detailed cookie settings
-    alert('Cookie settings functionality will be implemented in a future update.');
-  });
-  
-  /********************************************
-   * INVESTMENT CONCEPT TABS
-   ********************************************/
-  
-  var tabButtons = $$('.tab-btn');
-  var tabContents = $$('.tab-content');
-  var tabInterval;
-  var currentTabIndex = 0;
-  
-  // Switch tab function
-  function switchTab(index) {
-    if (tabButtons.length === 0 || tabContents.length === 0) return;
     
-    // Reset all tabs
-    for (var i = 0; i < tabButtons.length; i++) {
-      tabButtons[i].classList.remove('active');
-      tabButtons[i].setAttribute('aria-selected', 'false');
-    }
+    // Debounce function to limit rapid function calls
+    const debounce = (func, wait = 100) => {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    };
     
-    for (var j = 0; j < tabContents.length; j++) {
-      tabContents[j].classList.remove('active');
-      tabContents[j].setAttribute('hidden', '');
-    }
-    
-    // Activate selected tab
-    tabButtons[index].classList.add('active');
-    tabButtons[index].setAttribute('aria-selected', 'true');
-    
-    var tabId = tabButtons[index].getAttribute('data-tab');
-    var activeContent = $('#' + tabId);
-    
-    if (activeContent) {
-      activeContent.classList.add('active');
-      activeContent.removeAttribute('hidden');
-    }
-    
-    // Update current index
-    currentTabIndex = index;
-  }
-  
-  // Auto-rotate tabs
-  function startTabRotation() {
-    clearInterval(tabInterval);
-    tabInterval = setInterval(function() {
-      var nextIndex = (currentTabIndex + 1) % tabButtons.length;
-      switchTab(nextIndex);
-    }, 8000); // Switch every 8 seconds
-  }
-  
-  // Set up tab button click handlers
-  for (var t = 0; t < tabButtons.length; t++) {
-    (function(index) {
-      tabButtons[index].addEventListener('click', function() {
-        switchTab(index);
-        // Pause rotation temporarily when user interacts
-        clearInterval(tabInterval);
-        // Restart after a delay
-        setTimeout(startTabRotation, 15000);
-      });
-      
-      // Keyboard navigation for tabs
-      tabButtons[index].addEventListener('keydown', function(e) {
-        var nextIndex;
+    /**
+     * Market Ticker
+     * Using a free API source to fetch real market data
+     */
+    const updateMarketTicker = () => {
+        // Function to update ticker UI
+        const updateTickerItem = (symbol, value, change, isUp) => {
+            const items = $$('.ticker-item');
+            
+            items.forEach(item => {
+                const symbolEl = item.querySelector('.ticker-symbol');
+                if (symbolEl && symbolEl.textContent === symbol) {
+                    const valueEl = item.querySelector('.ticker-value');
+                    const changeEl = item.querySelector('.ticker-change');
+                    
+                    if (valueEl && changeEl) {
+                        // Update the display values
+                        valueEl.textContent = value;
+                        changeEl.textContent = change;
+                        
+                        // Update classes for styling
+                        valueEl.classList.remove('up', 'down');
+                        valueEl.classList.add(isUp ? 'up' : 'down');
+                    }
+                }
+            });
+        };
         
-        switch(e.key) {
-          case 'ArrowRight':
-            nextIndex = (index + 1) % tabButtons.length;
-            tabButtons[nextIndex].focus();
-            e.preventDefault();
-            break;
-          case 'ArrowLeft':
-            nextIndex = (index - 1 + tabButtons.length) % tabButtons.length;
-            tabButtons[nextIndex].focus();
-            e.preventDefault();
-            break;
-          case 'Enter':
-          case ' ':
-            this.click();
-            e.preventDefault();
-            break;
-        }
-      });
-    })(t);
-  }
-  
-  // Initialize tabs
-  if (tabButtons.length > 0) {
-    switchTab(0);
-    startTabRotation();
-  }
-  
-  /********************************************
-   * SOURCES CAROUSEL
-   ********************************************/
-  
-  var carouselTrack = $('.carousel-track');
-  var sourceItems = $$('.news-source-btn');
-  var prevBtn = $('#prevBtn');
-  var nextBtn = $('#nextBtn');
-  
-  // Initialize carousel if elements exist
-  if (carouselTrack && sourceItems.length > 0) {
-    var position = 0;
-    var itemWidth = 160; // Width of each item including margins
+        // Map of symbols on the ticker to their API symbols
+        const symbolMap = {
+            'S&P 500': '%5EGSPC',  // ^GSPC
+            'NASDAQ': '%5EIXIC',   // ^IXIC
+            'DOW': '%5EDJI',       // ^DJI
+            'FTSE 100': '%5EFTSE', // ^FTSE
+            'DAX': '%5EGDAXI',     // ^GDAXI
+            'NIKKEI': '%5EN225',   // ^N225
+            'HANG SENG': '%5EHSI', // ^HSI
+            'OMXS30': '%5EOMX',    // ^OMX
+            'USD/EUR': 'EURUSD=X',
+            'BITCOIN': 'BTC-USD',
+            'GOLD': 'GC=F',
+            'CRUDE OIL': 'CL=F'
+        };
+        
+        // Using Yahoo Finance API via a proxy to avoid CORS issues
+        // Note: This is a workaround. In production, fetch this data server-side.
+        const fetchMarketData = async (symbol) => {
+            try {
+                // Use a CORS proxy service (replace with your own solution in production)
+                const corsProxy = 'https://corsproxy.io/?';
+                const url = `${corsProxy}https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
+                
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Extract the relevant data
+                const result = data.chart.result[0];
+                if (!result) {
+                    throw new Error('No data available');
+                }
+                
+                const meta = result.meta;
+                // Get the latest price
+                const latestPrice = meta.regularMarketPrice;
+                const previousClose = meta.previousClose || meta.chartPreviousClose;
+                
+                // Calculate change
+                const change = latestPrice - previousClose;
+                const changePercent = (change / previousClose) * 100;
+                
+                return {
+                    price: latestPrice.toFixed(2),
+                    change: changePercent >= 0 ? `+${changePercent.toFixed(2)}%` : `${changePercent.toFixed(2)}%`,
+                    isUp: changePercent >= 0
+                };
+            } catch (error) {
+                console.error(`Error fetching data for ${symbol}:`, error);
+                return null;
+            }
+        };
+        
+        // Fetch data for each symbol on the ticker
+        const updateAllTickers = async () => {
+            // Use Promise.allSettled to handle multiple requests
+            // Process in batches to avoid overwhelming the API or browser
+            const batchSize = 3;
+            const symbols = Object.keys(symbolMap);
+            
+            for (let i = 0; i < symbols.length; i += batchSize) {
+                const batch = symbols.slice(i, i + batchSize);
+                const promises = batch.map(symbol => 
+                    fetchMarketData(symbolMap[symbol])
+                    .then(data => {
+                        if (data) {
+                            updateTickerItem(symbol, data.price, data.change, data.isUp);
+                        }
+                    })
+                );
+                
+                // Wait for batch to complete
+                await Promise.allSettled(promises);
+                
+                // Small delay between batches
+                if (i + batchSize < symbols.length) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+        };
+        
+        // Initial update
+        updateAllTickers();
+        
+        // Update periodically (every 5 minutes)
+        setInterval(updateAllTickers, 5 * 60 * 1000);
+    };
     
-    // Function to update visible items based on container width
-    function updateCarousel() {
-      if (!carouselTrack || !prevBtn || !nextBtn) return;
-      
-      var containerWidth = carouselTrack.parentElement.offsetWidth;
-      var visibleItems = Math.floor(containerWidth / itemWidth);
-      var maxPosition = Math.max(0, sourceItems.length - visibleItems);
-      
-      // Ensure position is valid
-      position = Math.min(position, maxPosition);
-      
-      // Update carousel position
-      carouselTrack.style.transform = 'translateX(-' + (position * itemWidth) + 'px)';
-      
-      // Enable/disable buttons based on position
-      prevBtn.disabled = position <= 0;
-      nextBtn.disabled = position >= maxPosition;
-      
-      // Update button opacity based on disabled state
-      prevBtn.style.opacity = prevBtn.disabled ? '0.5' : '1';
-      nextBtn.style.opacity = nextBtn.disabled ? '0.5' : '1';
-      
-      return { maxPosition: maxPosition, visibleItems: visibleItems };
-    }
+    /**
+     * Alternative Market Data - Using finance widgets
+     * This is a fallback if the Yahoo Finance API method doesn't work
+     */
+    const setupFinanceWidgets = () => {
+        // Create script tag for TradingView widgets
+        const injectTradingViewScript = () => {
+            const script = document.createElement('script');
+            script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js';
+            script.async = true;
+            script.innerHTML = JSON.stringify({
+                "symbols": [
+                    { "proName": "FOREXCOM:SPXUSD", "title": "S&P 500" },
+                    { "proName": "FOREXCOM:NSXUSD", "title": "NASDAQ" },
+                    { "proName": "FOREXCOM:DJI", "title": "Dow Jones" },
+                    { "proName": "INDEX:NKY", "title": "Nikkei 225" },
+                    { "proName": "INDEX:DEU30", "title": "DAX" },
+                    { "proName": "INDEX:FTSE", "title": "FTSE 100" },
+                    { "proName": "FOREXCOM:EURUSD", "title": "EUR/USD" },
+                    { "proName": "FX:GBPUSD", "title": "GBP/USD" },
+                    { "proName": "BITSTAMP:BTCUSD", "title": "BTC/USD" },
+                    { "proName": "NYMEX:CL1!", "title": "Crude Oil" },
+                    { "proName": "COMEX:GC1!", "title": "Gold" }
+                ],
+                "showSymbolLogo": true,
+                "colorTheme": "dark",
+                "isTransparent": true,
+                "displayMode": "adaptive",
+                "locale": "en"
+            });
+            
+            // Replace the ticker with the TradingView widget
+            const tickerContainer = $('.market-ticker');
+            if (tickerContainer) {
+                tickerContainer.innerHTML = '<div class="tradingview-widget-container"></div>';
+                tickerContainer.querySelector('.tradingview-widget-container').appendChild(script);
+            }
+        };
+        
+        // Only inject the widget if we need fallback
+        // Uncomment this to use TradingView widget instead of custom ticker
+        // injectTradingViewScript();
+    };
     
-    // Set initial width of carousel track
-    carouselTrack.style.width = (sourceItems.length * itemWidth) + 'px';
-    
-    // Button click handlers
-    addEvent(prevBtn, 'click', function() {
-      position = Math.max(0, position - 1);
-      updateCarousel();
-    });
-    
-    addEvent(nextBtn, 'click', function() {
-      var result = updateCarousel() || { maxPosition: 0 };
-      position = Math.min(result.maxPosition, position + 1);
-      updateCarousel();
-    });
-    
-    // Initialize carousel
-    updateCarousel();
-    
-    // Update carousel on window resize
-    window.addEventListener('resize', debounce(updateCarousel, 200));
-  }
-  
-  /********************************************
-   * TESTIMONIALS SLIDER
-   ********************************************/
-  
-  var testimonialTrack = $('.testimonials-track');
-  var testimonialCards = $$('.testimonial-card');
-  var testimonialDots = $$('.dot');
-  var prevTestimonialBtn = $('#testimonialPrev');
-  var nextTestimonialBtn = $('#testimonialNext');
-  
-  // Initialize testimonials slider if elements exist
-  if (testimonialTrack && testimonialCards.length > 0) {
-    var currentTestimonial = 0;
-    var testimonialInterval;
-    
-    // Function to show specific testimonial
-    function showTestimonial(index) {
-      if (!testimonialTrack) return;
-      
-      // Update slide position
-      testimonialTrack.style.transform = 'translateX(-' + (index * 100) + '%)';
-      
-      // Update active dot
-      for (var i = 0; i < testimonialDots.length; i++) {
-        testimonialDots[i].classList.toggle('active', i === index);
-        testimonialDots[i].setAttribute('aria-selected', i === index ? 'true' : 'false');
-      }
-      
-      currentTestimonial = index;
-    }
-    
-    // Auto-rotate testimonials
-    function startTestimonialRotation() {
-      clearInterval(testimonialInterval);
-      testimonialInterval = setInterval(function() {
-        var nextIndex = (currentTestimonial + 1) % testimonialCards.length;
-        showTestimonial(nextIndex);
-      }, 6000); // Rotate every 6 seconds
-    }
-    
-    // Button click handlers
-    addEvent(prevTestimonialBtn, 'click', function() {
-      var prevIndex = (currentTestimonial - 1 + testimonialCards.length) % testimonialCards.length;
-      showTestimonial(prevIndex);
-      // Pause rotation temporarily
-      clearInterval(testimonialInterval);
-      setTimeout(startTestimonialRotation, 10000);
-    });
-    
-    addEvent(nextTestimonialBtn, 'click', function() {
-      var nextIndex = (currentTestimonial + 1) % testimonialCards.length;
-      showTestimonial(nextIndex);
-      // Pause rotation temporarily
-      clearInterval(testimonialInterval);
-      setTimeout(startTestimonialRotation, 10000);
-    });
-    
-    // Dot click handlers
-    for (var d = 0; d < testimonialDots.length; d++) {
-      (function(index) {
-        testimonialDots[index].addEventListener('click', function() {
-          showTestimonial(index);
-          // Pause rotation temporarily
-          clearInterval(testimonialInterval);
-          setTimeout(startTestimonialRotation, 10000);
+    /**
+     * Expandable Concept Cards
+     */
+    const initConceptCards = () => {
+        const conceptCards = $$('.concept-card');
+        const expandButtons = $$('.expand-btn');
+        const collapseButtons = $$('.collapse-btn');
+        
+        // Function to toggle card expansion
+        const toggleCard = (card, btn, expand = true) => {
+            // Get content element
+            const contentId = btn.getAttribute('aria-controls');
+            const content = $(`#${contentId}`);
+            
+            if (!content) return;
+            
+            if (expand) {
+                // Expand the card
+                card.classList.add('expanded');
+                btn.setAttribute('aria-expanded', 'true');
+                content.style.maxHeight = `${content.scrollHeight}px`;
+                
+                // Scroll to the expanded card if needed
+                setTimeout(() => {
+                    const rect = card.getBoundingClientRect();
+                    if (rect.bottom > window.innerHeight) {
+                        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 300);
+            } else {
+                // Collapse the card
+                card.classList.remove('expanded');
+                const expandBtn = card.querySelector('.expand-btn');
+                if (expandBtn) {
+                    expandBtn.setAttribute('aria-expanded', 'false');
+                }
+                content.style.maxHeight = '0';
+            }
+        };
+        
+        // Set up expand buttons
+        expandButtons.forEach(btn => {
+            const card = btn.closest('.concept-card');
+            btn.addEventListener('click', () => {
+                toggleCard(card, btn, true);
+            });
         });
-      })(d);
-    }
-    
-    // Initialize testimonials
-    showTestimonial(0);
-    startTestimonialRotation();
-  }
-  
-  /********************************************
-   * INVESTMENT CALCULATOR
-   ********************************************/
-  
-  var initialInvestment = $('#initial-investment');
-  var monthlyContribution = $('#monthly-contribution');
-  var timePeriod = $('#time-period');
-  var timePeriodValue = $('#time-period-value');
-  var interestRate = $('#interest-rate');
-  var interestRateValue = $('#interest-rate-value');
-  var compoundFrequency = $('#compound-frequency');
-  var finalBalance = $('#final-balance');
-  var totalContributions = $('#total-contributions');
-  var totalInterest = $('#total-interest');
-  var chartContainer = $('.chart-container');
-  
-  // Initialize chart if Chart.js is loaded and elements exist
-  var investmentChart;
-  
-  function initializeChart() {
-    if (typeof Chart !== 'undefined' && chartContainer) {
-      var canvas = document.createElement('canvas');
-      canvas.id = 'investmentChart';
-      
-      // Replace placeholder with canvas
-      var placeholder = $('.chart-placeholder');
-      if (placeholder) {
-        placeholder.innerHTML = '';
-        placeholder.appendChild(canvas);
-      }
-      
-      // Create chart
-      var ctx = canvas.getContext('2d');
-      investmentChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: [],
-          datasets: [
-            {
-              label: 'Total Balance',
-              data: [],
-              backgroundColor: 'rgba(37, 167, 94, 0.2)',
-              borderColor: 'rgba(37, 167, 94, 1)',
-              borderWidth: 2,
-              fill: true,
-              tension: 0.4
-            },
-            {
-              label: 'Contributions',
-              data: [],
-              backgroundColor: 'rgba(10, 37, 64, 0.2)',
-              borderColor: 'rgba(10, 37, 64, 1)',
-              borderWidth: 2,
-              fill: true,
-              tension: 0.4
+        
+        // Set up collapse buttons
+        collapseButtons.forEach(btn => {
+            const card = btn.closest('.concept-card');
+            const expandBtn = card.querySelector('.expand-btn');
+            btn.addEventListener('click', (e) => {
+                e.preventDefault(); // Prevent event bubbling
+                e.stopPropagation();
+                toggleCard(card, expandBtn, false);
+            });
+        });
+        
+        // Initialize card states (all collapsed)
+        conceptCards.forEach(card => {
+            const content = card.querySelector('.concept-content');
+            if (content) {
+                content.style.maxHeight = '0';
             }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: false
-            },
-            tooltip: {
-              mode: 'index',
-              intersect: false,
-              callbacks: {
-                label: function(context) {
-                  var label = context.dataset.label || '';
-                  if (label) {
-                    label += ': ';
-                  }
-                  if (context.parsed.y !== null) {
-                    label += new Intl.NumberFormat('en-US', {
-                      style: 'currency',
-                      currency: 'USD'
-                    }).format(context.parsed.y);
-                  }
-                  return label;
-                }
-              }
+        });
+    };
+    
+    /**
+     * Sources Carousel - Enhanced with swipe functionality and drag scrollbar
+     */
+    const initSourcesCarousel = () => {
+        const carousel = $('#sourcesCarousel');
+        const carouselContainer = $('#carouselContainer');
+        const track = $('#sourcesTrack');
+        const prevBtn = $('#sourcesPrev');
+        const nextBtn = $('#sourcesNext');
+        const currentPage = $('.current-page');
+        const totalPages = $('.total-pages');
+        const scrollThumb = $('#scrollThumb');
+        const scrollTrack = $('.scroll-track');
+        
+        if (!track || !carousel) return;
+        
+        const sourceItems = track.querySelectorAll('.source-item');
+        if (sourceItems.length === 0) return;
+        
+        // State variables
+        let position = 0;
+        let itemsPerPage = 0;
+        let totalItems = sourceItems.length;
+        let isDragging = false;
+        let isScrollDragging = false;
+        let startX = 0;
+        let scrollStartX = 0;
+        let currentTranslate = 0;
+        let prevTranslate = 0;
+        let scrollThumbLeft = 0;
+        
+        // Calculate how many items can be displayed per page based on container width
+        const calculateGridLayout = () => {
+            if (!carouselContainer || !track) return;
+            
+            const containerWidth = carouselContainer.offsetWidth;
+            
+            // Get computed item width from the first source item
+            const firstItem = sourceItems[0];
+            const itemStyles = window.getComputedStyle(firstItem);
+            const itemWidth = firstItem.offsetWidth + 
+                              parseFloat(itemStyles.marginLeft) + 
+                              parseFloat(itemStyles.marginRight);
+            
+            // Calculate how many items fit in one page
+            itemsPerPage = Math.floor(containerWidth / itemWidth);
+            if (itemsPerPage < 1) itemsPerPage = 1;
+            
+            // Calculate total pages
+            const pages = Math.ceil(totalItems / itemsPerPage);
+            
+            // Update page indicator
+            if (totalPages) totalPages.textContent = pages;
+            
+            // Ensure valid position after resize
+            validatePosition();
+            
+            return {
+                itemsPerPage,
+                itemWidth,
+                pages
+            };
+        };
+        
+        // Validate and correct position if needed
+        const validatePosition = () => {
+            const maxPosition = Math.ceil(totalItems / itemsPerPage) - 1;
+            position = Math.min(Math.max(0, position), maxPosition);
+            updateCarouselPosition();
+            updatePageIndicator();
+            updateNavButtons();
+        };
+        
+        // Update carousel position
+        const updateCarouselPosition = () => {
+            if (!track) return;
+            const layout = calculateGridLayout();
+            if (!layout) return;
+            const { itemWidth } = layout;
+            const translateX = -position * (itemsPerPage * itemWidth);
+            track.style.transform = `translateX(${translateX}px)`;
+            currentTranslate = translateX;
+            prevTranslate = translateX;
+        };
+        
+        // Update page indicator
+        const updatePageIndicator = () => {
+            if (currentPage) {
+                currentPage.textContent = position + 1;
             }
-          },
-          scales: {
-            x: {
-              title: {
-                display: true,
-                text: 'Years'
-              }
-            },
-            y: {
-              title: {
-                display: true,
-                text: 'Balance ($)'
-              },
-              ticks: {
-                callback: function(value) {
-                  return new Intl.NumberFormat('en-US', {
-                    style: 'currency',
-                    currency: 'USD',
-                    maximumSignificantDigits: 3
-                  }).format(value);
-                }
-              }
+        };
+        
+        // Update navigation buttons
+        const updateNavButtons = () => {
+            if (!prevBtn || !nextBtn) return;
+            const maxPosition = Math.ceil(totalItems / itemsPerPage) - 1;
+            prevBtn.disabled = position <= 0;
+            nextBtn.disabled = position >= maxPosition;
+            prevBtn.style.opacity = prevBtn.disabled ? '0.5' : '1';
+            nextBtn.style.opacity = nextBtn.disabled ? '0.5' : '1';
+        };
+        
+        // Navigate to next page
+        const goToNextPage = () => {
+            const maxPosition = Math.ceil(totalItems / itemsPerPage) - 1;
+            position = Math.min(position + 1, maxPosition);
+            updateCarouselPosition();
+            updatePageIndicator();
+            updateNavButtons();
+        };
+        
+        // Navigate to previous page
+        const goToPrevPage = () => {
+            position = Math.max(position - 1, 0);
+            updateCarouselPosition();
+            updatePageIndicator();
+            updateNavButtons();
+        };
+        
+        // Touch events for swiping
+        const touchStart = (e) => {
+            startX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+            isDragging = true;
+            track.style.transition = 'none';
+        };
+        
+        const touchMove = (e) => {
+            if (!isDragging) return;
+            const currentX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            const diff = currentX - startX;
+            
+            // Apply resistance at the edges
+            if ((position === 0 && diff > 0) || 
+                (position >= Math.ceil(totalItems / itemsPerPage) - 1 && diff < 0)) {
+                currentTranslate = prevTranslate + diff * 0.3;
+            } else {
+                currentTranslate = prevTranslate + diff;
             }
-          }
+            track.style.transform = `translateX(${currentTranslate}px)`;
+        };
+        
+        const touchEnd = (e) => {
+            isDragging = false;
+            track.style.transition = 'transform 0.4s ease';
+            const threshold = carouselContainer.offsetWidth * 0.2;
+            const currentX = e.type === 'touchend' ? 
+                              (e.changedTouches ? e.changedTouches[0].clientX : startX) : 
+                              e.clientX;
+            const diff = currentX - startX;
+            
+            if (Math.abs(diff) > threshold) {
+                diff > 0 ? goToPrevPage() : goToNextPage();
+            } else {
+                updateCarouselPosition();
+            }
+            
+            if (Math.abs(diff) > 5) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        };
+        
+        // Set up button event listeners
+        addEvent(prevBtn, 'click', goToPrevPage);
+        addEvent(nextBtn, 'click', goToNextPage);
+        
+        // Set up touch/mouse events for swipe functionality
+        addEvent(carousel, 'touchstart', touchStart);
+        addEvent(carousel, 'touchmove', touchMove);
+        addEvent(carousel, 'touchend', touchEnd);
+        addEvent(carousel, 'mousedown', touchStart);
+        addEvent(window, 'mousemove', touchMove);
+        addEvent(window, 'mouseup', touchEnd);
+        addEvent(carousel, 'touchcancel', touchEnd);
+        
+        // Prevent context menu during drag
+        addEvent(carousel, 'contextmenu', e => {
+            if (isDragging) {
+                e.preventDefault();
+                return false;
+            }
+        });
+        
+        // Initialize scrollbar for desktop
+        const updateScrollThumb = () => {
+            if (!scrollThumb || !scrollTrack) return;
+            const trackWidth = scrollTrack.offsetWidth;
+            const contentWidth = track.scrollWidth;
+            const containerWidth = carouselContainer.offsetWidth;
+            const thumbWidth = Math.max(60, (containerWidth / contentWidth) * trackWidth);
+            scrollThumb.style.width = `${thumbWidth}px`;
+            const maxScroll = contentWidth - containerWidth;
+            const scrollPercent = Math.min(Math.abs(currentTranslate) / maxScroll, 1);
+            const maxThumbPosition = trackWidth - thumbWidth;
+            const thumbPosition = scrollPercent * maxThumbPosition;
+            scrollThumb.style.left = `${thumbPosition}px`;
+        };
+        
+        // Handle scrollbar drag
+        const scrollThumbStart = (e) => {
+            if (!scrollThumb) return;
+            isScrollDragging = true;
+            scrollThumb.classList.add('dragging');
+            scrollStartX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+            scrollThumbLeft = scrollThumb.offsetLeft;
+            document.body.style.userSelect = 'none';
+        };
+        
+        const scrollThumbMove = (e) => {
+            if (!isScrollDragging || !scrollThumb || !scrollTrack) return;
+            const currentX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            const diff = currentX - scrollStartX;
+            const trackWidth = scrollTrack.offsetWidth;
+            const thumbWidth = scrollThumb.offsetWidth;
+            const maxThumbPosition = trackWidth - thumbWidth;
+            let newLeft = Math.max(0, Math.min(scrollThumbLeft + diff, maxThumbPosition));
+            scrollThumb.style.left = `${newLeft}px`;
+            
+            // Update carousel based on scrollbar position
+            const contentWidth = track.scrollWidth;
+            const containerWidth = carouselContainer.offsetWidth;
+            const maxScroll = contentWidth - containerWidth;
+            const scrollPercent = newLeft / maxThumbPosition;
+            const newTranslate = -scrollPercent * maxScroll;
+            track.style.transform = `translateX(${newTranslate}px)`;
+            currentTranslate = newTranslate;
+            prevTranslate = newTranslate;
+            
+            // Update page indicator
+            const totalPageCount = Math.ceil(totalItems / itemsPerPage);
+            const page = Math.min(Math.floor(scrollPercent * totalPageCount), totalPageCount - 1);
+            position = page;
+            updatePageIndicator();
+        };
+        
+        const scrollThumbEnd = () => {
+            if (!isScrollDragging) return;
+            isScrollDragging = false;
+            if (scrollThumb) {
+                scrollThumb.classList.remove('dragging');
+            }
+            document.body.style.userSelect = '';
+        };
+        
+        if (scrollThumb && scrollTrack) {
+            addEvent(scrollThumb, 'mousedown', scrollThumbStart);
+            addEvent(scrollThumb, 'touchstart', scrollThumbStart);
+            addEvent(window, 'mousemove', scrollThumbMove);
+            addEvent(window, 'touchmove', scrollThumbMove);
+            addEvent(window, 'mouseup', scrollThumbEnd);
+            addEvent(window, 'touchend', scrollThumbEnd);
         }
-      });
-    }
-  }
-  
-  // Calculate investment growth
-  function calculateInvestment() {
-    if (!initialInvestment || !monthlyContribution || !timePeriod || 
-        !interestRate || !compoundFrequency || !finalBalance || 
-        !totalContributions || !totalInterest) {
-      return;
-    }
-    
-    var principal = parseFloat(initialInvestment.value) || 0;
-    var monthly = parseFloat(monthlyContribution.value) || 0;
-    var years = parseFloat(timePeriod.value) || 0;
-    var rate = parseFloat(interestRate.value) / 100 || 0;
-    var compounds = parseFloat(compoundFrequency.value) || 12;
-    
-    // Calculate total contributions
-    var totalMonthlyContributions = monthly * years * 12;
-    var totalInitialPrincipal = principal + totalMonthlyContributions;
-    
-    // Calculate compound interest
-    var balance = principal;
-    var monthlyRate = rate / compounds;
-    var totalMonths = years * 12;
-    
-    // Prepare data for chart
-    var yearLabels = [];
-    var balanceData = [];
-    var contributionData = [];
-    
-    // Add initial point
-    yearLabels.push(0);
-    balanceData.push(principal);
-    contributionData.push(principal);
-    
-    // Calculate year-by-year growth
-    for (var year = 1; year <= years; year++) {
-      // Calculate balance for this year
-      for (var month = 1; month <= 12; month++) {
-        // Apply interest for the month
-        balance *= (1 + monthlyRate);
-        // Add monthly contribution
-        balance += monthly;
-      }
-      
-      // Track contributions for this year
-      var contributionAtYear = principal + (monthly * year * 12);
-      
-      // Add data point for this year
-      yearLabels.push(year);
-      balanceData.push(balance);
-      contributionData.push(contributionAtYear);
-    }
-    
-    // Update results
-    finalBalance.textContent = formatCurrency(balance);
-    totalContributions.textContent = formatCurrency(totalInitialPrincipal);
-    totalInterest.textContent = formatCurrency(balance - totalInitialPrincipal);
-    
-    // Update chart if it exists
-    if (investmentChart) {
-      investmentChart.data.labels = yearLabels;
-      investmentChart.data.datasets[0].data = balanceData;
-      investmentChart.data.datasets[1].data = contributionData;
-      investmentChart.update();
-    }
-  }
-  
-  // Format currency values
-  function formatCurrency(value) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
-  }
-  
-  // Set up calculator event listeners
-  function setupCalculatorListeners() {
-    if (initialInvestment && monthlyContribution && timePeriod && 
-        interestRate && compoundFrequency) {
-      
-      var inputs = [initialInvestment, monthlyContribution, compoundFrequency];
-      for (var i = 0; i < inputs.length; i++) {
-        inputs[i].addEventListener('change', calculateInvestment);
-        inputs[i].addEventListener('input', calculateInvestment);
-      }
-      
-      // Special handling for range inputs to update display value
-      timePeriod.addEventListener('input', function() {
-        if (timePeriodValue) {
-          timePeriodValue.textContent = this.value;
+        
+        // Initialize carousel
+        calculateGridLayout();
+        updateCarouselPosition();
+        updatePageIndicator();
+        updateNavButtons();
+        updateScrollThumb();
+        
+        // Update on window resize
+        window.addEventListener('resize', debounce(() => {
+            calculateGridLayout();
+            updateCarouselPosition();
+            updatePageIndicator();
+            updateNavButtons();
+            updateScrollThumb();
+        }, 200));
+        
+        // Hide or show swipe indicator based on touch capability
+        const swipeIndicator = $('.swipe-indicator');
+        if (swipeIndicator) {
+            swipeIndicator.style.display = ('ontouchstart' in window) ? 'flex' : 'none';
         }
-        calculateInvestment();
-      });
-      
-      interestRate.addEventListener('input', function() {
-        if (interestRateValue) {
-          interestRateValue.textContent = this.value;
-        }
-        calculateInvestment();
-      });
-    }
-  }
-  
-  // Initialize calculator
-  function initializeCalculator() {
-    if (initialInvestment && monthlyContribution && timePeriod && 
-        interestRate && compoundFrequency) {
-      
-      initializeChart();
-      setupCalculatorListeners();
-      calculateInvestment(); // Calculate initial values
-    }
-  }
-  
-  // Initialize calculator if Chart.js is loaded
-  if (typeof Chart !== 'undefined') {
-    initializeCalculator();
-  } else {
-    // If Chart.js is loaded asynchronously
-    window.addEventListener('load', function() {
-      if (typeof Chart !== 'undefined') {
-        initializeCalculator();
-      }
-    });
-  }
-  
-  /********************************************
-   * FAQ ACCORDION
-   ********************************************/
-  
-  var faqQuestions = $$('.faq-question');
-  
-  for (var q = 0; q < faqQuestions.length; q++) {
-    faqQuestions[q].addEventListener('click', function() {
-      var answerId = this.getAttribute('aria-controls');
-      var answer = $('#' + answerId);
-      var isExpanded = this.getAttribute('aria-expanded') === 'true';
-      
-      // Toggle current question
-      this.setAttribute('aria-expanded', !isExpanded);
-      
-      if (answer) {
-        if (isExpanded) {
-          answer.setAttribute('hidden', '');
+    };
+    
+    /**
+     * Animation on Scroll
+     * Simple section reveal animations
+     */
+    const initScrollAnimations = () => {
+        const revealElements = $$('.section-header, .concept-card, .service-card, .source-item');
+        
+        if ('IntersectionObserver' in window) {
+            const revealObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('revealed');
+                        revealObserver.unobserve(entry.target);
+                    }
+                });
+            }, {
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
+            });
+            
+            revealElements.forEach(el => {
+                el.classList.add('reveal-element');
+                revealObserver.observe(el);
+            });
         } else {
-          answer.removeAttribute('hidden');
+            // Fallback for browsers without IntersectionObserver
+            revealElements.forEach(el => {
+                el.classList.add('revealed');
+            });
         }
-      }
-    });
+    };
     
-    // Keyboard accessibility
-    faqQuestions[q].addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        this.click();
-      }
-    });
-  }
-  
-  /********************************************
-   * NEWSLETTER FORM
-   ********************************************/
-  
-  var subscribeForm = $('#subscribe-form');
-  
-  addEvent(subscribeForm, 'submit', function(e) {
-    e.preventDefault();
-    
-    // Get form values
-    var emailElement = $('#subscriber-email');
-    var frequencyElement = $('#subscriber-frequency');
-    var consentElement = $('#gdpr-consent');
-    
-    var email = emailElement ? emailElement.value : '';
-    var frequency = frequencyElement ? frequencyElement.value : 'weekly';
-    var consent = consentElement ? consentElement.checked : false;
-    
-    // Validate form
-    if (!email || !consent) {
-      alert('Please fill in all required fields and accept the privacy policy.');
-      return;
-    }
-    
-    // In a real implementation, this would send data to a server
-    // For now, we'll just show a success message
-    alert('Thank you for subscribing with ' + email + '! You will receive ' + frequency + ' updates.');
-    
-    // Reset form
-    this.reset();
-  });
-  
-  /********************************************
-   * BACK TO TOP BUTTON
-   ********************************************/
-  
-  var backToTopBtn = $('#backToTop');
-  
-  // Show/hide button based on scroll position
-  function toggleBackToTopButton() {
-    if (backToTopBtn) {
-      if (window.pageYOffset > 300) {
-        backToTopBtn.classList.add('visible');
-      } else {
-        backToTopBtn.classList.remove('visible');
-      }
-    }
-  }
-  
-  // Scroll to top when button is clicked
-  addEvent(backToTopBtn, 'click', function() {
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
-  });
-  
-  // Initial check and add scroll listener
-  toggleBackToTopButton();
-  window.addEventListener('scroll', debounce(toggleBackToTopButton, 100));
-  
-  /********************************************
-   * SMOOTH SCROLLING FOR ANCHOR LINKS
-   ********************************************/
-  
-  var anchorLinks = $$('a[href^="#"]:not([href="#"])');
-  
-  for (var a = 0; a < anchorLinks.length; a++) {
-    anchorLinks[a].addEventListener('click', function(e) {
-      var targetId = this.getAttribute('href');
-      var targetElement = $(targetId);
-      
-      if (targetElement) {
-        e.preventDefault();
+    /**
+     * Card Hover Effects
+     * Add subtle 3D tilt effect to cards on mousemove
+     */
+    const initCardEffects = () => {
+        const cards = $$('.concept-card, .service-card');
         
-        // Get header height for offset
-        var headerElement = $('.holmdex-header');
-        var headerHeight = headerElement ? headerElement.offsetHeight : 0;
+        cards.forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                if (window.innerWidth <= 768) return; // Skip on mobile
+                
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                // Calculate rotation based on mouse position
+                const xRotation = ((y - rect.height / 2) / rect.height) * 5;
+                const yRotation = ((rect.width / 2 - x) / rect.width) * 5;
+                
+                // Apply transform with perspective
+                card.style.transform = `perspective(1000px) rotateX(${xRotation}deg) rotateY(${yRotation}deg) translateY(-5px)`;
+            });
+            
+            // Reset transform on mouse leave
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = '';
+            });
+            
+            // Add focus effects for accessibility
+            card.addEventListener('focus', () => {
+                card.classList.add('focused');
+            });
+            card.addEventListener('blur', () => {
+                card.classList.remove('focused');
+            });
+        });
+    };
+    
+    /**
+     * Back to Top Button
+     */
+    const initBackToTop = () => {
+        const createBackToTopButton = () => {
+            const btn = document.createElement('button');
+            btn.className = 'back-to-top';
+            btn.id = 'backToTop';
+            btn.setAttribute('aria-label', 'Back to top');
+            
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-arrow-up';
+            btn.appendChild(icon);
+            
+            document.body.appendChild(btn);
+            return btn;
+        };
         
-        window.scrollTo({
-          top: targetElement.offsetTop - headerHeight - 20,
-          behavior: 'smooth'
+        const btn = $('#backToTop') || createBackToTopButton();
+        
+        const toggleBackToTopButton = () => {
+            if (window.pageYOffset > 300) {
+                btn.classList.add('visible');
+            } else {
+                btn.classList.remove('visible');
+            }
+        };
+        
+        btn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
         });
         
-        // Update URL without page jump
-        history.pushState(null, null, targetId);
-      }
-    });
-  }
-  
-  /********************************************
-   * SECTION REVEAL ANIMATIONS
-   ********************************************/
-  
-  function initSectionAnimations() {
-    if ('IntersectionObserver' in window) {
-      var sections = $$('section:not(.hero)');
-      
-      var revealOptions = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -100px 0px'
-      };
-      
-      var revealOnScroll = new IntersectionObserver(function(entries, observer) {
-        for (var i = 0; i < entries.length; i++) {
-          var entry = entries[i];
-          if (!entry.isIntersecting) continue;
-          
-          // Add animation class
-          entry.target.classList.add('revealed');
-          
-          // Stop observing after animation
-          observer.unobserve(entry.target);
+        toggleBackToTopButton();
+        window.addEventListener('scroll', debounce(toggleBackToTopButton, 100));
+    };
+    
+    /**
+     * Add CSS class for reveal animations
+     */
+    const addRevealStyles = () => {
+        if (!document.getElementById('reveal-animation-styles')) {
+            const style = document.createElement('style');
+            style.id = 'reveal-animation-styles';
+            style.textContent = `
+                .reveal-element {
+                    opacity: 0;
+                    transform: translateY(20px);
+                    transition: opacity 0.8s ease, transform 0.8s ease;
+                }
+                
+                .revealed {
+                    opacity: 1 !important;
+                    transform: translateY(0) !important;
+                }
+            `;
+            document.head.appendChild(style);
         }
-      }, revealOptions);
-      
-      // Start observing each section
-      for (var s = 0; s < sections.length; s++) {
-        revealOnScroll.observe(sections[s]);
-      }
-    } else {
-      // Fallback for browsers that don't support IntersectionObserver
-      var allSections = $$('section');
-      for (var i = 0; i < allSections.length; i++) {
-        allSections[i].classList.add('revealed');
-      }
-    }
-  }
-  
-  // Initialize section animations
-  initSectionAnimations();
-  
-  /********************************************
-   * SERVICE CARD HOVER EFFECTS
-   ********************************************/
-  
-  var serviceCards = $$('.service-card');
-  
-  for (var c = 0; c < serviceCards.length; c++) {
-    // Add 3D tilt effect on mousemove
-    serviceCards[c].addEventListener('mousemove', function(e) {
-      if (window.innerWidth <= 768) return; // Skip on mobile
-      
-      var rect = this.getBoundingClientRect();
-      var x = e.clientX - rect.left;
-      var y = e.clientY - rect.top;
-      
-      // Calculate rotation based on mouse position (subtle effect)
-      var xRotation = ((y - rect.height / 2) / rect.height) * 5;
-      var yRotation = ((rect.width / 2 - x) / rect.width) * 5;
-      
-      // Apply the transform with perspective
-      this.style.transform = 'perspective(1000px) rotateX(' + xRotation + 'deg) rotateY(' + yRotation + 'deg) translateY(-5px)';
-    });
+    };
     
-    // Reset transform on mouse leave
-    serviceCards[c].addEventListener('mouseleave', function() {
-      this.style.transform = '';
-    });
+    /**
+     * Fallback to mock data if API access fails
+     */
+    const initFallbackData = () => {
+        window.updateWithFallbackData = () => {
+            console.log('Using fallback market data');
+            const fallbackData = [
+                { symbol: 'S&P 500', value: '5,281.40', change: '+0.63%', isUp: true },
+                { symbol: 'NASDAQ', value: '16,742.39', change: '+0.85%', isUp: true },
+                { symbol: 'DOW', value: '39,123.59', change: '-0.21%', isUp: false },
+                { symbol: 'FTSE 100', value: '8,175.24', change: '+0.42%', isUp: true },
+                { symbol: 'DAX', value: '17,932.17', change: '+0.75%', isUp: true },
+                { symbol: 'NIKKEI', value: '38,721.33', change: '-0.31%', isUp: false },
+                { symbol: 'HANG SENG', value: '16,512.92', change: '+1.23%', isUp: true },
+                { symbol: 'OMXS30', value: '2,489.72', change: '-0.18%', isUp: false },
+                { symbol: 'USD/EUR', value: '0.9235', change: '-0.12%', isUp: false },
+                { symbol: 'BITCOIN', value: '66,781.49', change: '+2.15%', isUp: true },
+                { symbol: 'GOLD', value: '2,345.10', change: '+0.27%', isUp: true },
+                { symbol: 'CRUDE OIL', value: '78.25', change: '-0.51%', isUp: false }
+            ];
+            
+            fallbackData.forEach(item => {
+                const items = $$('.ticker-item');
+                items.forEach(tickerItem => {
+                    const symbolEl = tickerItem.querySelector('.ticker-symbol');
+                    if (symbolEl && symbolEl.textContent === item.symbol) {
+                        const valueEl = tickerItem.querySelector('.ticker-value');
+                        const changeEl = tickerItem.querySelector('.ticker-change');
+                        if (valueEl && changeEl) {
+                            valueEl.textContent = item.value;
+                            changeEl.textContent = item.change;
+                            valueEl.classList.remove('up', 'down');
+                            valueEl.classList.add(item.isUp ? 'up' : 'down');
+                        }
+                    }
+                });
+            });
+        };
+    };
     
-    // Add focus effect for accessibility
-    serviceCards[c].addEventListener('focus', function() {
-      this.classList.add('focused');
-    });
+    /**
+     * Initialize all components
+     */
+    const init = () => {
+        // Add reveal animation styles
+        addRevealStyles();
+        
+        // Initialize fallback data function
+        initFallbackData();
+        
+        // Try to get real market data, with fallback
+        try {
+            updateMarketTicker();
+        } catch (error) {
+            console.error('Error initializing market ticker:', error);
+            window.updateWithFallbackData();
+        }
+        
+        // Initialize component features
+        initConceptCards();
+        initSourcesCarousel();
+        initScrollAnimations();
+        initCardEffects();
+        initBackToTop();
+        
+        // Additional initialization can be added here
+        console.log('Holmdex Homepage initialized');
+    };
     
-    serviceCards[c].addEventListener('blur', function() {
-      this.classList.remove('focused');
-    });
-  }
-  
-  /********************************************
-   * KEYBOARD ACCESSIBILITY
-   ********************************************/
-  
-  // Handle keyboard shortcuts
-  document.addEventListener('keydown', function(e) {
-    // Escape key closes notices
-    if (e.key === 'Escape') {
-      // Close construction notice if visible
-      if (constructionNotice && constructionNotice.style.display !== 'none') {
-        closeNotice();
-      }
-      
-      // Close cookie consent if visible
-      if (cookieConsent && cookieConsent.style.display !== 'none') {
-        acceptButton.click();
-      }
-    }
-    
-    // Home key scrolls to top
-    if (e.key === 'Home' && !e.ctrlKey) {
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      });
-      e.preventDefault();
-    }
-    
-    // End key scrolls to bottom
-    if (e.key === 'End' && !e.ctrlKey) {
-      window.scrollTo({
-        top: document.body.scrollHeight,
-        behavior: 'smooth'
-      });
-      e.preventDefault();
-    }
-  });
-  
-  /********************************************
-   * PAGE LOAD ANIMATIONS
-   ********************************************/
-  
-  // Add class to body when page is loaded
-  document.body.classList.add('page-loaded');
-  
-  // Add fade-out animation before leaving the page
-  window.addEventListener('beforeunload', function() {
-    document.body.classList.add('page-exiting');
-  });
-  
-  /********************************************
-   * CURRENT YEAR FOR COPYRIGHT
-   ********************************************/
-  
-  var yearElement = $('#current-year');
-  if (yearElement) {
-    yearElement.textContent = new Date().getFullYear();
-  }
+    // Start initialization
+    init();
 });
