@@ -1,6 +1,6 @@
 /* 
 ====================================
- HOLMDEX HOMEPAGE STYLES - PART 1: Base Styles & Hero Section
+ HOLMDEX UPDATED HOMEPAGE STYLES - PART 1
 ====================================
 */
 
@@ -45,52 +45,13 @@
 
 .highlight, .accent {
     color: var(--accent);
+    background: linear-gradient(90deg, #25A75E, #3498db); 
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
-/* Button Styles */
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.75rem 1.5rem;
-    border-radius: var(--radius-md);
-    font-weight: 600;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    cursor: pointer;
-}
-
-.btn-primary {
-    background-color: var(--accent);
-    color: white;
-    border: 2px solid var(--accent);
-}
-
-.btn-primary:hover {
-    background-color: var(--accent-dark);
-    border-color: var(--accent-dark);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(37, 167, 94, 0.2);
-}
-
-.btn-secondary {
-    background-color: transparent;
-    color: var(--accent);
-    border: 2px solid var(--accent);
-}
-
-.btn-secondary:hover {
-    background-color: rgba(37, 167, 94, 0.1);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(37, 167, 94, 0.1);
-}
-
-.btn-hero {
-    padding: 0.875rem 1.75rem;
-    font-size: 1.1rem;
-}
-
-/* Hero Section */
+/* Hero Section Styles */
 .hero-section {
     position: relative;
     background-color: var(--primary-dark);
@@ -113,11 +74,13 @@
 }
 
 .hero-content {
-    width: 50%;
+    width: 100%;
+    text-align: center;
     position: relative;
     z-index: 2;
     color: white;
-    animation: fade-in-left 1s ease-out;
+    animation: fade-in-down 1s ease-out;
+    margin-bottom: 3rem;
 }
 
 .hero-title {
@@ -125,39 +88,24 @@
     font-weight: 800;
     margin-bottom: 1.5rem;
     line-height: 1.1;
+    background: linear-gradient(90deg, #ffffff, #A9CCE3);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 20px rgba(169, 204, 227, 0.3);
 }
 
 .hero-tagline {
     font-size: 1.25rem;
-    margin-bottom: 2.5rem;
+    margin-bottom: 2rem;
     opacity: 0.9;
     line-height: 1.6;
 }
 
-.hero-cta {
-    display: flex;
-    gap: 1rem;
-}
-
-@keyframes fade-in-left {
-    from {
-        opacity: 0;
-        transform: translateX(-30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-/* Hero Icons and Interactive Panels */
+/* Icon Container Styles */
 .hero-icons {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 45%;
-    height: 100%;
+    position: relative;
+    width: 100%;
     z-index: 2;
     display: flex;
     align-items: center;
@@ -167,16 +115,39 @@
 .icon-container {
     position: relative;
     width: 100%;
-    height: 100%;
+    height: 300px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
+/* Interactive Icons */
 .interactive-icon {
     position: absolute;
     cursor: pointer;
     transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.icon-label {
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+    opacity: 0.9;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 4px 10px;
+    border-radius: 15px;
+    transition: all 0.3s ease;
+}
+
+.interactive-icon:hover .icon-label {
+    background: var(--accent);
+    opacity: 1;
+    transform: translateY(-3px);
 }
 
 .icon-circle {
@@ -189,35 +160,65 @@
     justify-content: center;
     transition: all 0.3s ease;
     box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Add glow effect to icons */
+.icon-circle::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(-45deg, #0A2540, #1a3a5f, #25A75E, #A9CCE3);
+    background-size: 400% 400%;
+    animation: gradient-flow 15s ease infinite;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    border-radius: 50%;
+    z-index: -1;
+}
+
+.interactive-icon:hover .icon-circle::before {
+    opacity: 0.3;
 }
 
 .icon-circle i {
     font-size: 2rem;
     color: white;
     transition: all 0.3s ease;
+    z-index: 1;
 }
 
 .interactive-icon:hover .icon-circle {
-    background-color: var(--accent);
+    transform: scale(1.15);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25), 
+                0 0 15px rgba(37, 167, 94, 0.5);
+}
+
+.interactive-icon:hover .icon-circle i {
     transform: scale(1.1);
 }
 
+/* Position icons */
 #icon-analysis {
-    top: 25%;
+    top: 15%;
     left: 15%;
     animation: float 6s ease-in-out infinite;
 }
 
 #icon-investments {
-    top: 65%;
+    top: 60%;
     left: 25%;
     animation: float 7s ease-in-out infinite;
     animation-delay: 1s;
 }
 
 #icon-fees {
-    top: 35%;
-    left: 55%;
+    top: 25%;
+    left: 65%;
     animation: float 8s ease-in-out infinite;
     animation-delay: 2s;
 }
@@ -241,7 +242,30 @@
     }
 }
 
-/* Tip Panels */
+@keyframes gradient-flow {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@keyframes fade-in-down {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Tip Panel Styles */
 .tip-panels {
     position: absolute;
     top: 0;
@@ -249,7 +273,7 @@
     width: 100%;
     height: 100%;
     pointer-events: none;
-    z-index: 5;
+    z-index: 100;
 }
 
 .tip-panel {
@@ -267,12 +291,30 @@
     transition: all 0.3s ease;
     pointer-events: auto;
     overflow: hidden;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+}
+
+.tip-panel::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    background: linear-gradient(-45deg, #0A2540, #1a3a5f, #25A75E, #A9CCE3);
+    background-size: 400% 400%;
+    animation: gradient-flow 15s ease infinite;
+    border-radius: 12px;
+    z-index: -1;
 }
 
 .tip-panel.active {
     opacity: 1;
     visibility: visible;
     transform: translate(-50%, -50%) scale(1);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2),
+                0 0 30px rgba(37, 167, 94, 0.3);
 }
 
 .panel-header {
@@ -282,12 +324,30 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.panel-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(-45deg, #0A2540, #1a3a5f, #25A75E, #A9CCE3);
+    background-size: 400% 400%;
+    animation: gradient-flow 15s ease infinite;
+    opacity: 0.8;
+    z-index: 0;
 }
 
 .panel-header h3 {
     margin: 0;
     font-size: 1.3rem;
     color: white;
+    position: relative;
+    z-index: 1;
 }
 
 .panel-close {
@@ -303,10 +363,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    z-index: 1;
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 .panel-close:hover {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
 }
 
 .panel-content {
@@ -348,10 +412,21 @@
     font-weight: 600;
     text-decoration: none;
     transition: all 0.3s ease;
+    position: relative;
+    padding: 5px 10px;
+    border-radius: 4px;
 }
 
-.tip-link i {
-    font-size: 0.8rem;
+.tip-link::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-light));
+    transform: scaleX(0);
+    transform-origin: right;
     transition: transform 0.3s ease;
 }
 
@@ -359,9 +434,25 @@
     color: var(--accent-dark);
 }
 
-.tip-link:hover i {
-    transform: translateX(3px);
+.tip-link:hover::before {
+    transform: scaleX(1);
+    transform-origin: left;
 }
+
+.tip-link i {
+    font-size: 0.8rem;
+    transition: transform 0.3s ease;
+}
+
+.tip-link:hover i {
+    transform: translateX(5px);
+}
+
+/* 
+====================================
+ HOLMDEX UPDATED HOMEPAGE STYLES - PART 2
+====================================
+*/
 
 /* Market Snapshot Styles */
 .market-snapshot {
@@ -372,13 +463,27 @@
     overflow: hidden;
 }
 
+.market-snapshot::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(-45deg, #0A2540, #1a3a5f, #25A75E, #A9CCE3);
+    background-size: 400% 400%;
+    animation: gradient-flow 15s ease infinite;
+    opacity: 0.9;
+    z-index: 0;
+}
+
 .market-heading {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     padding: 0 1.5rem;
     height: 40px;
-    background-color: rgba(0, 0, 0, 0.2);
+    background-color: rgba(0, 0, 0, 0.3);
     color: white;
     position: absolute;
     left: 0;
@@ -390,22 +495,36 @@
 
 .market-heading i {
     color: var(--accent);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 .market-slider {
     width: 100%;
     overflow: hidden;
     padding-left: 150px;
+    position: relative;
+    z-index: 1;
 }
 
 .slider-track {
     display: flex;
     animation: slide 40s linear infinite;
     white-space: nowrap;
-}
-
-.slider-track:hover {
-    animation-play-state: paused;
 }
 
 @keyframes slide {
@@ -421,17 +540,63 @@
     display: flex;
     align-items: center;
     padding: 0.5rem 1.5rem;
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
     font-size: 0.9rem;
+    position: relative;
+}
+
+.market-item::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.market-item:hover::after {
+    opacity: 1;
 }
 
 .market-name {
     font-weight: 600;
     margin-right: 1rem;
+    position: relative;
 }
 
 .market-value {
     margin-right: 0.5rem;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+/* Add loading animation to market values */
+.market-value.loading {
+    position: relative;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.market-value.loading::after {
+    content: '';
+    position: absolute;
+    bottom: -3px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, white, transparent);
+    animation: loading-bar 1.5s infinite;
+}
+
+@keyframes loading-bar {
+    0% {
+        left: -100%;
+    }
+    100% {
+        left: 100%;
+    }
 }
 
 .market-value.up {
@@ -448,16 +613,37 @@
     border-radius: 4px;
     font-size: 0.8rem;
     font-weight: 600;
+    transition: all 0.3s ease;
 }
 
 .up + .market-change {
     background-color: rgba(46, 204, 113, 0.2);
     color: var(--success, #2ecc71);
+    animation: flash-green 2s ease-out;
 }
 
 .down + .market-change {
     background-color: rgba(231, 76, 60, 0.2);
     color: var(--danger, #e74c3c);
+    animation: flash-red 2s ease-out;
+}
+
+@keyframes flash-green {
+    0% {
+        box-shadow: 0 0 10px rgba(46, 204, 113, 0.8);
+    }
+    100% {
+        box-shadow: 0 0 0px rgba(46, 204, 113, 0);
+    }
+}
+
+@keyframes flash-red {
+    0% {
+        box-shadow: 0 0 10px rgba(231, 76, 60, 0.8);
+    }
+    100% {
+        box-shadow: 0 0 0px rgba(231, 76, 60, 0);
+    }
 }
 
 .market-note {
@@ -466,6 +652,8 @@
     padding: 0.25rem 0;
     color: rgba(255, 255, 255, 0.7);
     background-color: rgba(0, 0, 0, 0.2);
+    position: relative;
+    z-index: 1;
 }
 
 .market-link {
@@ -473,10 +661,29 @@
     text-decoration: none;
     transition: all 0.3s;
     margin-left: 1rem;
+    position: relative;
+}
+
+.market-link::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background-color: var(--accent-light);
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 0.3s ease;
 }
 
 .market-link:hover {
     color: white;
+}
+
+.market-link:hover::after {
+    transform: scaleX(1);
+    transform-origin: left;
 }
 
 .market-link i {
@@ -486,168 +693,8 @@
 }
 
 .market-link:hover i {
-    transform: translateX(3px);
+    transform: translateX(5px);
 }
-
-/* Media Queries for Responsive Design */
-@media (max-width: 1200px) {
-    .hero-title {
-        font-size: 3rem;
-    }
-    
-    .icon-circle {
-        width: 70px;
-        height: 70px;
-    }
-    
-    .icon-circle i {
-        font-size: 1.7rem;
-    }
-}
-
-@media (max-width: 992px) {
-    .hero-section {
-        min-height: 600px;
-        padding: 6rem 0 3rem;
-    }
-    
-    .hero-content {
-        width: 100%;
-        text-align: center;
-        padding-bottom: 3rem;
-    }
-    
-    .hero-title {
-        font-size: 2.5rem;
-    }
-    
-    .hero-cta {
-        justify-content: center;
-    }
-    
-    .hero-icons {
-        position: relative;
-        width: 100%;
-        height: 300px;
-        top: auto;
-        transform: none;
-    }
-    
-    .icon-container {
-        max-width: 500px;
-        margin: 0 auto;
-    }
-    
-    .market-heading {
-        position: static;
-        justify-content: center;
-        height: auto;
-        padding: 0.5rem 0;
-        margin-bottom: 0.5rem;
-    }
-    
-    .market-slider {
-        padding-left: 0;
-    }
-}
-
-@media (max-width: 768px) {
-    .hero-section {
-        min-height: 550px;
-    }
-    
-    .hero-title {
-        font-size: 2.2rem;
-    }
-    
-    .hero-tagline {
-        font-size: 1.1rem;
-    }
-    
-    .hero-icons {
-        height: 250px;
-    }
-    
-    .icon-circle {
-        width: 60px;
-        height: 60px;
-    }
-    
-    .icon-circle i {
-        font-size: 1.5rem;
-    }
-    
-    .tip-panel {
-        max-width: 300px;
-    }
-    
-    #icon-analysis {
-        top: 20%;
-        left: 15%;
-    }
-    
-    #icon-investments {
-        top: 60%;
-        left: 20%;
-    }
-    
-    #icon-fees {
-        top: 25%;
-        left: 60%;
-    }
-    
-    #icon-planning {
-        top: 65%;
-        left: 65%;
-    }
-}
-
-@media (max-width: 576px) {
-    .hero-section {
-        min-height: 500px;
-    }
-    
-    .hero-title {
-        font-size: 1.8rem;
-    }
-    
-    .hero-tagline {
-        font-size: 1rem;
-        margin-bottom: 2rem;
-    }
-    
-    .hero-cta {
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-    
-    .hero-cta .btn {
-        width: 100%;
-    }
-    
-    .icon-circle {
-        width: 50px;
-        height: 50px;
-    }
-    
-    .icon-circle i {
-        font-size: 1.3rem;
-    }
-    
-    .tip-panel {
-        max-width: 280px;
-    }
-    
-    .panel-content {
-        padding: 1rem;
-    }
-}
-
-/* 
-====================================
- HOLMDEX HOMEPAGE STYLES - PART 2: Features Section
-====================================
-*/
 
 /* Why Choose Us Section */
 .why-choose-us {
@@ -692,6 +739,7 @@
     animation: feature-fade-in 0.8s ease forwards;
     animation-delay: calc(var(--delay, 0) * 1ms);
     z-index: 1;
+    cursor: pointer;
 }
 
 .feature-card::before {
@@ -770,6 +818,81 @@
     margin-bottom: 0;
 }
 
+/* Expanded feature card content */
+.feature-expanded {
+    height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: height 0.4s ease, opacity 0.4s ease, margin 0.4s ease;
+    margin-top: 0;
+}
+
+.feature-card.expanded .feature-expanded {
+    height: auto;
+    opacity: 1;
+    margin-top: 1.5rem;
+}
+
+.feature-expanded p {
+    margin-bottom: 1rem;
+}
+
+.feature-expanded p:last-child {
+    margin-bottom: 0;
+}
+
+/* External link sources list */
+.source-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 0.5rem;
+}
+
+.source-list li {
+    padding: 0.25rem 0;
+}
+
+.source-list a {
+    color: var(--accent);
+    text-decoration: none;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.source-list a::before {
+    content: '•';
+    margin-right: 0.35rem;
+    color: var(--accent);
+}
+
+.source-list a::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background-color: var(--accent);
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 0.3s ease;
+}
+
+.source-list a:hover {
+    color: var(--accent-dark);
+}
+
+.source-list a:hover::after {
+    transform: scaleX(1);
+    transform-origin: left;
+}
+
+/* Feature card animation */
 @keyframes feature-fade-in {
     to {
         opacity: 1;
@@ -777,7 +900,30 @@
     }
 }
 
-/* Features Card Interactive Effects */
+/* Add expandable indicator to feature cards */
+.feature-card::after {
+    content: '\f107';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    color: var(--accent);
+    font-size: 1.2rem;
+    opacity: 0.6;
+    transition: all 0.3s ease;
+}
+
+.feature-card.expanded::after {
+    transform: rotate(180deg);
+    opacity: 1;
+}
+
+.feature-card:hover::after {
+    opacity: 1;
+}
+
+/* Feature Card Interactive Effects */
 .feature-card {
     perspective: 1000px;
     transform-style: preserve-3d;
@@ -887,103 +1033,64 @@
     background-color: rgba(230, 126, 34, 1);
 }
 
-/* Apply subtle shadow effect on hover */
-.feature-card::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    z-index: -1;
+/* Add gradient borders to expanded cards */
+.feature-card.expanded {
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+    z-index: 5;
+    transform: translateY(-5px) !important;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
 }
 
-.feature-card:hover::after {
-    opacity: 1;
+.feature-card.expanded::before {
+    height: 0; /* Remove the left border when expanded */
 }
 
-/* Media Queries for Features Section */
-@media (max-width: 1200px) {
-    .features-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
+.feature-card.expanded:nth-child(1)::after {
+    color: rgba(37, 167, 94, 1);
 }
 
-@media (max-width: 992px) {
-    .feature-card {
-        padding: 1.75rem;
-    }
-    
-    .feature-icon {
-        width: 55px;
-        height: 55px;
-    }
-    
-    .feature-icon i {
-        font-size: 1.4rem;
-    }
+.feature-card.expanded:nth-child(2)::after {
+    color: rgba(52, 152, 219, 1);
 }
 
-@media (max-width: 768px) {
-    .why-choose-us {
-        padding: 4rem 0;
-    }
-    
-    .features-grid {
-        gap: 1.5rem;
-    }
-    
-    .feature-card {
-        padding: 1.5rem;
-    }
-    
-    .feature-icon {
-        width: 50px;
-        height: 50px;
-        margin-bottom: 1.25rem;
-    }
-    
-    .feature-icon i {
-        font-size: 1.3rem;
-    }
-    
-    .feature-card h3 {
-        font-size: 1.2rem;
-    }
+.feature-card.expanded:nth-child(3)::after {
+    color: rgba(155, 89, 182, 1);
 }
 
-@media (max-width: 576px) {
-    .why-choose-us {
-        padding: 3rem 0;
-    }
-    
-    .features-grid {
-        grid-template-columns: 1fr;
-        max-width: 350px;
-        margin-left: auto;
-        margin-right: auto;
-    }
-    
-    .feature-card {
-        padding: 1.25rem;
-    }
-    
-    .feature-icon {
-        width: 45px;
-        height: 45px;
-    }
-    
-    .feature-icon i {
-        font-size: 1.2rem;
-    }
+.feature-card.expanded:nth-child(4)::after {
+    color: rgba(230, 126, 34, 1);
+}
+
+/* Gradient border for expanded cards */
+.feature-card.expanded::after {
+    transform: rotate(180deg);
+}
+
+.feature-card.expanded:nth-child(1) {
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15),
+                0 0 15px rgba(37, 167, 94, 0.2);
+}
+
+.feature-card.expanded:nth-child(2) {
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15),
+                0 0 15px rgba(52, 152, 219, 0.2);
+}
+
+.feature-card.expanded:nth-child(3) {
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15),
+                0 0 15px rgba(155, 89, 182, 0.2);
+}
+
+.feature-card.expanded:nth-child(4) {
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15),
+                0 0 15px rgba(230, 126, 34, 0.2);
 }
 
 /* 
 ====================================
- HOLMDEX HOMEPAGE STYLES - PART 3: Services Section & Utilities
+ HOLMDEX UPDATED HOMEPAGE STYLES - PART 3
 ====================================
 */
 
@@ -1312,60 +1419,261 @@
     visibility: visible;
 }
 
-/* Media Queries for Services Section */
+/* Custom Loader */
+.holmdex-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 2rem;
+}
+
+.loader-ring {
+    display: inline-block;
+    position: relative;
+    width: 50px;
+    height: 50px;
+}
+
+.loader-ring div {
+    box-sizing: border-box;
+    display: block;
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    margin: 5px;
+    border: 5px solid var(--accent, #25A75E);
+    border-radius: 50%;
+    animation: loader-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+    border-color: var(--accent, #25A75E) transparent transparent transparent;
+}
+
+.loader-ring div:nth-child(1) { animation-delay: -0.45s; }
+.loader-ring div:nth-child(2) { animation-delay: -0.3s; }
+.loader-ring div:nth-child(3) { animation-delay: -0.15s; }
+
+@keyframes loader-ring {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Media Queries for Responsive Design */
 @media (max-width: 1200px) {
-    .resources-grid {
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    .hero-title {
+        font-size: 3rem;
+    }
+    
+    .icon-circle {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .icon-circle i {
+        font-size: 1.7rem;
+    }
+    
+    .features-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
 }
 
 @media (max-width: 992px) {
-    .key-resources {
-        padding: 4rem 0;
+    .hero-section {
+        min-height: 600px;
+        padding: 6rem 0 3rem;
+    }
+    
+    .hero-title {
+        font-size: 2.5rem;
+    }
+    
+    .icon-container {
+        height: 350px;
+    }
+    
+    #icon-analysis {
+        top: 20%;
+        left: 20%;
+    }
+    
+    #icon-investments {
+        top: 70%;
+        left: 30%;
+    }
+    
+    #icon-fees {
+        top: 25%;
+        left: 70%;
+    }
+    
+    #icon-planning {
+        top: 75%;
+        left: 65%;
+    }
+    
+    .tip-panel {
+        width: 95%;
+        max-width: 450px;
+    }
+    
+    .market-heading {
+        position: static;
+        justify-content: center;
+        height: auto;
+        padding: 0.5rem 0;
+        margin-bottom: 0.5rem;
+    }
+    
+    .market-slider {
+        padding-left: 0;
+    }
+    
+    .feature-card {
+        padding: 1.75rem;
+    }
+    
+    .resources-grid {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     }
     
     .resource-card {
         padding: 1.75rem;
     }
-    
-    .resource-icon {
-        width: 50px;
-        height: 50px;
-    }
-    
-    .resource-icon i {
-        font-size: 1.3rem;
-    }
 }
 
 @media (max-width: 768px) {
-    .key-resources {
-        padding: 3.5rem 0;
+    .hero-section {
+        min-height: 500px;
+    }
+    
+    .hero-title {
+        font-size: 2.2rem;
+    }
+    
+    .hero-tagline {
+        font-size: 1.1rem;
+    }
+    
+    .icon-container {
+        height: 280px;
+    }
+    
+    .icon-circle {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .icon-circle i {
+        font-size: 1.5rem;
+    }
+    
+    .icon-label {
+        font-size: 0.8rem;
+    }
+    
+    .features-grid {
+        grid-template-columns: 1fr;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .feature-card {
+        padding: 1.5rem;
+    }
+    
+    .feature-expanded {
+        padding-top: 0.5rem;
+    }
+    
+    .source-list {
+        grid-template-columns: repeat(2, 1fr);
     }
     
     .resources-grid {
-        gap: 1.5rem;
+        grid-template-columns: 1fr;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
     }
     
     .resource-card {
         padding: 1.5rem;
     }
     
-    .resource-content h3 {
-        font-size: 1.2rem;
+    .tip-panel {
+        max-width: 90%;
     }
 }
 
 @media (max-width: 576px) {
-    .key-resources {
-        padding: 3rem 0;
+    .hero-section {
+        min-height: 450px;
     }
     
-    .resources-grid {
-        grid-template-columns: 1fr;
-        max-width: 350px;
-        margin-left: auto;
-        margin-right: auto;
+    .hero-title {
+        font-size: 1.8rem;
+    }
+    
+    .hero-tagline {
+        font-size: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .icon-container {
+        height: 250px;
+    }
+    
+    .icon-circle {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .icon-circle i {
+        font-size: 1.3rem;
+    }
+    
+    #icon-analysis {
+        top: 15%;
+        left: 15%;
+    }
+    
+    #icon-investments {
+        top: 60%;
+        left: 20%;
+    }
+    
+    #icon-fees {
+        top: 20%;
+        left: 65%;
+    }
+    
+    #icon-planning {
+        top: 65%;
+        left: 60%;
+    }
+    
+    .tip-panel {
+        max-width: 100%;
+        width: 95%;
+    }
+    
+    .panel-content {
+        padding: 1rem;
+    }
+    
+    .feature-card {
+        padding: 1.25rem;
+    }
+    
+    .feature-icon {
+        width: 50px;
+        height: 50px;
+        margin-bottom: 1.25rem;
+    }
+    
+    .feature-icon i {
+        font-size: 1.3rem;
     }
     
     .resource-card {
@@ -1378,8 +1686,8 @@
         margin-bottom: 1rem;
     }
     
-    .resource-content h3 {
-        font-size: 1.1rem;
+    .source-list {
+        grid-template-columns: 1fr;
     }
     
     .back-to-top {
@@ -1439,6 +1747,13 @@
     .resource-card {
         transform: none !important;
     }
+    
+    .icon-circle::before,
+    .tip-panel::before,
+    .panel-header::before,
+    .market-snapshot::before {
+        animation: none !important;
+    }
 }
 
 /* High Contrast Mode Support */
@@ -1462,4 +1777,14 @@
     .tip-highlight {
         border: 1px solid currentColor;
     }
+    
+    .tip-panel,
+    .panel-header {
+        border: 2px solid #000;
+    }
+    
+    .icon-circle {
+        border: 2px solid #fff;
+    }
 }
+
