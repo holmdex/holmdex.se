@@ -1,6 +1,6 @@
 /**
- * HOLMDEX MARKETS PAGE JAVASCRIPT - PART 1
- * Core functionality for market data display and interactivity
+ * HOLMDEX ENHANCED MARKETS PAGE JAVASCRIPT - PART 1
+ * Handles interactive elements and animations
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -19,477 +19,230 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
     
-    // Format number with commas and fixed decimals
-    const formatNumber = (num, decimals = 2) => {
-        if (isNaN(num)) return "N/A";
-        return num.toLocaleString(undefined, {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals
+    // Debounce function to limit function call frequency
+    const debounce = (func, wait = 100) => {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    };
+    
+    /**
+     * Global Market Indices Tab Functionality
+     * Handles switching between regions (Americas, Europe, Asia, Other)
+     */
+    const setupIndexTabs = () => {
+        const tabButtons = $$('.index-tab-btn');
+        const regions = $$('.indices-region');
+        
+        tabButtons.forEach(button => {
+            addEvent(button, 'click', () => {
+                // Get selected region
+                const region = button.getAttribute('data-region');
+                
+                // Update active tab button
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                
+                // Show selected region, hide others
+                regions.forEach(regionElement => {
+                    if (regionElement.getAttribute('data-region') === region) {
+                        regionElement.classList.add('active');
+                    } else {
+                        regionElement.classList.remove('active');
+                    }
+                });
+            });
         });
     };
     
-    // Format percentage with + sign for positive values
-    const formatPercentage = (percent, decimals = 2) => {
-        if (isNaN(percent)) return "N/A";
-        const sign = percent > 0 ? "+" : "";
-        return `${sign}${percent.toFixed(decimals)}%`;
-    };
-    
-    // Update last update time
-    const updateTimeDisplay = () => {
-        const timeElement = $('#lastUpdateTime');
-        if (timeElement) {
-            const now = new Date();
-            const options = { 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit',
-                hour12: true,
-                day: 'numeric',
-                month: 'short'
-            };
-            timeElement.textContent = now.toLocaleString(undefined, options);
-        }
-    };
-    
     /**
-     * Market Overview Cards
-     * Handles updating and displaying market data
+     * Chart Modal Functionality
+     * Handles opening, closing and controlling the chart modal
      */
-    const setupMarketCards = () => {
-        updateTimeDisplay();
+    const setupChartModal = () => {
+        const modal = $('#chartModal');
+        const modalTitle = $('#chartModalTitle');
+        const modalBody = $('#chartModalBody');
+        const closeBtn = $('#closeChartBtn');
+        const fullscreenBtn = $('#fullscreenBtn');
+        const expandButtons = $$('.expand-chart-btn');
         
-        // Market data (in a real implementation, this would come from an API)
-        const marketData = {
-            'sp500': {
-                name: 'S&P 500',
-                symbol: 'SPX',
-                value: 5310.42,
-                change: 36.96,
-                percentChange: 0.72,
-                trend: 'up'
-            },
-            'nasdaq': {
-                name: 'NASDAQ',
-                symbol: 'IXIC',
-                value: 16749.22,
-                change: 156.38,
-                percentChange: 0.94,
-                trend: 'up'
-            },
-            'dowjones': {
-                name: 'Dow Jones',
-                symbol: 'DJI',
-                value: 39097.16,
-                change: 42.13,
-                percentChange: 0.11,
-                trend: 'up'
-            },
-            'omxs30': {
-                name: 'OMXS30',
-                symbol: 'OMXS30.ST',
-                value: 2526.86,
-                change: -5.13,
-                percentChange: -0.20,
-                trend: 'down'
-            },
-            'ftse': {
-                name: 'FTSE 100',
-                symbol: 'FTSE',
-                value: 8147.03,
-                change: 37.29,
-                percentChange: 0.46,
-                trend: 'up'
-            },
-            'dax': {
-                name: 'DAX',
-                symbol: 'GDAXI',
-                value: 18325.94,
-                change: 108.01,
-                percentChange: 0.59,
-                trend: 'up'
-            },
-            'nikkei': {
-                name: 'Nikkei 225',
-                symbol: 'N225',
-                value: 38633.02,
-                change: 173.74,
-                percentChange: 0.45,
-                trend: 'up'
-            },
-            'bitcoin': {
-                name: 'Bitcoin',
-                symbol: 'BTC-USD',
-                value: 66243.18,
-                change: 1289.62,
-                percentChange: 1.99,
-                trend: 'up'
-            }
+        // Function to create TradingView widget
+        const createTradingViewWidget = (symbol, container) => {
+            // Create elements
+            const widgetContainer = document.createElement('div');
+            widgetContainer.className = 'tradingview-widget-container';
+            
+            const widgetDiv = document.createElement('div');
+            widgetDiv.id = 'tradingview_modal';
+            
+            // Create scripts
+            const scriptSrc = document.createElement('script');
+            scriptSrc.type = 'text/javascript';
+            scriptSrc.src = 'https://s3.tradingview.com/tv.js';
+            
+            const scriptWidget = document.createElement('script');
+            scriptWidget.type = 'text/javascript';
+            scriptWidget.innerHTML = `
+                new TradingView.widget(
+                {
+                "autosize": true,
+                "symbol": "${symbol}",
+                "interval": "D",
+                "timezone": "Etc/UTC",
+                "theme": "light",
+                "style": "1",
+                "locale": "en",
+                "toolbar_bg": "#f1f3f6",
+                "enable_publishing": false,
+                "hide_top_toolbar": false,
+                "allow_symbol_change": false,
+                "container_id": "tradingview_modal"
+                }
+                );
+            `;
+            
+            // Assemble widget
+            widgetContainer.appendChild(widgetDiv);
+            widgetContainer.appendChild(scriptSrc);
+            widgetContainer.appendChild(scriptWidget);
+            
+            // Add to container
+            container.innerHTML = '';
+            container.appendChild(widgetContainer);
         };
         
-        // Update each market card with data
-        Object.keys(marketData).forEach(marketId => {
-            const card = $(`#${marketId}`);
-            if (!card) return;
-            
-            const data = marketData[marketId];
-            
-            // Add trend class to card
-            card.classList.add(data.trend);
-            
-            // Update values
-            const valueElement = card.querySelector('.current-value');
-            const changeValueElement = card.querySelector('.change-value');
-            const changePercentElement = card.querySelector('.change-percent');
-            
-            if (valueElement) valueElement.textContent = formatNumber(data.value);
-            if (changeValueElement) {
-                const sign = data.change >= 0 ? '+' : '';
-                changeValueElement.textContent = `${sign}${formatNumber(data.change)}`;
-            }
-            if (changePercentElement) {
-                changePercentElement.textContent = formatPercentage(data.percentChange);
-            }
-            
-            // Create mini chart
-            createMiniChart(marketId, data.trend);
+        // Open modal when clicking an expand button
+        expandButtons.forEach(button => {
+            addEvent(button, 'click', () => {
+                const symbol = button.getAttribute('data-symbol');
+                const name = button.getAttribute('data-name');
+                
+                // Set modal title
+                modalTitle.textContent = name;
+                
+                // Create TradingView widget
+                createTradingViewWidget(symbol, modalBody);
+                
+                // Show modal
+                modal.classList.add('active');
+                document.body.style.overflow = 'hidden'; // Prevent scrolling
+            });
         });
         
-        // Set up timer to simulate live updates
-        setInterval(() => {
-            simulateMarketUpdates();
-        }, 15000); // Update every 15 seconds
-    };
-    
-    /**
-     * Mini Chart Creation
-     * Creates SVG sparkline charts for market cards
-     */
-    const createMiniChart = (marketId, trend) => {
-        const chartContainer = $(`#miniChart-${marketId}`);
-        if (!chartContainer) return;
-        
-        // Generate random data points for demo purposes
-        // In a real implementation, this would use actual historical data
-        const generateChartData = (points, trend) => {
-            const baseValue = 100;
-            const variance = 10;
-            const data = [];
+        // Close modal
+        addEvent(closeBtn, 'click', () => {
+            modal.classList.remove('active');
+            document.body.style.overflow = ''; // Restore scrolling
             
-            for (let i = 0; i < points; i++) {
-                // Create slight trend bias based on current trend
-                const trendFactor = trend === 'up' ? 0.6 : -0.6;
-                const randomFactor = Math.random() * 2 - 1; // Between -1 and 1
-                const change = randomFactor * variance + trendFactor;
-                
-                // Add some volatility
-                const volatility = Math.random() > 0.8 ? (Math.random() * 10) * (Math.random() > 0.5 ? 1 : -1) : 0;
-                
-                const prevValue = data.length > 0 ? data[data.length - 1] : baseValue;
-                const newValue = prevValue + change + volatility;
-                
-                // Ensure we don't go negative
-                data.push(Math.max(newValue, 1));
-            }
-            
-            return data;
-        };
-        
-        const chartData = generateChartData(50, trend);
-        
-        // Calculate dimensions and scales
-        const width = chartContainer.clientWidth;
-        const height = 60;
-        const xScale = width / (chartData.length - 1);
-        
-        const min = Math.min(...chartData) * 0.95; // Add 5% padding
-        const max = Math.max(...chartData) * 1.05; // Add 5% padding
-        const yRange = max - min;
-        
-        // Create SVG path
-        let path = `M0,${height - ((chartData[0] - min) / yRange) * height}`;
-        
-        for (let i = 1; i < chartData.length; i++) {
-            const x = i * xScale;
-            const y = height - ((chartData[i] - min) / yRange) * height;
-            path += ` L${x},${y}`;
-        }
-        
-        // Create SVG element
-        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.setAttribute("width", "100%");
-        svg.setAttribute("height", "100%");
-        svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-        svg.setAttribute("preserveAspectRatio", "none");
-        
-        // Create path element
-        const pathElement = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        pathElement.setAttribute("d", path);
-        pathElement.setAttribute("fill", "none");
-        pathElement.setAttribute("stroke", trend === 'up' ? "var(--success, #2ecc71)" : "var(--danger, #e74c3c)");
-        pathElement.setAttribute("stroke-width", "1.5");
-        
-        // Append path to SVG
-        svg.appendChild(pathElement);
-        
-        // Append SVG to container
-        chartContainer.innerHTML = '';
-        chartContainer.appendChild(svg);
-    };
-    
-    /**
-     * Simulate Live Market Updates
-     * Randomly updates market data to simulate live feed
-     */
-    const simulateMarketUpdates = () => {
-        const markets = ['sp500', 'nasdaq', 'dowjones', 'omxs30', 'ftse', 'dax', 'nikkei', 'bitcoin'];
-        
-        // Randomly select 1-3 markets to update
-        const numMarkets = Math.floor(Math.random() * 3) + 1;
-        const marketsToUpdate = [];
-        
-        while (marketsToUpdate.length < numMarkets) {
-            const market = markets[Math.floor(Math.random() * markets.length)];
-            if (!marketsToUpdate.includes(market)) {
-                marketsToUpdate.push(market);
-            }
-        }
-        
-        // Update selected markets
-        marketsToUpdate.forEach(marketId => {
-            const card = $(`#${marketId}`);
-            if (!card) return;
-            
-            const valueElement = card.querySelector('.current-value');
-            const changeValueElement = card.querySelector('.change-value');
-            const changePercentElement = card.querySelector('.change-percent');
-            
-            if (!valueElement || !changeValueElement || !changePercentElement) return;
-            
-            // Get current value
-            let currentValue = parseFloat(valueElement.textContent.replace(/,/g, ''));
-            if (isNaN(currentValue)) return;
-            
-            // Determine if this update is positive or negative
-            const isPositive = Math.random() > 0.4; // 60% chance of positive movement
-            
-            // Calculate new values
-            const percentChange = (Math.random() * 0.3) * (isPositive ? 1 : -1);
-            const valueChange = currentValue * (percentChange / 100);
-            const newValue = currentValue + valueChange;
-            
-            // Get current change and add to it
-            let currentChange = parseFloat(changeValueElement.textContent.replace(/[+,]/g, ''));
-            if (isNaN(currentChange)) currentChange = 0;
-            const newChange = currentChange + valueChange;
-            
-            // Get current percent and add to it
-            let currentPercent = parseFloat(changePercentElement.textContent.replace(/[+%]/g, ''));
-            if (isNaN(currentPercent)) currentPercent = 0;
-            const newPercent = currentPercent + percentChange;
-            
-            // Update elements
-            valueElement.textContent = formatNumber(newValue);
-            changeValueElement.textContent = (newChange >= 0 ? '+' : '') + formatNumber(newChange);
-            changePercentElement.textContent = formatPercentage(newPercent);
-            
-            // Update card class based on trend
-            const trend = newChange >= 0 ? 'up' : 'down';
-            card.classList.remove('up', 'down');
-            card.classList.add(trend);
-            
-            // Flash effect
-            card.classList.add('update-flash');
+            // Clear modal content after transition
             setTimeout(() => {
-                card.classList.remove('update-flash');
-            }, 1000);
-            
-            // Update mini chart
-            createMiniChart(marketId, trend);
+                modalBody.innerHTML = '';
+            }, 300);
         });
         
-        // Update the time display
-        updateTimeDisplay();
+        // Close modal when clicking outside
+        addEvent(modal, 'click', (e) => {
+            if (e.target === modal) {
+                closeBtn.click();
+            }
+        });
+        
+        // Escape key to close modal
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.classList.contains('active')) {
+                closeBtn.click();
+            }
+        });
+        
+        // Fullscreen toggle
+        addEvent(fullscreenBtn, 'click', () => {
+            const modalContent = $('.chart-modal-content');
+            
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+                fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+                modal.classList.remove('fullscreen');
+            } else if (modalContent.requestFullscreen) {
+                modalContent.requestFullscreen();
+                fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+                modal.classList.add('fullscreen');
+            }
+        });
+        
+        // Update button when exiting fullscreen via Escape key
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+                modal.classList.remove('fullscreen');
+            }
+        });
     };
     
     /**
-     * Interactive Charts Section
-     * Handles the TradingView widget integration and tab switching
+     * Interactive Charts Tab Functionality
+     * Handles switching between different chart tabs
      */
-    const setupChartSection = () => {
-        // Initialize TradingView widget for the default tab
-        loadTradingViewWidget('sp500');
-        
-        // Set up tab switching
+    const setupChartTabs = () => {
         const chartTabs = $$('.chart-tab');
+        const chartWrappers = $$('.chart-wrapper');
         
         chartTabs.forEach(tab => {
             addEvent(tab, 'click', () => {
+                const chartId = tab.getAttribute('data-chart');
+                
                 // Update active tab
                 chartTabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
                 
-                // Get chart to display
-                const chartId = tab.getAttribute('data-chart');
-                
-                // Update chart wrappers
-                const chartWrappers = $$('.chart-wrapper');
+                // Show selected chart, hide others
                 chartWrappers.forEach(wrapper => {
-                    wrapper.classList.remove('active');
-                });
-                
-                const activeWrapper = $(`#chart-${chartId}`);
-                if (activeWrapper) {
-                    activeWrapper.classList.add('active');
-                    
-                    // Load TradingView widget if needed
-                    if (!activeWrapper.querySelector('iframe')) {
-                        loadTradingViewWidget(chartId);
+                    if (wrapper.id === `chart-${chartId}`) {
+                        wrapper.classList.add('active');
+                    } else {
+                        wrapper.classList.remove('active');
                     }
+                });
+            });
+        });
+        
+        // Add keyboard navigation
+        chartTabs.forEach((tab, index) => {
+            tab.setAttribute('tabindex', '0');
+            tab.setAttribute('role', 'tab');
+            tab.setAttribute('aria-selected', tab.classList.contains('active') ? 'true' : 'false');
+            
+            // Handle keyboard navigation
+            addEvent(tab, 'keydown', (e) => {
+                let targetTab = null;
+                
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    // Move to next tab, or first tab if at the end
+                    targetTab = chartTabs[index + 1] || chartTabs[0];
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    // Move to previous tab, or last tab if at the beginning
+                    targetTab = chartTabs[index - 1] || chartTabs[chartTabs.length - 1];
+                } else if (e.key === 'Home') {
+                    // Move to first tab
+                    targetTab = chartTabs[0];
+                } else if (e.key === 'End') {
+                    // Move to last tab
+                    targetTab = chartTabs[chartTabs.length - 1];
+                }
+                
+                if (targetTab) {
+                    e.preventDefault();
+                    targetTab.click();
+                    targetTab.focus();
                 }
             });
         });
-        
-        // Set up timeframe buttons
-        const timeframeButtons = $$('.timeframe-btn');
-        
-        timeframeButtons.forEach(button => {
-            addEvent(button, 'click', () => {
-                // Update active button
-                timeframeButtons.forEach(b => b.classList.remove('active'));
-                button.classList.add('active');
-                
-                // Get timeframe
-                const timeframe = button.getAttribute('data-timeframe');
-                
-                // In a real implementation, this would update the chart timeframe
-                // For the demo, we'll just simulate a reload
-                const activeChartId = $('.chart-tab.active').getAttribute('data-chart');
-                loadTradingViewWidget(activeChartId, timeframe);
-            });
-        });
-    };
-    
-    /**
-     * Load TradingView Widget
-     * Creates and inserts TradingView chart widgets
-     */
-    const loadTradingViewWidget = (chartId, timeframe = '1D') => {
-        // Map chart IDs to TradingView symbols
-        const chartSymbols = {
-            'sp500': 'INDEX:SPX',
-            'nasdaq': 'NASDAQ:NDX',
-            'omxs30': 'INDEX:OMX',
-            'btc': 'COINBASE:BTCUSD'
-        };
-        
-        // Map timeframes to TradingView intervals
-        const timeframeIntervals = {
-            '1D': '60',
-            '1W': 'D',
-            '1M': 'W',
-            '3M': 'W',
-            '1Y': 'M',
-            '5Y': 'M'
-        };
-        
-        const symbol = chartSymbols[chartId] || 'INDEX:SPX';
-        const interval = timeframeIntervals[timeframe] || '60';
-        
-        // Find the container
-        const container = $(`#chart-${chartId}`);
-        if (!container) return;
-        
-        // Clear existing content
-        container.innerHTML = '';
-        
-        // Create TradingView widget
-        const script = document.createElement('script');
-        script.src = 'https://s3.tradingview.com/tv.js';
-        script.async = true;
-        
-        script.onload = function() {
-            if (typeof TradingView !== 'undefined') {
-                new TradingView.widget({
-                    "autosize": true,
-                    "symbol": symbol,
-                    "interval": interval,
-                    "timezone": "Etc/UTC",
-                    "theme": "light",
-                    "style": "1",
-                    "locale": "en",
-                    "toolbar_bg": "#f1f3f6",
-                    "enable_publishing": false,
-                    "hide_top_toolbar": false,
-                    "hide_legend": false,
-                    "save_image": false,
-                    "container_id": `chart-${chartId}`
-                });
-            }
-        };
-        
-        document.head.appendChild(script);
-    };
-
-    // Initialize everything
-    setupMarketCards();
-    setupChartSection();
-});
+};
 /**
- * HOLMDEX MARKETS PAGE JAVASCRIPT - PART 2
- * Sectors heatmap, global markets, forex and commodities
- */
-
-document.addEventListener('DOMContentLoaded', function() {
-    
-    // Redefine helper functions for modularity
-    const $ = (selector) => document.querySelector(selector);
-    const $$ = (selector) => document.querySelectorAll(selector);
-    
-    const addEvent = (element, event, callback) => {
-        if (element) {
-            element.addEventListener(event, callback);
-        }
-    };
-    
-    /**
-     * Market Sectors Heatmap
-     * Creates and initializes the sectors performance heatmap
-     */
-    const setupSectorsHeatmap = () => {
-        const heatmapContainer = $('#sectors-heatmap-widget');
-        if (!heatmapContainer) return;
-        
-        // Create TradingView Sectors Heatmap widget
-        const script = document.createElement('script');
-        script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js';
-        script.async = true;
-        script.type = 'text/javascript';
-        script.innerHTML = JSON.stringify({
-            "exchanges": [
-                "SPX",
-                "NASDAQ"
-            ],
-            "dataSource": "SPX500",
-            "grouping": "sector",
-            "blockSize": "market_cap_basic",
-            "blockColor": "change",
-            "locale": "en",
-            "symbolUrl": "",
-            "colorTheme": "light",
-            "hasTopBar": false,
-            "isDataSetEnabled": false,
-            "isCustomColumnNameEnabled": false,
-            "width": "100%",
-            "height": "100%"
-        });
-        
-        heatmapContainer.appendChild(script);
-    };
-    
-    /**
      * Expandable Content
-     * Handles the expand/collapse functionality
+     * Handles the expand/collapse functionality in the chart info box
      */
     const setupExpandableContent = () => {
         const expandButtons = $$('.expand-btn');
@@ -504,679 +257,134 @@ document.addEventListener('DOMContentLoaded', function() {
                     targetElement.classList.toggle('expanded');
                     button.classList.toggle('expanded');
                     
-                    // Update button text
-                    const buttonText = button.childNodes[0];
-                    if (buttonText && buttonText.nodeType === Node.TEXT_NODE) {
-                        buttonText.nodeValue = isExpanded ? 'Learn More ' : 'Show Less ';
-                    }
-                }
-            });
-        });
-    };
-    
-    /**
-     * Global Markets Map
-     * Creates and initializes the world markets map
-     */
-    const setupGlobalMarketsMap = () => {
-        const mapContainer = $('#global-markets-widget');
-        if (!mapContainer) return;
-        
-        // Create TradingView World Markets widget
-        const script = document.createElement('script');
-        script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-global-markets.js';
-        script.async = true;
-        script.type = 'text/javascript';
-        script.innerHTML = JSON.stringify({
-            "width": "100%",
-            "height": "100%",
-            "colorTheme": "light",
-            "dateRange": "1D",
-            "showChart": true,
-            "locale": "en",
-            "largeChartUrl": "",
-            "isTransparent": false,
-            "showSymbolLogo": true,
-            "showFloatingTooltip": false,
-            "plotLineColorGrowing": "rgba(41, 98, 255, 1)",
-            "plotLineColorFalling": "rgba(41, 98, 255, 1)",
-            "gridLineColor": "rgba(42, 46, 57, 0)",
-            "scaleFontColor": "rgba(134, 137, 147, 1)",
-            "belowLineFillColorGrowing": "rgba(41, 98, 255, 0.12)",
-            "belowLineFillColorFalling": "rgba(41, 98, 255, 0.12)",
-            "belowLineFillColorGrowingBottom": "rgba(41, 98, 255, 0)",
-            "belowLineFillColorFallingBottom": "rgba(41, 98, 255, 0)",
-            "symbolActiveColor": "rgba(41, 98, 255, 0.12)",
-            "tabs": [
-                {
-                    "title": "Indices",
-                    "symbols": [
-                        {
-                            "s": "FOREXCOM:SPXUSD",
-                            "d": "S&P 500"
-                        },
-                        {
-                            "s": "FOREXCOM:NSXUSD",
-                            "d": "US 100"
-                        },
-                        {
-                            "s": "FOREXCOM:DJI",
-                            "d": "Dow 30"
-                        },
-                        {
-                            "s": "INDEX:NKY",
-                            "d": "Nikkei 225"
-                        },
-                        {
-                            "s": "INDEX:DEU40",
-                            "d": "DAX"
-                        },
-                        {
-                            "s": "FOREXCOM:UKXGBP",
-                            "d": "UK 100"
-                        },
-                        {
-                            "s": "INDEX:OMX",
-                            "d": "OMXS30"
-                        }
-                    ],
-                    "originalTitle": "Indices"
-                },
-                {
-                    "title": "Futures",
-                    "symbols": [
-                        {
-                            "s": "CME_MINI:ES1!",
-                            "d": "S&P 500"
-                        },
-                        {
-                            "s": "CME:6E1!",
-                            "d": "Euro"
-                        },
-                        {
-                            "s": "COMEX:GC1!",
-                            "d": "Gold"
-                        },
-                        {
-                            "s": "NYMEX:CL1!",
-                            "d": "Oil"
-                        },
-                        {
-                            "s": "NYMEX:NG1!",
-                            "d": "Gas"
-                        },
-                        {
-                            "s": "CBOT:ZC1!",
-                            "d": "Corn"
-                        }
-                    ],
-                    "originalTitle": "Futures"
-                },
-                {
-                    "title": "Bonds",
-                    "symbols": [
-                        {
-                            "s": "CME:GE1!",
-                            "d": "Eurodollar"
-                        },
-                        {
-                            "s": "CBOT:ZB1!",
-                            "d": "T-Bond"
-                        },
-                        {
-                            "s": "CBOT:UB1!",
-                            "d": "Ultra T-Bond"
-                        },
-                        {
-                            "s": "EUREX:FGBL1!",
-                            "d": "Euro Bund"
-                        },
-                        {
-                            "s": "EUREX:FBTP1!",
-                            "d": "Euro BTP"
-                        },
-                        {
-                            "s": "EUREX:FGBM1!",
-                            "d": "Euro BOBL"
-                        }
-                    ],
-                    "originalTitle": "Bonds"
-                },
-                {
-                    "title": "Forex",
-                    "symbols": [
-                        {
-                            "s": "FX:EURUSD",
-                            "d": "EUR to USD"
-                        },
-                        {
-                            "s": "FX:GBPUSD",
-                            "d": "GBP to USD"
-                        },
-                        {
-                            "s": "FX:USDJPY",
-                            "d": "USD to JPY"
-                        },
-                        {
-                            "s": "FX:USDCHF",
-                            "d": "USD to CHF"
-                        },
-                        {
-                            "s": "FX:AUDUSD",
-                            "d": "AUD to USD"
-                        },
-                        {
-                            "s": "FX:USDCAD",
-                            "d": "USD to CAD"
-                        }
-                    ],
-                    "originalTitle": "Forex"
-                }
-            ]
-        });
-        
-        mapContainer.appendChild(script);
-    };
-    
-    /**
-     * Global Markets Table Data
-     * Populates the global markets table with market data
-     */
-    const setupGlobalMarketsTable = () => {
-        const tableBody = $('#global-markets-data');
-        if (!tableBody) return;
-        
-        // Sample market data (in a real implementation, this would come from an API)
-        const marketsData = [
-            {
-                region: 'Americas',
-                market: 'S&P 500',
-                index: 'SPX',
-                value: 5310.42,
-                change: 36.96,
-                percentChange: 0.72,
-                status: 'open'
-            },
-            {
-                region: 'Americas',
-                market: 'Dow Jones',
-                index: 'DJI',
-                value: 39097.16,
-                change: 42.13,
-                percentChange: 0.11,
-                status: 'open'
-            },
-            {
-                region: 'Americas',
-                market: 'NASDAQ',
-                index: 'IXIC',
-                value: 16749.22,
-                change: 156.38,
-                percentChange: 0.94,
-                status: 'open'
-            },
-            {
-                region: 'Europe',
-                market: 'FTSE 100',
-                index: 'FTSE',
-                value: 8147.03,
-                change: 37.29,
-                percentChange: 0.46,
-                status: 'open'
-            },
-            {
-                region: 'Europe',
-                market: 'DAX',
-                index: 'GDAXI',
-                value: 18325.94,
-                change: 108.01,
-                percentChange: 0.59,
-                status: 'open'
-            },
-            {
-                region: 'Europe',
-                market: 'OMXS30',
-                index: 'OMXS30.ST',
-                value: 2526.86,
-                change: -5.13,
-                percentChange: -0.20,
-                status: 'open'
-            },
-            {
-                region: 'Asia',
-                market: 'Nikkei 225',
-                index: 'N225',
-                value: 38633.02,
-                change: 173.74,
-                percentChange: 0.45,
-                status: 'closed'
-            },
-            {
-                region: 'Asia',
-                market: 'Hang Seng',
-                index: 'HSI',
-                value: 17687.48,
-                change: -114.24,
-                percentChange: -0.64,
-                status: 'closed'
-            },
-            {
-                region: 'Asia',
-                market: 'Shanghai Composite',
-                index: 'SSEC',
-                value: 3121.96,
-                change: 5.15,
-                percentChange: 0.17,
-                status: 'closed'
-            }
-        ];
-        
-        // Clear loading row
-        tableBody.innerHTML = '';
-        
-        // Sort by region then by market
-        marketsData.sort((a, b) => {
-            if (a.region !== b.region) {
-                return a.region.localeCompare(b.region);
-            }
-            return a.market.localeCompare(b.market);
-        });
-        
-        // Create groups by region
-        const regions = {};
-        marketsData.forEach(market => {
-            if (!regions[market.region]) {
-                regions[market.region] = [];
-            }
-            regions[market.region].push(market);
-        });
-        
-        // Add data rows by region
-        Object.keys(regions).forEach(region => {
-            // Add region header
-            const regionRow = document.createElement('tr');
-            regionRow.className = 'region-header';
-            
-            const regionCell = document.createElement('td');
-            regionCell.colSpan = 6;
-            regionCell.textContent = region;
-            regionCell.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
-            regionCell.style.fontWeight = 'bold';
-            
-            regionRow.appendChild(regionCell);
-            tableBody.appendChild(regionRow);
-            
-            // Add market rows for this region
-            regions[region].forEach(market => {
-                const row = document.createElement('tr');
-                
-                // Market name
-                const marketCell = document.createElement('td');
-                marketCell.textContent = market.market;
-                row.appendChild(marketCell);
-                
-                // Index
-                const indexCell = document.createElement('td');
-                indexCell.textContent = market.index;
-                row.appendChild(indexCell);
-                
-                // Value
-                const valueCell = document.createElement('td');
-                valueCell.textContent = market.value.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                });
-                row.appendChild(valueCell);
-                
-                // Change
-                const changeCell = document.createElement('td');
-                changeCell.textContent = (market.change >= 0 ? '+' : '') + market.change.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                });
-                changeCell.style.color = market.change >= 0 ? 'var(--success, #2ecc71)' : 'var(--danger, #e74c3c)';
-                row.appendChild(changeCell);
-                
-                // Percent Change
-                const percentCell = document.createElement('td');
-                percentCell.textContent = (market.percentChange >= 0 ? '+' : '') + market.percentChange.toFixed(2) + '%';
-                percentCell.style.color = market.percentChange >= 0 ? 'var(--success, #2ecc71)' : 'var(--danger, #e74c3c)';
-                row.appendChild(percentCell);
-                
-                // Status
-                const statusCell = document.createElement('td');
-                const statusSpan = document.createElement('span');
-                statusSpan.className = `market-status ${market.status}`;
-                statusSpan.textContent = market.status.charAt(0).toUpperCase() + market.status.slice(1);
-                statusCell.appendChild(statusSpan);
-                row.appendChild(statusCell);
-                
-                tableBody.appendChild(row);
-            });
-        });
-    };
-    
-    /**
-     * Forex and Commodities Tabs
-     * Manages tab switching and widget loading
-     */
-    const setupForexCommoditiesTabs = () => {
-        const tabButtons = $$('.tab-btn');
-        
-        tabButtons.forEach(button => {
-            addEvent(button, 'click', () => {
-                // Update active tab button
-                tabButtons.forEach(btn => btn.classList.remove('active'));
-                button.classList.add('active');
-                
-                // Get tab to display
-                const tabId = button.getAttribute('data-tab');
-                
-                // Update tab content visibility
-                const tabContents = $$('.tab-content');
-                tabContents.forEach(content => {
-                    content.classList.remove('active');
-                });
-                
-                const activeContent = $(`#${tabId}-tab`);
-                if (activeContent) {
-                    activeContent.classList.add('active');
+                    // Update button text and icon
+                    const buttonIcon = button.querySelector('i');
                     
-                    // Load widgets if needed
-                    if (tabId === 'forex' && !$('#forex-widget-container').innerHTML) {
-                        loadForexWidgets();
-                    } else if (tabId === 'commodities' && !$('#commodities-widget-container').innerHTML) {
-                        loadCommoditiesWidgets();
-                    }
-                }
-            });
-        });
-        
-        // Initialize the forex tab widgets (default tab)
-        loadForexWidgets();
-    };
-    
-    /**
-     * Load Forex Widgets
-     * Creates TradingView widgets for forex pairs
-     */
-    const loadForexWidgets = () => {
-        const container = $('#forex-widget-container');
-        if (!container) return;
-        
-        // Clear existing content
-        container.innerHTML = '';
-        
-        // Define forex pairs to display
-        const forexPairs = [
-            { symbol: 'FX:EURUSD', description: 'EUR/USD' },
-            { symbol: 'FX:GBPUSD', description: 'GBP/USD' },
-            { symbol: 'FX:USDJPY', description: 'USD/JPY' },
-            { symbol: 'FX:AUDUSD', description: 'AUD/USD' },
-            { symbol: 'FX:USDCAD', description: 'USD/CAD' },
-            { symbol: 'FX:EURSEK', description: 'EUR/SEK' }
-        ];
-        
-        // Create forex widgets
-        forexPairs.forEach(pair => {
-            const widgetDiv = document.createElement('div');
-            widgetDiv.className = 'forex-widget';
-            
-            // Create TradingView Mini Chart widget
-            const script = document.createElement('script');
-            script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js';
-            script.async = true;
-            script.type = 'text/javascript';
-            script.innerHTML = JSON.stringify({
-                "symbol": pair.symbol,
-                "width": "100%",
-                "height": "100%",
-                "locale": "en",
-                "dateRange": "1D",
-                "colorTheme": "light",
-                "trendLineColor": "rgba(41, 98, 255, 1)",
-                "underLineColor": "rgba(41, 98, 255, 0.3)",
-                "underLineBottomColor": "rgba(41, 98, 255, 0)",
-                "isTransparent": false,
-                "autosize": true,
-                "largeChartUrl": ""
-            });
-            
-            widgetDiv.appendChild(script);
-            container.appendChild(widgetDiv);
-        });
-    };
-    
-    /**
-     * Load Commodities Widgets
-     * Creates TradingView widgets for commodities
-     */
-    const loadCommoditiesWidgets = () => {
-        const container = $('#commodities-widget-container');
-        if (!container) return;
-        
-        // Clear existing content
-        container.innerHTML = '';
-        
-        // Define commodities to display
-        const commodities = [
-            { symbol: 'COMEX:GC1!', description: 'Gold Futures' },
-            { symbol: 'COMEX:SI1!', description: 'Silver Futures' },
-            { symbol: 'NYMEX:CL1!', description: 'Crude Oil WTI' },
-            { symbol: 'NYMEX:NG1!', description: 'Natural Gas' },
-            { symbol: 'COMEX:HG1!', description: 'Copper Futures' },
-            { symbol: 'CBOT:ZC1!', description: 'Corn Futures' }
-        ];
-        
-        // Create commodities widgets
-        commodities.forEach(commodity => {
-            const widgetDiv = document.createElement('div');
-            widgetDiv.className = 'commodity-widget';
-            
-            // Create TradingView Mini Chart widget
-            const script = document.createElement('script');
-            script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js';
-            script.async = true;
-            script.type = 'text/javascript';
-            script.innerHTML = JSON.stringify({
-                "symbol": commodity.symbol,
-                "width": "100%",
-                "height": "100%",
-                "locale": "en",
-                "dateRange": "1D",
-                "colorTheme": "light",
-                "trendLineColor": "rgba(41, 98, 255, 1)",
-                "underLineColor": "rgba(41, 98, 255, 0.3)",
-                "underLineBottomColor": "rgba(41, 98, 255, 0)",
-                "isTransparent": false,
-                "autosize": true,
-                "largeChartUrl": ""
-            });
-            
-            widgetDiv.appendChild(script);
-            container.appendChild(widgetDiv);
-        });
-    };
-    
-    /**
-     * Market News Ticker
-     * Creates and populates the news ticker
-     */
-    const setupNewsTicker = () => {
-        const tickerTrack = $('#news-ticker');
-        if (!tickerTrack) return;
-        
-        // Sample news headlines (in a real implementation, these would come from a news API)
-        const newsHeadlines = [
-            "Federal Reserve holds interest rates steady, signals possible future cuts",
-            "Tech stocks rally pushes Nasdaq to new record high",
-            "European markets mixed as investors await ECB decision",
-            "Oil prices rise on supply concerns amid Middle East tensions",
-            "Swedish OMXS30 drops slightly after disappointing manufacturing data",
-            "Gold hits 2-month high as market uncertainty rises",
-            "US jobless claims fall to lowest level in three weeks",
-            "Asian markets close mixed after volatile trading session",
-            "UK inflation falls to two-year low, below Bank of England target",
-            "Bitcoin surges above $65,000 as investor sentiment improves"
-        ];
-        
-        // Clear loading message
-        tickerTrack.innerHTML = '';
-        
-        // Add news headlines to ticker
-        newsHeadlines.forEach(headline => {
-            const tickerItem = document.createElement('span');
-            tickerItem.className = 'ticker-item';
-            tickerItem.textContent = headline;
-            tickerTrack.appendChild(tickerItem);
-        });
-        
-        // Clone items for seamless looping
-        newsHeadlines.forEach(headline => {
-            const tickerItem = document.createElement('span');
-            tickerItem.className = 'ticker-item';
-            tickerItem.textContent = headline;
-            tickerTrack.appendChild(tickerItem);
-        });
-    };
-    
-    // Initialize modules
-    setupSectorsHeatmap();
-    setupExpandableContent();
-    setupGlobalMarketsMap();
-    setupGlobalMarketsTable();
-    setupForexCommoditiesTabs();
-    setupNewsTicker();
-});
-/**
- * HOLMDEX MARKETS PAGE JAVASCRIPT - PART 3
- * Performance optimizations, UI enhancements, and mobile responsiveness
- */
-
-document.addEventListener('DOMContentLoaded', function() {
-    
-    // Redefine helper functions for modularity
-    const $ = (selector) => document.querySelector(selector);
-    const $$ = (selector) => document.querySelectorAll(selector);
-    
-    const addEvent = (element, event, callback) => {
-        if (element) {
-            element.addEventListener(event, callback);
-        }
-    };
-    
-    /**
-     * Performance Optimizations
-     * Improves page load and rendering performance
-     */
-    const setupPerformanceOptimizations = () => {
-        // Lazy load TradingView widgets
-        const loadWidgetsOnScroll = () => {
-            // Define sections that contain widgets
-            const widgetSections = [
-                { id: 'sectors-heatmap-widget', loaded: false },
-                { id: 'global-markets-widget', loaded: false }
-            ];
-            
-            // Create IntersectionObserver
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const sectionId = entry.target.id;
-                        const section = widgetSections.find(s => s.id === sectionId);
-                        
-                        if (section && !section.loaded) {
-                            // Trigger load for this section
-                            switch (sectionId) {
-                                case 'sectors-heatmap-widget':
-                                    if (!section.loaded) {
-                                        // This is now handled by setupSectorsHeatmap
-                                        section.loaded = true;
-                                    }
-                                    break;
-                                case 'global-markets-widget':
-                                    if (!section.loaded) {
-                                        // This is now handled by setupGlobalMarketsMap
-                                        section.loaded = true;
-                                    }
-                                    break;
-                            }
-                            
-                            // Once loaded, stop observing this section
-                            observer.unobserve(entry.target);
+                    if (buttonIcon) {
+                        if (isExpanded) {
+                            buttonIcon.className = 'fas fa-chevron-down';
+                            button.querySelector('i').setAttribute('style', '');
+                            button.childNodes[0].nodeValue = 'Learn More ';
+                        } else {
+                            buttonIcon.className = 'fas fa-chevron-up';
+                            button.querySelector('i').setAttribute('style', 'transform: rotate(180deg)');
+                            button.childNodes[0].nodeValue = 'Show Less ';
                         }
                     }
-                });
-            }, {
-                threshold: 0.1,
-                rootMargin: '100px'
+                    
+                    // Update accessibility attributes
+                    button.setAttribute('aria-expanded', !isExpanded);
+                    targetElement.setAttribute('aria-hidden', isExpanded);
+                }
             });
-            
-            // Start observing widget containers
-            widgetSections.forEach(section => {
-                const element = $(`#${section.id}`);
-                if (element) {
-                    observer.observe(element);
+        });
+    };
+    
+    /**
+     * Market Concepts Section
+     * Handles the expanding/collapsing of concept items
+     */
+    const setupConceptItems = () => {
+        const conceptItems = $$('.concept-item');
+        const conceptHeaders = $$('.concept-header');
+        
+        // Function to close all items except the active one
+        const closeOtherItems = (activeItem) => {
+            conceptItems.forEach(item => {
+                if (item !== activeItem && item.classList.contains('active')) {
+                    item.classList.remove('active');
+                    
+                    // Update toggle button
+                    const toggle = item.querySelector('.concept-toggle i');
+                    if (toggle) {
+                        toggle.className = 'fas fa-plus';
+                    }
                 }
             });
         };
         
-        // Initialize lazy loading
-        if ('IntersectionObserver' in window) {
-            loadWidgetsOnScroll();
-        }
-        
-        // Defer non-critical JavaScript
-        const deferScripts = () => {
-            // Load Font Awesome if not already present
-            if (!document.querySelector('link[href*="fontawesome"]') && !document.querySelector('script[src*="fontawesome"]')) {
-                const linkElement = document.createElement('link');
-                linkElement.rel = 'stylesheet';
-                linkElement.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css';
-                linkElement.integrity = 'sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ==';
-                linkElement.crossOrigin = 'anonymous';
+        // Add click event to headers
+        conceptHeaders.forEach(header => {
+            addEvent(header, 'click', () => {
+                const parentItem = header.closest('.concept-item');
+                const toggleIcon = header.querySelector('.concept-toggle i');
                 
-                document.head.appendChild(linkElement);
-            }
-        };
-        
-        // Execute after critical content is loaded
-        if (document.readyState === 'complete') {
-            deferScripts();
-        } else {
-            window.addEventListener('load', deferScripts);
-        }
-        
-        // Add debounce function for scroll events
-        const debounce = (func, wait = 20) => {
-            let timeout;
-            return function(...args) {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func.apply(this, args), wait);
-            };
-        };
-        
-        // Optimize scroll event handling
-        const optimizeScrollEvents = () => {
-            // Debounced scroll handler
-            const handleScroll = debounce(() => {
-                // Add scroll-based animations or functionality here
-                animateOnScroll();
+                // Close other items first
+                closeOtherItems(parentItem);
+                
+                // Toggle active state
+                parentItem.classList.toggle('active');
+                
+                // Update icon
+                if (toggleIcon) {
+                    if (parentItem.classList.contains('active')) {
+                        toggleIcon.className = 'fas fa-times';
+                    } else {
+                        toggleIcon.className = 'fas fa-plus';
+                    }
+                }
             });
-            
-            window.addEventListener('scroll', handleScroll);
-        };
+        });
         
-        optimizeScrollEvents();
+        // Add direct click event to toggle buttons for better accessibility
+        const toggleButtons = $$('.concept-toggle');
+        
+        toggleButtons.forEach(button => {
+            addEvent(button, 'click', (e) => {
+                // Prevent bubbling to avoid double-triggering with header click
+                e.stopPropagation();
+                
+                // Find parent header and trigger its click event
+                const header = button.closest('.concept-header');
+                if (header) {
+                    header.click();
+                }
+            });
+        });
+        
+        // Add keyboard support
+        conceptHeaders.forEach(header => {
+            header.setAttribute('tabindex', '0');
+            header.setAttribute('role', 'button');
+            header.setAttribute('aria-expanded', 'false');
+            
+            addEvent(header, 'keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    header.click();
+                    
+                    // Update ARIA attributes
+                    const parentItem = header.closest('.concept-item');
+                    header.setAttribute('aria-expanded', parentItem.classList.contains('active'));
+                }
+            });
+        });
+        
+        // Add keyboard support to toggle buttons
+        toggleButtons.forEach(button => {
+            button.setAttribute('tabindex', '0');
+            button.setAttribute('role', 'button');
+            
+            addEvent(button, 'keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    button.click();
+                }
+            });
+        });
     };
     
     /**
      * Scroll-Based Animations
-     * Adds animations that trigger as elements scroll into view
+     * Handles animations that trigger on scroll
      */
-    const animateOnScroll = () => {
+    const setupScrollAnimations = () => {
         // Elements to animate on scroll
-        const animateElements = $$('.education-card, .market-card, .info-card');
+        const animateElements = [
+            ...$$('.intro-card'), 
+            ...$$('.index-card'),
+            ...$$('.concept-item')
+        ];
         
         // Check if Intersection Observer is supported
         if (!('IntersectionObserver' in window)) {
@@ -1192,10 +400,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    // The element is now visible
-                    const delay = entry.target.getAttribute('data-delay') || 0;
+                    // Add appropriate animation class with delay
+                    const index = animateElements.indexOf(entry.target);
                     entry.target.classList.add('fade-in');
-                    entry.target.style.setProperty('--delay', delay);
+                    
+                    // Add delay classes based on position in the grid
+                    const columnIndex = index % 3;
+                    if (columnIndex === 1) {
+                        entry.target.classList.add('fade-in-delay-1');
+                    } else if (columnIndex === 2) {
+                        entry.target.classList.add('fade-in-delay-2');
+                    }
                     
                     // Stop observing this element
                     observer.unobserve(entry.target);
@@ -1207,374 +422,186 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         // Start observing elements
-        animateElements.forEach((el, index) => {
-            // Add staggered delay
-            el.setAttribute('data-delay', index * 100);
+        animateElements.forEach(el => {
             observer.observe(el);
         });
     };
     
     /**
+     * TradingView Widget Adjustments
+     * Ensures TradingView widgets render correctly and responsively
+     */
+    const setupTradingViewWidgets = () => {
+        // Function to add loading indicators
+        const addLoadingIndicators = () => {
+            const widgetContainers = $$('.tradingview-widget-container');
+            
+            widgetContainers.forEach(container => {
+                // Create and add loading indicator
+                const loading = document.createElement('div');
+                loading.className = 'loading-indicator';
+                loading.innerHTML = '<div class="loading-spinner"></div>';
+                container.appendChild(loading);
+                
+                // Remove loading indicator when widget is loaded
+                // Using MutationObserver to detect when TradingView adds iframe
+                const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        if (mutation.addedNodes.length > 0) {
+                            // Check if iframe was added
+                            const hasIframe = Array.from(mutation.addedNodes).some(
+                                node => node.nodeName === 'IFRAME' || 
+                                       (node.querySelector && node.querySelector('iframe'))
+                            );
+                            
+                            if (hasIframe) {
+                                // Remove loading indicator after a short delay to ensure widget is fully rendered
+                                setTimeout(() => {
+                                    const loadingEl = container.querySelector('.loading-indicator');
+                                    if (loadingEl) {
+                                        loadingEl.remove();
+                                    }
+                                }, 500);
+                                
+                                // Stop observing once iframe is added
+                                observer.disconnect();
+                            }
+                        }
+                    });
+                });
+                
+                // Start observing
+                observer.observe(container, { childList: true, subtree: true });
+                
+                // Fallback: Remove loading after 5 seconds regardless
+                setTimeout(() => {
+                    const loadingEl = container.querySelector('.loading-indicator');
+                    if (loadingEl) {
+                        loadingEl.remove();
+                    }
+                }, 5000);
+            });
+        };
+        
+        // Add loading indicators
+        addLoadingIndicators();
+        
+        // Ensure chart widgets are sized correctly
+        const resizeChartWidgets = () => {
+            $$('.chart-wrapper').forEach(wrapper => {
+                const container = wrapper.querySelector('.tradingview-widget-container');
+                if (container) {
+                    container.style.width = '100%';
+                    container.style.height = '100%';
+                    
+                    // Find iframe and set its dimensions
+                    const iframe = container.querySelector('iframe');
+                    if (iframe) {
+                        iframe.style.width = '100%';
+                        iframe.style.height = '100%';
+                    }
+                }
+            });
+        };
+        
+        // Initial resize
+        setTimeout(resizeChartWidgets, 1000);
+        
+        // Resize on window resize
+        window.addEventListener('resize', debounce(resizeChartWidgets, 250));
+    };
+/**
      * Mobile Optimizations
      * Enhances the experience on mobile devices
      */
     const setupMobileOptimizations = () => {
         // Check if device is mobile
-        const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        const isMobile = window.innerWidth < 768 || 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         
         if (isMobile) {
             document.body.classList.add('mobile-device');
             
-            // Optimize tables for mobile
-            const responsiveTables = () => {
-                const table = $('.markets-table');
-                if (table) {
-                    // Add data-label attributes for mobile display
-                    const headers = Array.from(table.querySelectorAll('th')).map(th => th.textContent);
-                    
-                    table.querySelectorAll('tbody tr').forEach(row => {
-                        if (row.classList.contains('region-header')) return;
-                        
-                        Array.from(row.querySelectorAll('td')).forEach((cell, index) => {
-                            if (headers[index]) {
-                                cell.setAttribute('data-label', headers[index]);
-                            }
-                        });
-                    });
-                }
-            };
-            
-            // Optimize charts for mobile
-            const optimizeCharts = () => {
+            // Adjust chart height for mobile
+            const adjustChartHeight = () => {
                 const chartDisplay = $('.chart-display');
-                if (chartDisplay && window.innerWidth < 768) {
-                    chartDisplay.style.height = '300px';
+                if (chartDisplay) {
+                    if (window.innerWidth < 576) {
+                        chartDisplay.style.height = '350px';
+                    } else if (window.innerWidth < 768) {
+                        chartDisplay.style.height = '400px';
+                    }
                 }
             };
             
-            // Run mobile optimizations
-            responsiveTables();
-            optimizeCharts();
+            adjustChartHeight();
             
             // Handle orientation changes
             window.addEventListener('orientationchange', () => {
                 setTimeout(() => {
-                    optimizeCharts();
+                    adjustChartHeight();
                 }, 300);
             });
-        }
-    };
-    
-    /**
-     * Theme Preferences
-     * Handles dark mode and other theme preferences
-     */
-    const setupThemePreferences = () => {
-        // Check for saved theme preferences
-        const savedTheme = localStorage.getItem('holmdexTheme');
-        if (savedTheme) {
-            document.body.setAttribute('data-theme', savedTheme);
-        }
-        
-        // Check for dark mode preference
-        const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (prefersDarkMode && !savedTheme) {
-            document.body.setAttribute('data-theme', 'dark');
-        }
-        
-        // Add theme switcher if needed
-        if (!$('.theme-switcher')) {
-            const themeSwitch = document.createElement('button');
-            themeSwitch.className = 'theme-switcher';
-            themeSwitch.setAttribute('aria-label', 'Toggle dark mode');
-            themeSwitch.innerHTML = '<i class="fas fa-moon"></i>';
             
-            themeSwitch.addEventListener('click', () => {
-                const currentTheme = document.body.getAttribute('data-theme');
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            // Make index cards more touch-friendly
+            const indexCards = $$('.index-card');
+            indexCards.forEach(card => {
+                const expandBtn = card.querySelector('.expand-chart-btn');
+                if (expandBtn) {
+                    expandBtn.style.padding = '0.75rem 1.25rem';
+                }
+            });
+            
+            // Make tabs scrollable horizontally with visual indicator
+            const setupScrollableTabs = () => {
+                const tabContainers = [
+                    $('.indices-tabs'),
+                    $('.chart-tabs')
+                ];
                 
-                document.body.setAttribute('data-theme', newTheme);
-                localStorage.setItem('holmdexTheme', newTheme);
-                
-/**
- * HOLMDEX MARKETS PAGE JAVASCRIPT - PART 3 (continued)
- */
-
-                // Update icon
-                const icon = themeSwitch.querySelector('i');
-                if (icon) {
-                    if (newTheme === 'dark') {
-                        icon.classList.remove('fa-moon');
-                        icon.classList.add('fa-sun');
-                    } else {
-                        icon.classList.remove('fa-sun');
-                        icon.classList.add('fa-moon');
-                    }
-                }
-            });
-            
-            // Update initial icon based on current theme
-            const currentTheme = document.body.getAttribute('data-theme');
-            if (currentTheme === 'dark') {
-                const icon = themeSwitch.querySelector('i');
-                if (icon) {
-                    icon.classList.remove('fa-moon');
-                    icon.classList.add('fa-sun');
-                }
-            }
-            
-            document.body.appendChild(themeSwitch);
-        }
-        
-        // Add listeners for system theme changes
-        const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        if (darkModeMediaQuery.addEventListener) {
-            darkModeMediaQuery.addEventListener('change', (e) => {
-                if (!localStorage.getItem('holmdexTheme')) {
-                    // Only apply if user hasn't explicitly set a preference
-                    document.body.setAttribute('data-theme', e.matches ? 'dark' : 'light');
-                }
-            });
-        }
-    };
-    
-    /**
-     * Accessibility Improvements
-     * Enhances keyboard navigation and screen reader support
-     */
-    const setupAccessibility = () => {
-        // Ensure all interactive elements are keyboard accessible
-        const interactiveElements = $$('.market-card, .chart-tab, .tab-btn, .timeframe-btn, .education-card');
-        
-        interactiveElements.forEach(el => {
-            // Add tabindex if not already present
-            if (!el.hasAttribute('tabindex')) {
-                el.setAttribute('tabindex', '0');
-            }
-            
-            // Add keyboard event listeners for elements that need them
-            if (el.classList.contains('market-card') || el.classList.contains('education-card')) {
-                el.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        el.click();
-                    }
-                });
-            }
-        });
-        
-        // Add skip link for keyboard navigation
-        if (!$('.skip-link')) {
-            const skipLink = document.createElement('a');
-            skipLink.className = 'skip-link';
-            skipLink.href = '#main-content';
-            skipLink.textContent = 'Skip to content';
-            
-            document.body.insertBefore(skipLink, document.body.firstChild);
-        }
-        
-        // Ensure TradingView widgets have proper ARIA attributes
-        setTimeout(() => {
-            const iframes = $$('iframe');
-            iframes.forEach(iframe => {
-                if (iframe.src.includes('tradingview.com')) {
-                    iframe.setAttribute('title', 'TradingView Chart Widget');
-                    iframe.setAttribute('aria-label', 'Interactive financial chart');
-                }
-            });
-        }, 3000); // Give time for widgets to load
-    };
-    
-    /**
-     * Error Handling
-     * Sets up global error handling for widgets and components
-     */
-    const setupErrorHandling = () => {
-        // Global error handler
-        window.addEventListener('error', (e) => {
-            console.error('JavaScript error:', e.message);
-            
-            // Check if error is related to TradingView widgets
-            if (e.message.includes('tradingview') || e.filename.includes('tradingview')) {
-                // Handle TradingView errors
-                handleWidgetError();
-            }
-        });
-        
-        // Handle Promise rejections
-        window.addEventListener('unhandledrejection', (e) => {
-            console.error('Unhandled Promise rejection:', e.reason);
-        });
-        
-        // Function to handle widget loading errors
-        const handleWidgetError = () => {
-            // Find all widget containers
-            const widgetContainers = [
-                ...$$('.chart-wrapper'),
-                $('#sectors-heatmap-widget'),
-                $('#global-markets-widget'),
-                $('#forex-widget-container'),
-                $('#commodities-widget-container')
-            ].filter(Boolean);
-            
-            // Check each container for content
-            widgetContainers.forEach(container => {
-                // If container is empty or only contains a script tag
-                if (!container.children.length || 
-                    (container.children.length === 1 && container.children[0].tagName === 'SCRIPT')) {
+                tabContainers.forEach(container => {
+                    if (!container) return;
                     
-                    // Create fallback content
-                    const fallbackElement = document.createElement('div');
-                    fallbackElement.className = 'widget-fallback';
-                    fallbackElement.innerHTML = `
-                        <div class="fallback-message">
-                            <i class="fas fa-exclamation-circle"></i>
-                            <p>Chart widget could not be loaded.</p>
-                            <button class="reload-widget-btn">Try Again</button>
-                        </div>
-                    `;
+                    // Check if tabs overflow
+                    const isOverflowing = container.scrollWidth > container.clientWidth;
                     
-                    // Add reload functionality
-                    const reloadBtn = fallbackElement.querySelector('.reload-widget-btn');
-                    if (reloadBtn) {
-                        reloadBtn.addEventListener('click', () => {
-                            location.reload(); // Simple reload for now
-                        });
-                    }
-                    
-                    // Clear container and add fallback
-                    container.innerHTML = '';
-                    container.appendChild(fallbackElement);
-                }
-            });
-        };
-        
-        // Set timeout to check widget loading status
-        setTimeout(() => {
-            // Find chart containers and check if they have loaded
-            const chartContainers = $$('.chart-wrapper');
-            chartContainers.forEach(container => {
-                if (!container.querySelector('iframe')) {
-                    const activeContainer = container.classList.contains('active');
-                    if (activeContainer) {
-                        // If active container failed to load, try again
-                        const chartId = container.id.replace('chart-', '');
-                        try {
-                            loadTradingViewWidget(chartId);
-                        } catch (e) {
-                            handleWidgetError();
-                        }
-                    }
-                }
-            });
-        }, 5000); // Check after 5 seconds
-    };
-    
-    /**
-     * Social Sharing
-     * Adds social sharing functionality
-     */
-    const setupSocialSharing = () => {
-        // Add share button
-        const addShareButton = () => {
-            if ($('.share-button')) return;
-            
-            const shareBtn = document.createElement('button');
-            shareBtn.className = 'share-button';
-            shareBtn.innerHTML = '<i class="fas fa-share-alt"></i>';
-            shareBtn.setAttribute('aria-label', 'Share this page');
-            shareBtn.setAttribute('title', 'Share this page');
-            
-            // Add click handler
-            shareBtn.addEventListener('click', () => {
-                const title = document.title;
-                const url = window.location.href;
-                
-                // Check if Web Share API is supported
-                if (navigator.share) {
-                    navigator.share({
-                        title: title,
-                        url: url
-                    }).catch(console.error);
-                } else {
-                    // Fallback to clipboard copy
-                    navigator.clipboard.writeText(url).then(() => {
-                        // Show copy success message
-                        const notification = document.createElement('div');
-                        notification.className = 'copy-notification';
-                        notification.textContent = 'Link copied to clipboard!';
-                        document.body.appendChild(notification);
+                    if (isOverflowing) {
+                        // Add scroll shadow indicators
+                        container.classList.add('tabs-overflowing');
                         
-                        // Remove notification after delay
-                        setTimeout(() => {
-                            notification.classList.add('fade-out');
-                            setTimeout(() => {
-                                document.body.removeChild(notification);
-                            }, 500);
-                        }, 2000);
-                    }).catch(console.error);
-                }
-            });
+                        // Add subtle shadow indicators to show there's more content
+                        container.style.background = 'linear-gradient(to right, #0A2540 30%, rgba(10, 37, 64, 0.9) 100%)';
+                        
+                        // Handle scroll event to update shadow indicators
+                        container.addEventListener('scroll', debounce(function() {
+                            const isScrolledToEnd = container.scrollLeft + container.clientWidth >= container.scrollWidth - 10;
+                            const isScrolledToStart = container.scrollLeft <= 10;
+                            
+                            if (isScrolledToEnd) {
+                                container.style.background = 'linear-gradient(to left, #0A2540 30%, rgba(10, 37, 64, 0.9) 100%)';
+                            } else if (isScrolledToStart) {
+                                container.style.background = 'linear-gradient(to right, #0A2540 30%, rgba(10, 37, 64, 0.9) 100%)';
+                            } else {
+                                container.style.background = 'linear-gradient(to right, rgba(10, 37, 64, 0.9), #0A2540 50%, rgba(10, 37, 64, 0.9))';
+                            }
+                        }, 50));
+                    }
+                });
+            };
             
-            document.body.appendChild(shareBtn);
-        };
-        
-        // Add share button only if not on a mobile device
-        if (!('ontouchstart' in window) || window.navigator.maxTouchPoints === 0) {
-            addShareButton();
+            // Initialize scrollable tabs
+            setTimeout(setupScrollableTabs, 500);
+            
+            // Re-check on resize
+            window.addEventListener('resize', debounce(setupScrollableTabs, 250));
         }
     };
     
     /**
-     * Page Analytics Monitor
-     * Tracks user interactions for page improvement (no personal data)
-     */
-    const setupAnalyticsMonitor = () => {
-        // Track chart tab changes
-        const trackChartTabChanges = () => {
-            const chartTabs = $$('.chart-tab');
-            chartTabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    const chartId = tab.getAttribute('data-chart');
-                    if (chartId && window.dataLayer) {
-                        window.dataLayer.push({
-                            'event': 'chart_view',
-                            'chart_type': chartId
-                        });
-                    }
-                });
-            });
-        };
-        
-        // Track timeframe selection
-        const trackTimeframeChanges = () => {
-            const timeframeBtns = $$('.timeframe-btn');
-            timeframeBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const timeframe = btn.getAttribute('data-timeframe');
-                    if (timeframe && window.dataLayer) {
-                        window.dataLayer.push({
-                            'event': 'timeframe_change',
-                            'timeframe': timeframe
-                        });
-                    }
-                });
-            });
-        };
-        
-        // Initialize tracking if dataLayer exists
-        if (window.dataLayer) {
-            trackChartTabChanges();
-            trackTimeframeChanges();
-        }
-    };
-    
-    /**
-     * Back To Top Button
+     * Back to Top Button
      * Adds a button to quickly scroll back to the top of the page
      */
     const setupBackToTop = () => {
-        // Create the button if it doesn't exist
+        // Create button if it doesn't exist
         if (!$('#back-to-top')) {
             const backToTopBtn = document.createElement('button');
             backToTopBtn.id = 'back-to-top';
@@ -1584,8 +611,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             document.body.appendChild(backToTopBtn);
             
-            // Show/hide button based on scroll position
-            const toggleBackToTopButton = () => {
+            // Show button when scrolled down
+            const toggleBackToTopVisibility = () => {
                 if (window.pageYOffset > 300) {
                     backToTopBtn.classList.add('visible');
                 } else {
@@ -1593,13 +620,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             };
             
-            // Initial check
-            toggleBackToTopButton();
+            // Check initial position
+            toggleBackToTopVisibility();
             
-            // Add scroll listener
-            window.addEventListener('scroll', () => {
-                toggleBackToTopButton();
-            });
+            // Update on scroll
+            window.addEventListener('scroll', debounce(toggleBackToTopVisibility, 100));
             
             // Scroll to top when clicked
             backToTopBtn.addEventListener('click', () => {
@@ -1612,28 +637,140 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     /**
-     * Load External Resources
-     * Handles loading of external resources like fonts and icons
+     * Accessibility Enhancements
+     * Improves keyboard navigation and screen reader support
      */
-    const loadExternalResources = () => {
-        // Check if Font Awesome is loaded
-        if (!document.querySelector('link[href*="fontawesome"]')) {
-            const linkElement = document.createElement('link');
-            linkElement.rel = 'stylesheet';
-            linkElement.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css';
-            document.head.appendChild(linkElement);
-        }
+    const setupAccessibility = () => {
+        // Add proper ARIA roles and labels
+        const setupAriaAttributes = () => {
+            // Index tabs
+            const indexTabsContainer = $('.indices-tabs');
+            if (indexTabsContainer) {
+                indexTabsContainer.setAttribute('role', 'tablist');
+                indexTabsContainer.querySelectorAll('.index-tab-btn').forEach((tab, index) => {
+                    const region = tab.getAttribute('data-region');
+                    tab.setAttribute('role', 'tab');
+                    tab.setAttribute('id', `tab-${region}`);
+                    tab.setAttribute('aria-controls', `region-${region}`);
+                    tab.setAttribute('aria-selected', tab.classList.contains('active'));
+                    
+                    // Corresponding panel
+                    const panel = $(`.indices-region[data-region="${region}"]`);
+                    if (panel) {
+                        panel.setAttribute('role', 'tabpanel');
+                        panel.setAttribute('id', `region-${region}`);
+                        panel.setAttribute('aria-labelledby', `tab-${region}`);
+                        panel.setAttribute('tabindex', '0');
+                    }
+                });
+            }
+            
+            // Chart tabs
+            const chartTabsContainer = $('.chart-tabs');
+            if (chartTabsContainer) {
+                chartTabsContainer.setAttribute('role', 'tablist');
+                chartTabsContainer.querySelectorAll('.chart-tab').forEach((tab) => {
+                    const chart = tab.getAttribute('data-chart');
+                    tab.setAttribute('role', 'tab');
+                    tab.setAttribute('id', `tab-chart-${chart}`);
+                    tab.setAttribute('aria-controls', `chart-${chart}`);
+                    tab.setAttribute('aria-selected', tab.classList.contains('active'));
+                    
+                    // Corresponding panel
+                    const panel = $(`#chart-${chart}`);
+                    if (panel) {
+                        panel.setAttribute('role', 'tabpanel');
+                        panel.setAttribute('aria-labelledby', `tab-chart-${chart}`);
+                        panel.setAttribute('tabindex', '0');
+                    }
+                });
+            }
+            
+            // Concept items
+            $$('.concept-item').forEach((item, index) => {
+                const concept = item.getAttribute('data-concept');
+                const header = item.querySelector('.concept-header');
+                const content = item.querySelector('.concept-content');
+                const toggle = item.querySelector('.concept-toggle');
+                
+                if (header && content && toggle) {
+                    header.setAttribute('id', `concept-header-${concept}`);
+                    header.setAttribute('aria-controls', `concept-content-${concept}`);
+                    
+                    content.setAttribute('id', `concept-content-${concept}`);
+                    content.setAttribute('aria-labelledby', `concept-header-${concept}`);
+                    content.setAttribute('role', 'region');
+                    
+                    toggle.setAttribute('aria-label', `Toggle ${header.querySelector('h3').textContent} content`);
+                }
+            });
+        };
+        
+        // Initialize accessibility attributes
+        setupAriaAttributes();
+        
+        // Update ARIA attributes when tabs change
+        const updateAriaOnTabChange = () => {
+            // Index tabs
+            $$('.index-tab-btn').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    $$('.index-tab-btn').forEach(t => {
+                        t.setAttribute('aria-selected', t === tab);
+                    });
+                });
+            });
+            
+            // Chart tabs
+            $$('.chart-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    $$('.chart-tab').forEach(t => {
+                        t.setAttribute('aria-selected', t === tab);
+                    });
+                });
+            });
+        };
+        
+        updateAriaOnTabChange();
     };
     
-    // Initialize all the modules
-    setupPerformanceOptimizations();
-    setTimeout(animateOnScroll, 300); // Delay slightly to avoid jank during page load
-    setupMobileOptimizations();
-    setupThemePreferences();
-    setupAccessibility();
-    setupErrorHandling();
-    setupSocialSharing();
-    setupAnalyticsMonitor();
-    setupBackToTop();
-    loadExternalResources();
+    /**
+     * Initialize All Functions
+     */
+    const init = () => {
+        // Set up global market indices tabs
+        setupIndexTabs();
+        
+        // Set up chart modal
+        setupChartModal();
+        
+        // Set up chart tabs
+        setupChartTabs();
+        
+        // Set up expandable content
+        setupExpandableContent();
+        
+        // Set up concept items
+        setupConceptItems();
+        
+        // Set up scroll-based animations
+        setupScrollAnimations();
+        
+        // Set up TradingView widget adjustments
+        setupTradingViewWidgets();
+        
+        // Set up mobile optimizations
+        setupMobileOptimizations();
+        
+        // Set up back to top button
+        setupBackToTop();
+        
+        // Set up accessibility enhancements
+        setupAccessibility();
+        
+        // Log initialization
+        console.log('Holmdex enhanced markets page initialized');
+    };
+    
+    // Start initialization
+    init();
 });
