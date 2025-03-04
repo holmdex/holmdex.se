@@ -1,0 +1,1292 @@
+/* 
+====================================
+ HOLMDEX MARKETS PAGE CSS - PART 1
+====================================
+*/
+
+/* Base Market Page Styles */
+.markets-page {
+    overflow-x: hidden;
+    font-family: 'Nunito', sans-serif;
+    color: var(--primary-dark);
+}
+
+.section-header {
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto 3rem;
+}
+
+.section-header h2 {
+    font-size: var(--text-3xl);
+    margin-bottom: 1rem;
+    position: relative;
+    padding-bottom: 1rem;
+}
+
+.section-header h2::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background-color: var(--accent);
+    border-radius: 9999px;
+}
+
+.section-description {
+    color: var(--neutral-gray);
+    font-size: var(--text-lg);
+    line-height: 1.6;
+    margin-bottom: 2rem;
+}
+
+.highlight, .accent {
+    color: var(--accent);
+    background: linear-gradient(90deg, #25A75E, #3498db); 
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Market Hero Section */
+.market-hero {
+    position: relative;
+    background-color: var(--primary-dark);
+    padding: 6rem 0 0;
+    color: var(--light-text);
+    overflow: hidden;
+}
+
+.market-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-mid) 100%);
+    z-index: 0;
+}
+
+.hero-content {
+    text-align: center;
+    position: relative;
+    z-index: 2;
+    padding: 3rem 0;
+    animation: fade-in-down 1s ease-out;
+}
+
+.page-title {
+    font-size: 3.5rem;
+    font-weight: 800;
+    margin-bottom: 1.5rem;
+    line-height: 1.1;
+    background: linear-gradient(90deg, #ffffff, #A9CCE3);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 20px rgba(169, 204, 227, 0.3);
+}
+
+.page-tagline {
+    font-size: 1.25rem;
+    opacity: 0.9;
+    line-height: 1.6;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Market Overview Panel */
+.market-overview-panel {
+    background-color: white;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.1);
+    padding: 2rem 0;
+    position: relative;
+    z-index: 2;
+    margin-top: 3rem;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.panel-header h2 {
+    font-size: 1.8rem;
+    color: var(--primary-dark);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.panel-header h2 i {
+    color: var(--accent);
+}
+
+.market-time {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--neutral-gray);
+    font-size: 0.9rem;
+}
+
+.time-label {
+    font-weight: 600;
+}
+
+.update-time {
+    color: var(--primary-dark);
+}
+
+/* Market Cards Grid */
+.market-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.market-card {
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.market-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    background-color: var(--primary-dark);
+    color: white;
+    padding: 1rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.card-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(-45deg, rgba(10, 37, 64, 0.7), rgba(34, 72, 112, 0.7));
+    z-index: 0;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    position: relative;
+    z-index: 1;
+    color: white;
+}
+
+.market-symbol {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 0.85rem;
+    opacity: 0.7;
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    z-index: 1;
+}
+
+.card-body {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex-grow: 1;
+}
+
+.current-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+}
+
+.change-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.change-value, .change-percent {
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+/* Market Card Status Classes */
+.market-card.up .current-value {
+    color: var(--success, #2ecc71);
+}
+
+.market-card.down .current-value {
+    color: var(--danger, #e74c3c);
+}
+
+.market-card.up .change-value,
+.market-card.up .change-percent {
+    color: var(--success, #2ecc71);
+    background-color: rgba(46, 204, 113, 0.1);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+}
+
+.market-card.down .change-value,
+.market-card.down .change-percent {
+    color: var(--danger, #e74c3c);
+    background-color: rgba(231, 76, 60, 0.1);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+}
+
+/* Mini Charts */
+.mini-chart {
+    height: 60px;
+    width: 100%;
+    margin-top: auto;
+    background-color: rgba(0, 0, 0, 0.02);
+    position: relative;
+}
+
+.mini-chart::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.05), transparent);
+}
+
+/* Market Card Loading States */
+.market-card .current-value:empty::before,
+.market-card .current-value:contains("Loading...")::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: loading-bar 1.5s infinite;
+}
+
+@keyframes loading-bar {
+    0% {
+        left: -100%;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
+/* Disclaimer Text */
+.disclaimer {
+    text-align: center;
+    color: var(--neutral-gray);
+    font-size: 0.85rem;
+    margin-top: 1rem;
+    background-color: rgba(0, 0, 0, 0.02);
+    padding: 0.75rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.disclaimer i {
+    color: var(--accent);
+}
+
+/* Interactive Chart Section */
+.chart-section {
+    background-color: var(--background, #F9F9F9);
+    padding: 5rem 0;
+    position: relative;
+}
+
+.chart-container {
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    margin-bottom: 2rem;
+}
+
+.chart-tabs {
+    display: flex;
+    background-color: var(--primary-dark);
+    color: white;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    -ms-overflow-style: none;
+}
+
+.chart-tabs::-webkit-scrollbar {
+    height: 4px;
+}
+
+.chart-tabs::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+.chart-tab {
+    padding: 1rem 1.5rem;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    position: relative;
+}
+
+.chart-tab::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background-color: var(--accent);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.chart-tab:hover {
+    color: white;
+}
+
+.chart-tab.active {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.chart-tab.active::after {
+    transform: scaleX(1);
+}
+/* 
+====================================
+ HOLMDEX MARKETS PAGE CSS - PART 2
+====================================
+*/
+
+/* Chart Display Area */
+.chart-display {
+    position: relative;
+    height: 500px;
+    background-color: #f5f5f5;
+}
+
+.chart-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease;
+}
+
+.chart-wrapper.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Chart Controls */
+.chart-controls {
+    padding: 1rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: white;
+}
+
+.timeframe-selector {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.selector-label {
+    font-weight: 600;
+    color: var(--primary-dark);
+}
+
+.timeframe-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.timeframe-btn {
+    background: none;
+    border: 1px solid var(--light-gray);
+    border-radius: 4px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: var(--primary-dark);
+}
+
+.timeframe-btn:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.timeframe-btn.active {
+    background-color: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+/* Chart Info Box */
+.chart-info-box {
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    padding: 1.5rem;
+    margin-top: 2rem;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.chart-info-box h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+    color: var(--primary-dark);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.chart-info-box h3::before {
+    content: '';
+    width: 4px;
+    height: 1em;
+    background-color: var(--accent);
+    display: inline-block;
+    margin-right: 0.5rem;
+    border-radius: 2px;
+}
+
+.chart-info-box p {
+    color: var(--neutral-gray);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+/* Expandable Content */
+.expandable-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease;
+}
+
+.expandable-content.expanded {
+    max-height: 1000px;
+}
+
+.expandable-content ul {
+    margin: 1rem 0 1.5rem;
+    padding-left: 1.5rem;
+    color: var(--neutral-gray);
+}
+
+.expandable-content li {
+    margin-bottom: 0.5rem;
+}
+
+.expand-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    transition: all 0.3s ease;
+}
+
+.expand-btn i {
+    transition: transform 0.3s ease;
+    font-size: 0.8rem;
+}
+
+.expand-btn.expanded i {
+    transform: rotate(180deg);
+}
+
+.expand-btn:hover {
+    color: var(--accent-dark);
+}
+
+/* Sectors Section */
+.sectors-section {
+    padding: 5rem 0;
+    background-color: white;
+    position: relative;
+}
+
+.sectors-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 300px;
+    height: 300px;
+    background-image: radial-gradient(circle, rgba(37, 167, 94, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+    opacity: 0.5;
+    z-index: 0;
+}
+
+.sectors-heatmap {
+    height: 400px;
+    background-color: #f5f5f5;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+/* Sectors Info Card */
+.sectors-info {
+    margin-top: 2.5rem;
+}
+
+.info-card {
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    padding: 1.5rem;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.info-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--primary-dark);
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+}
+
+.info-card h3 i {
+    color: var(--accent);
+}
+
+.info-card p {
+    color: var(--neutral-gray);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+/* Sectors Grid */
+.sectors-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.sector-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.75rem;
+}
+
+.sector-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.sector-icon i {
+    font-size: 1.25rem;
+    color: var(--primary-dark);
+}
+
+.sector-item span {
+    font-size: 0.9rem;
+    color: var(--neutral-gray);
+}
+
+/* Global Markets Section */
+.global-markets-section {
+    padding: 5rem 0;
+    background-color: var(--background, #F9F9F9);
+    position: relative;
+}
+
+.global-markets-map {
+    height: 400px;
+    background-color: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 2.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+/* Global Markets Table */
+.global-markets-table {
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+}
+
+.markets-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.markets-table th,
+.markets-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.markets-table th {
+    background-color: var(--primary-dark);
+    color: white;
+    font-weight: 600;
+}
+
+.markets-table tr:last-child td {
+    border-bottom: none;
+}
+
+.markets-table tr:nth-child(even) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.markets-table tbody tr {
+    transition: background-color 0.3s ease;
+}
+
+.markets-table tbody tr:hover {
+    background-color: rgba(37, 167, 94, 0.05);
+}
+
+.loading-row td {
+    text-align: center;
+    padding: 2rem;
+    color: var(--neutral-gray);
+}
+
+/* Market Status Indicators */
+.market-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+}
+
+.market-status.open {
+    background-color: rgba(46, 204, 113, 0.1);
+    color: var(--success, #2ecc71);
+}
+
+.market-status.closed {
+    background-color: rgba(231, 76, 60, 0.1);
+    color: var(--danger, #e74c3c);
+}
+
+.market-status.pre-market,
+.market-status.after-hours {
+    background-color: rgba(243, 156, 18, 0.1);
+    color: var(--warning, #f39c12);
+}
+
+.timezone-info {
+    text-align: center;
+    color: var(--neutral-gray);
+    font-size: 0.85rem;
+    margin-top: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.timezone-info i {
+    color: var(--accent);
+}
+/* 
+====================================
+ HOLMDEX MARKETS PAGE CSS - PART 3
+====================================
+*/
+
+/* Forex & Commodities Section */
+.forex-commodities-section {
+    padding: 5rem 0;
+    background-color: white;
+    position: relative;
+}
+
+.tabs-container {
+    max-width: 1280px;
+    margin: 0 auto;
+}
+
+.tabs-header {
+    display: flex;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--neutral-gray);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.tab-btn::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background-color: var(--accent);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.tab-btn:hover {
+    color: var(--primary-dark);
+}
+
+.tab-btn.active {
+    color: var(--primary-dark);
+}
+
+.tab-btn.active::after {
+    transform: scaleX(1);
+}
+
+.tab-btn i {
+    margin-right: 0.5rem;
+    color: var(--accent);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.forex-intro,
+.commodities-intro {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.forex-intro h2,
+.commodities-intro h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.forex-intro p,
+.commodities-intro p {
+    color: var(--neutral-gray);
+    max-width: 800px;
+    margin: 0 auto;
+    font-size: 1.1rem;
+}
+
+.forex-grid,
+.commodities-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+
+.forex-widget,
+.commodity-widget {
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+    height: 120px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.forex-info-box,
+.commodities-info-box {
+    background-color: rgba(0, 0, 0, 0.02);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.forex-info-box h3,
+.commodities-info-box h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+    color: var(--primary-dark);
+}
+
+.forex-info-box p,
+.commodities-info-box p {
+    color: var(--neutral-gray);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+/* Education Section */
+.education-section {
+    padding: 5rem 0;
+    background-color: var(--background, #F9F9F9);
+    position: relative;
+}
+
+.education-section::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 200px;
+    height: 200px;
+    background-image: radial-gradient(circle, rgba(10, 37, 64, 0.1) 1px, transparent 1px);
+    background-size: 15px 15px;
+    opacity: 0.5;
+    z-index: 0;
+}
+
+.education-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-top: 3rem;
+    position: relative;
+    z-index: 1;
+}
+
+.education-card {
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    padding: 2rem;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+
+.education-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 0;
+    background-color: var(--accent);
+    transition: height 0.3s ease;
+}
+
+.education-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+}
+
+.education-card:hover::before {
+    height: 100%;
+}
+
+.card-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: rgba(37, 167, 94, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.card-icon i {
+    font-size: 1.5rem;
+    color: var(--accent);
+    transition: all 0.3s ease;
+}
+
+.education-card:hover .card-icon {
+    background-color: var(--accent);
+    transform: scale(1.1) rotate(10deg);
+}
+
+.education-card:hover .card-icon i {
+    color: white;
+}
+
+.education-card h3 {
+    margin-bottom: 0.75rem;
+    font-size: 1.3rem;
+    position: relative;
+    padding-bottom: 0.5rem;
+}
+
+.education-card h3::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 30px;
+    height: 2px;
+    background-color: var(--light-gray);
+    transition: all 0.3s ease;
+}
+
+.education-card:hover h3::after {
+    width: 50px;
+    background-color: var(--accent);
+}
+
+.education-card p {
+    color: var(--neutral-gray);
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+    flex-grow: 1;
+}
+
+.learn-more-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    margin-top: auto;
+}
+
+.learn-more-link i {
+    font-size: 0.8rem;
+    transition: transform 0.3s ease;
+}
+
+.education-card:hover .learn-more-link {
+    color: var(--accent-dark);
+}
+
+.education-card:hover .learn-more-link i {
+    transform: translateX(5px);
+}
+
+/* News Ticker Section */
+.news-ticker-section {
+    background-color: var(--primary-dark);
+    color: white;
+    padding: 0.75rem 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+.news-ticker-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to right, rgba(10, 37, 64, 0.95), rgba(34, 72, 112, 0.95));
+    z-index: 0;
+}
+
+.ticker-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0 1.5rem;
+    height: 40px;
+    background-color: rgba(0, 0, 0, 0.3);
+    color: white;
+    position: relative;
+    z-index: 10;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.ticker-header i {
+    color: var(--accent);
+}
+
+.ticker-container {
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+    height: 40px;
+}
+
+.ticker-track {
+    display: flex;
+    animation: ticker 30s linear infinite;
+    white-space: nowrap;
+    align-items: center;
+    height: 100%;
+}
+
+.ticker-item {
+    padding: 0 30px;
+    font-size: 0.95rem;
+    position: relative;
+}
+
+.ticker-item::after {
+    content: '•';
+    position: absolute;
+    right: 12px;
+    color: var(--accent);
+}
+
+@keyframes ticker {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-100%);
+    }
+}
+
+/* Animation Classes */
+@keyframes fade-in-down {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fade-in 1s ease forwards;
+}
+
+.fade-in-delay-1 {
+    animation-delay: 0.2s;
+}
+
+.fade-in-delay-2 {
+    animation-delay: 0.4s;
+}
+
+.fade-in-delay-3 {
+    animation-delay: 0.6s;
+}
+
+@keyframes fade-in {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Styles */
+@media (max-width: 1200px) {
+    .page-title {
+        font-size: 3rem;
+    }
+    
+    .market-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .forex-grid,
+    .commodities-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 992px) {
+    .page-title {
+        font-size: 2.5rem;
+    }
+    
+    .market-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .chart-display {
+        height: 400px;
+    }
+    
+    .sectors-heatmap,
+    .global-markets-map {
+        height: 350px;
+    }
+}
+
+@media (max-width: 768px) {
+    .page-title {
+        font-size: 2.2rem;
+    }
+    
+    .market-grid {
+        grid-template-columns: 1fr;
+        max-width: 450px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .panel-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    
+    .chart-display {
+        height: 300px;
+    }
+    
+    .timeframe-selector {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .sectors-heatmap,
+    .global-markets-map {
+        height: 300px;
+    }
+    
+    .forex-grid,
+    .commodities-grid {
+        grid-template-columns: 1fr;
+        max-width: 450px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .ticker-header {
+        display: none;
+    }
+}
+
+@media (max-width: 576px) {
+    .page-title {
+        font-size: 1.8rem;
+    }
+    
+    .chart-display {
+        height: 250px;
+    }
+    
+    .chart-tabs {
+        padding: 0 0.5rem;
+    }
+    
+    .chart-tab {
+        padding: 0.75rem;
+        font-size: 0.9rem;
+    }
+    
+    .timeframe-buttons {
+        flex-wrap: wrap;
+    }
+    
+    .sectors-heatmap,
+    .global-markets-map {
+        height: 250px;
+    }
+    
+    .education-cards {
+        grid-template-columns: 1fr;
+        max-width: 450px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .chart-section,
+    .forex-commodities-section,
+    .news-ticker-section {
+        display: none !important;
+    }
+    
+    .market-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .market-card,
+    .education-card {
+        page-break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+    
+    .markets-table th {
+        background-color: #eee !important;
+        color: #333 !important;
+    }
+}
