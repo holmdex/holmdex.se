@@ -29,8 +29,86 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     /**
+     * Introduction Cards Expandable Functionality
+     */
+    const setupIntroCards = () => {
+        const introCards = $$('.intro-card');
+        const introHeaders = $$('.intro-card-header');
+        
+        // Function to close all items except the active one
+        const closeOtherCards = (activeCard) => {
+            introCards.forEach(card => {
+                if (card !== activeCard && card.classList.contains('active')) {
+                    card.classList.remove('active');
+                    
+                    // Update toggle button
+                    const toggle = card.querySelector('.intro-toggle i');
+                    if (toggle) {
+                        toggle.className = 'fas fa-plus';
+                    }
+                }
+            });
+        };
+        
+        // Add click event to headers
+        introHeaders.forEach(header => {
+            addEvent(header, 'click', () => {
+                const parentCard = header.closest('.intro-card');
+                const toggleIcon = header.querySelector('.intro-toggle i');
+                
+                // Close other cards first
+                closeOtherCards(parentCard);
+                
+                // Toggle active state
+                parentCard.classList.toggle('active');
+                
+                // Update icon
+                if (toggleIcon) {
+                    if (parentCard.classList.contains('active')) {
+                        toggleIcon.className = 'fas fa-times';
+                    } else {
+                        toggleIcon.className = 'fas fa-plus';
+                    }
+                }
+                
+                // If active, scroll into view with a slight delay to ensure smooth animation
+                if (parentCard.classList.contains('active')) {
+                    setTimeout(() => {
+                        const cardPosition = parentCard.getBoundingClientRect();
+                        
+                        // Only scroll if the card is not fully visible
+                        if (cardPosition.bottom > window.innerHeight) {
+                            const scrollOptions = {
+                                behavior: 'smooth',
+                                block: 'center'
+                            };
+                            
+                            parentCard.scrollIntoView(scrollOptions);
+                        }
+                    }, 100);
+                }
+            });
+        });
+        
+        // Add direct click event to toggle buttons for better accessibility
+        const toggleButtons = $$('.intro-toggle');
+        
+        toggleButtons.forEach(button => {
+            addEvent(button, 'click', (e) => {
+                // Prevent bubbling to avoid double-triggering with header click
+                e.stopPropagation();
+                
+                // Find parent header and trigger its click event
+                const header = button.closest('.intro-card-header');
+                if (header) {
+                    header.click();
+                }
+            });
+        });
+    };
+    
+    /**
      * Global Market Indices Tab Functionality
-     * Handles switching between regions (Americas, Europe, Asia, Other)
      */
     const setupIndexTabs = () => {
         const tabButtons = $$('.index-tab-btn');
@@ -58,8 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     /**
-     * Chart Modal Functionality
-     * Handles opening, closing and controlling the chart modal
+     * Chart Modal Functionality with proper fullscreen exit handling
      */
     const setupChartModal = () => {
         const modal = $('#chartModal');
@@ -98,7 +175,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 "toolbar_bg": "#f1f3f6",
                 "enable_publishing": false,
                 "hide_top_toolbar": false,
-                "allow_symbol_change": false,
+                "allow_symbol_change": true,
                 "container_id": "tradingview_modal"
                 }
                 );
@@ -132,28 +209,51 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
-        // Close modal
-        addEvent(closeBtn, 'click', () => {
-            modal.classList.remove('active');
-            document.body.style.overflow = ''; // Restore scrolling
+        // Function to properly close modal and exit fullscreen if needed
+        const closeModal = () => {
+            // First check if we're in fullscreen mode
+            if (document.fullscreenElement) {
+                // Exit fullscreen first
+                document.exitFullscreen().then(() => {
+                    // Then close the modal after exiting fullscreen
+                    modal.classList.remove('active');
+                    document.body.style.overflow = ''; // Restore scrolling
+                    
+                    // Update button state
+                    fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+                    modal.classList.remove('fullscreen');
+                }).catch(err => {
+                    console.error('Error exiting fullscreen:', err);
+                    // Still close the modal even if fullscreen exit fails
+                    modal.classList.remove('active');
+                    document.body.style.overflow = ''; // Restore scrolling
+                });
+            } else {
+                // If not in fullscreen, just close the modal
+                modal.classList.remove('active');
+                document.body.style.overflow = ''; // Restore scrolling
+            }
             
             // Clear modal content after transition
             setTimeout(() => {
                 modalBody.innerHTML = '';
             }, 300);
-        });
+        };
+        
+        // Close modal
+        addEvent(closeBtn, 'click', closeModal);
         
         // Close modal when clicking outside
         addEvent(modal, 'click', (e) => {
             if (e.target === modal) {
-                closeBtn.click();
+                closeModal();
             }
         });
         
         // Escape key to close modal
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && modal.classList.contains('active')) {
-                closeBtn.click();
+                closeModal();
             }
         });
         
@@ -180,109 +280,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     };
-    
-    /**
-     * Interactive Charts Tab Functionality
-     * Handles switching between different chart tabs
-     */
-    const setupChartTabs = () => {
-        const chartTabs = $$('.chart-tab');
-        const chartWrappers = $$('.chart-wrapper');
-        
-        chartTabs.forEach(tab => {
-            addEvent(tab, 'click', () => {
-                const chartId = tab.getAttribute('data-chart');
-                
-                // Update active tab
-                chartTabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                
-                // Show selected chart, hide others
-                chartWrappers.forEach(wrapper => {
-                    if (wrapper.id === `chart-${chartId}`) {
-                        wrapper.classList.add('active');
-                    } else {
-                        wrapper.classList.remove('active');
-                    }
-                });
-            });
-        });
-        
-        // Add keyboard navigation
-        chartTabs.forEach((tab, index) => {
-            tab.setAttribute('tabindex', '0');
-            tab.setAttribute('role', 'tab');
-            tab.setAttribute('aria-selected', tab.classList.contains('active') ? 'true' : 'false');
-            
-            // Handle keyboard navigation
-            addEvent(tab, 'keydown', (e) => {
-                let targetTab = null;
-                
-                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                    // Move to next tab, or first tab if at the end
-                    targetTab = chartTabs[index + 1] || chartTabs[0];
-                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-                    // Move to previous tab, or last tab if at the beginning
-                    targetTab = chartTabs[index - 1] || chartTabs[chartTabs.length - 1];
-                } else if (e.key === 'Home') {
-                    // Move to first tab
-                    targetTab = chartTabs[0];
-                } else if (e.key === 'End') {
-                    // Move to last tab
-                    targetTab = chartTabs[chartTabs.length - 1];
-                }
-                
-                if (targetTab) {
-                    e.preventDefault();
-                    targetTab.click();
-                    targetTab.focus();
-                }
-            });
-        });
-};
 /**
-     * Expandable Content
-     * Handles the expand/collapse functionality in the chart info box
-     */
-    const setupExpandableContent = () => {
-        const expandButtons = $$('.expand-btn');
-        
-        expandButtons.forEach(button => {
-            addEvent(button, 'click', () => {
-                const targetId = button.getAttribute('data-target');
-                const targetElement = $(`#${targetId}`);
-                
-                if (targetElement) {
-                    const isExpanded = targetElement.classList.contains('expanded');
-                    targetElement.classList.toggle('expanded');
-                    button.classList.toggle('expanded');
-                    
-                    // Update button text and icon
-                    const buttonIcon = button.querySelector('i');
-                    
-                    if (buttonIcon) {
-                        if (isExpanded) {
-                            buttonIcon.className = 'fas fa-chevron-down';
-                            button.querySelector('i').setAttribute('style', '');
-                            button.childNodes[0].nodeValue = 'Learn More ';
-                        } else {
-                            buttonIcon.className = 'fas fa-chevron-up';
-                            button.querySelector('i').setAttribute('style', 'transform: rotate(180deg)');
-                            button.childNodes[0].nodeValue = 'Show Less ';
-                        }
-                    }
-                    
-                    // Update accessibility attributes
-                    button.setAttribute('aria-expanded', !isExpanded);
-                    targetElement.setAttribute('aria-hidden', isExpanded);
-                }
-            });
-        });
-    };
-    
-    /**
      * Market Concepts Section
-     * Handles the expanding/collapsing of concept items
+     * Handles the expanding/collapsing of concept items with centering focus
      */
     const setupConceptItems = () => {
         const conceptItems = $$('.concept-item');
@@ -323,6 +323,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         toggleIcon.className = 'fas fa-plus';
                     }
                 }
+                
+                // If active, scroll into view with a slight delay to ensure smooth animation
+                if (parentItem.classList.contains('active')) {
+                    setTimeout(() => {
+                        const itemPosition = parentItem.getBoundingClientRect();
+                        
+                        // Only scroll if the item is not fully visible
+                        if (itemPosition.bottom > window.innerHeight) {
+                            const scrollOptions = {
+                                behavior: 'smooth',
+                                block: 'center'
+                            };
+                            
+                            parentItem.scrollIntoView(scrollOptions);
+                        }
+                    }, 300);
+                }
             });
         });
         
@@ -338,37 +355,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const header = button.closest('.concept-header');
                 if (header) {
                     header.click();
-                }
-            });
-        });
-        
-        // Add keyboard support
-        conceptHeaders.forEach(header => {
-            header.setAttribute('tabindex', '0');
-            header.setAttribute('role', 'button');
-            header.setAttribute('aria-expanded', 'false');
-            
-            addEvent(header, 'keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    header.click();
-                    
-                    // Update ARIA attributes
-                    const parentItem = header.closest('.concept-item');
-                    header.setAttribute('aria-expanded', parentItem.classList.contains('active'));
-                }
-            });
-        });
-        
-        // Add keyboard support to toggle buttons
-        toggleButtons.forEach(button => {
-            button.setAttribute('tabindex', '0');
-            button.setAttribute('role', 'button');
-            
-            addEvent(button, 'keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    button.click();
                 }
             });
         });
@@ -428,176 +414,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     /**
-     * TradingView Widget Adjustments
-     * Ensures TradingView widgets render correctly and responsively
-     */
-    const setupTradingViewWidgets = () => {
-        // Function to add loading indicators
-        const addLoadingIndicators = () => {
-            const widgetContainers = $$('.tradingview-widget-container');
-            
-            widgetContainers.forEach(container => {
-                // Create and add loading indicator
-                const loading = document.createElement('div');
-                loading.className = 'loading-indicator';
-                loading.innerHTML = '<div class="loading-spinner"></div>';
-                container.appendChild(loading);
-                
-                // Remove loading indicator when widget is loaded
-                // Using MutationObserver to detect when TradingView adds iframe
-                const observer = new MutationObserver((mutations) => {
-                    mutations.forEach((mutation) => {
-                        if (mutation.addedNodes.length > 0) {
-                            // Check if iframe was added
-                            const hasIframe = Array.from(mutation.addedNodes).some(
-                                node => node.nodeName === 'IFRAME' || 
-                                       (node.querySelector && node.querySelector('iframe'))
-                            );
-                            
-                            if (hasIframe) {
-                                // Remove loading indicator after a short delay to ensure widget is fully rendered
-                                setTimeout(() => {
-                                    const loadingEl = container.querySelector('.loading-indicator');
-                                    if (loadingEl) {
-                                        loadingEl.remove();
-                                    }
-                                }, 500);
-                                
-                                // Stop observing once iframe is added
-                                observer.disconnect();
-                            }
-                        }
-                    });
-                });
-                
-                // Start observing
-                observer.observe(container, { childList: true, subtree: true });
-                
-                // Fallback: Remove loading after 5 seconds regardless
-                setTimeout(() => {
-                    const loadingEl = container.querySelector('.loading-indicator');
-                    if (loadingEl) {
-                        loadingEl.remove();
-                    }
-                }, 5000);
-            });
-        };
-        
-        // Add loading indicators
-        addLoadingIndicators();
-        
-        // Ensure chart widgets are sized correctly
-        const resizeChartWidgets = () => {
-            $$('.chart-wrapper').forEach(wrapper => {
-                const container = wrapper.querySelector('.tradingview-widget-container');
-                if (container) {
-                    container.style.width = '100%';
-                    container.style.height = '100%';
-                    
-                    // Find iframe and set its dimensions
-                    const iframe = container.querySelector('iframe');
-                    if (iframe) {
-                        iframe.style.width = '100%';
-                        iframe.style.height = '100%';
-                    }
-                }
-            });
-        };
-        
-        // Initial resize
-        setTimeout(resizeChartWidgets, 1000);
-        
-        // Resize on window resize
-        window.addEventListener('resize', debounce(resizeChartWidgets, 250));
-    };
-/**
-     * Mobile Optimizations
-     * Enhances the experience on mobile devices
-     */
-    const setupMobileOptimizations = () => {
-        // Check if device is mobile
-        const isMobile = window.innerWidth < 768 || 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        
-        if (isMobile) {
-            document.body.classList.add('mobile-device');
-            
-            // Adjust chart height for mobile
-            const adjustChartHeight = () => {
-                const chartDisplay = $('.chart-display');
-                if (chartDisplay) {
-                    if (window.innerWidth < 576) {
-                        chartDisplay.style.height = '350px';
-                    } else if (window.innerWidth < 768) {
-                        chartDisplay.style.height = '400px';
-                    }
-                }
-            };
-            
-            adjustChartHeight();
-            
-            // Handle orientation changes
-            window.addEventListener('orientationchange', () => {
-                setTimeout(() => {
-                    adjustChartHeight();
-                }, 300);
-            });
-            
-            // Make index cards more touch-friendly
-            const indexCards = $$('.index-card');
-            indexCards.forEach(card => {
-                const expandBtn = card.querySelector('.expand-chart-btn');
-                if (expandBtn) {
-                    expandBtn.style.padding = '0.75rem 1.25rem';
-                }
-            });
-            
-            // Make tabs scrollable horizontally with visual indicator
-            const setupScrollableTabs = () => {
-                const tabContainers = [
-                    $('.indices-tabs'),
-                    $('.chart-tabs')
-                ];
-                
-                tabContainers.forEach(container => {
-                    if (!container) return;
-                    
-                    // Check if tabs overflow
-                    const isOverflowing = container.scrollWidth > container.clientWidth;
-                    
-                    if (isOverflowing) {
-                        // Add scroll shadow indicators
-                        container.classList.add('tabs-overflowing');
-                        
-                        // Add subtle shadow indicators to show there's more content
-                        container.style.background = 'linear-gradient(to right, #0A2540 30%, rgba(10, 37, 64, 0.9) 100%)';
-                        
-                        // Handle scroll event to update shadow indicators
-                        container.addEventListener('scroll', debounce(function() {
-                            const isScrolledToEnd = container.scrollLeft + container.clientWidth >= container.scrollWidth - 10;
-                            const isScrolledToStart = container.scrollLeft <= 10;
-                            
-                            if (isScrolledToEnd) {
-                                container.style.background = 'linear-gradient(to left, #0A2540 30%, rgba(10, 37, 64, 0.9) 100%)';
-                            } else if (isScrolledToStart) {
-                                container.style.background = 'linear-gradient(to right, #0A2540 30%, rgba(10, 37, 64, 0.9) 100%)';
-                            } else {
-                                container.style.background = 'linear-gradient(to right, rgba(10, 37, 64, 0.9), #0A2540 50%, rgba(10, 37, 64, 0.9))';
-                            }
-                        }, 50));
-                    }
-                });
-            };
-            
-            // Initialize scrollable tabs
-            setTimeout(setupScrollableTabs, 500);
-            
-            // Re-check on resize
-            window.addEventListener('resize', debounce(setupScrollableTabs, 250));
-        }
-    };
-    
-    /**
-     * Back to Top Button
+     * Back To Top Button
      * Adds a button to quickly scroll back to the top of the page
      */
     const setupBackToTop = () => {
@@ -637,6 +454,37 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     /**
+     * Mobile Optimizations
+     * Enhances the experience on mobile devices
+     */
+    const setupMobileOptimizations = () => {
+        // Check if device is mobile
+        const isMobile = window.innerWidth < 768 || 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        
+        if (isMobile) {
+            document.body.classList.add('mobile-device');
+            
+            // Make concept cards more touch-friendly
+            const conceptHeaders = $$('.concept-header');
+            conceptHeaders.forEach(header => {
+                header.style.padding = '1.25rem 1rem';
+            });
+            
+            // Make intro cards more touch-friendly
+            const introHeaders = $$('.intro-card-header');
+            introHeaders.forEach(header => {
+                header.style.padding = '1.25rem 1rem';
+            });
+            
+            // Make index cards more touch-friendly
+            const expandBtns = $$('.expand-chart-btn');
+            expandBtns.forEach(btn => {
+                btn.style.padding = '0.75rem 1.25rem';
+            });
+        }
+    };
+    
+    /**
      * Accessibility Enhancements
      * Improves keyboard navigation and screen reader support
      */
@@ -665,27 +513,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
             
-            // Chart tabs
-            const chartTabsContainer = $('.chart-tabs');
-            if (chartTabsContainer) {
-                chartTabsContainer.setAttribute('role', 'tablist');
-                chartTabsContainer.querySelectorAll('.chart-tab').forEach((tab) => {
-                    const chart = tab.getAttribute('data-chart');
-                    tab.setAttribute('role', 'tab');
-                    tab.setAttribute('id', `tab-chart-${chart}`);
-                    tab.setAttribute('aria-controls', `chart-${chart}`);
-                    tab.setAttribute('aria-selected', tab.classList.contains('active'));
-                    
-                    // Corresponding panel
-                    const panel = $(`#chart-${chart}`);
-                    if (panel) {
-                        panel.setAttribute('role', 'tabpanel');
-                        panel.setAttribute('aria-labelledby', `tab-chart-${chart}`);
-                        panel.setAttribute('tabindex', '0');
-                    }
-                });
-            }
-            
             // Concept items
             $$('.concept-item').forEach((item, index) => {
                 const concept = item.getAttribute('data-concept');
@@ -699,6 +526,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     content.setAttribute('id', `concept-content-${concept}`);
                     content.setAttribute('aria-labelledby', `concept-header-${concept}`);
+                    content.setAttribute('role', 'region');
+                    
+                    toggle.setAttribute('aria-label', `Toggle ${header.querySelector('h3').textContent} content`);
+                }
+            });
+            
+            // Intro cards
+            $$('.intro-card').forEach((card) => {
+                const marketType = card.getAttribute('data-market-type');
+                const header = card.querySelector('.intro-card-header');
+                const content = card.querySelector('.intro-card-content');
+                const toggle = card.querySelector('.intro-toggle');
+                
+                if (header && content && toggle) {
+                    header.setAttribute('id', `intro-header-${marketType}`);
+                    header.setAttribute('aria-controls', `intro-content-${marketType}`);
+                    
+                    content.setAttribute('id', `intro-content-${marketType}`);
+                    content.setAttribute('aria-labelledby', `intro-header-${marketType}`);
                     content.setAttribute('role', 'region');
                     
                     toggle.setAttribute('aria-label', `Toggle ${header.querySelector('h3').textContent} content`);
@@ -719,44 +565,86 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 });
             });
+        };
+        
+        updateAriaOnTabChange();
+        
+        // Add keyboard navigation
+        const setupKeyboardNavigation = () => {
+            // For index tabs
+            $$('.index-tab-btn').forEach((tab, index, tabs) => {
+                tab.setAttribute('tabindex', '0');
+                
+                tab.addEventListener('keydown', (e) => {
+                    let targetTab = null;
+                    
+                    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        targetTab = tabs[(index + 1) % tabs.length];
+                    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        targetTab = tabs[(index - 1 + tabs.length) % tabs.length];
+                    } else if (e.key === 'Home') {
+                        e.preventDefault();
+                        targetTab = tabs[0];
+                    } else if (e.key === 'End') {
+                        e.preventDefault();
+                        targetTab = tabs[tabs.length - 1];
+                    }
+                    
+                    if (targetTab) {
+                        targetTab.click();
+                        targetTab.focus();
+                    }
+                });
+            });
             
-            // Chart tabs
-            $$('.chart-tab').forEach(tab => {
-                tab.addEventListener('click', () => {
-                    $$('.chart-tab').forEach(t => {
-                        t.setAttribute('aria-selected', t === tab);
-                    });
+            // For concept headers
+            $$('.concept-header').forEach(header => {
+                header.setAttribute('tabindex', '0');
+                
+                header.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        header.click();
+                    }
+                });
+            });
+            
+            // For intro card headers
+            $$('.intro-card-header').forEach(header => {
+                header.setAttribute('tabindex', '0');
+                
+                header.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        header.click();
+                    }
                 });
             });
         };
         
-        updateAriaOnTabChange();
+        setupKeyboardNavigation();
     };
     
     /**
      * Initialize All Functions
      */
     const init = () => {
+        // Set up expandable intro cards
+        setupIntroCards();
+        
         // Set up global market indices tabs
         setupIndexTabs();
         
         // Set up chart modal
         setupChartModal();
         
-        // Set up chart tabs
-        setupChartTabs();
-        
-        // Set up expandable content
-        setupExpandableContent();
-        
         // Set up concept items
         setupConceptItems();
         
         // Set up scroll-based animations
         setupScrollAnimations();
-        
-        // Set up TradingView widget adjustments
-        setupTradingViewWidgets();
         
         // Set up mobile optimizations
         setupMobileOptimizations();
