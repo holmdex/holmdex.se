@@ -28,6 +28,9 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     };
     
+    // Store scroll position when modal is opened
+    let scrollPosition = 0;
+    
     /**
      * Introduction Cards Expandable Functionality
      */
@@ -56,6 +59,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const parentCard = header.closest('.intro-card');
                 const toggleIcon = header.querySelector('.intro-toggle i');
                 
+                // Save current scroll position before toggling
+                const cardPosition = parentCard.getBoundingClientRect();
+                const wasActive = parentCard.classList.contains('active');
+                
                 // Close other cards first
                 closeOtherCards(parentCard);
                 
@@ -74,10 +81,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 // If active, scroll into view with a slight delay to ensure smooth animation
                 if (parentCard.classList.contains('active')) {
                     setTimeout(() => {
-                        const cardPosition = parentCard.getBoundingClientRect();
+                        const newCardPosition = parentCard.getBoundingClientRect();
                         
                         // Only scroll if the card is not fully visible
-                        if (cardPosition.bottom > window.innerHeight) {
+                        if (newCardPosition.bottom > window.innerHeight) {
                             const scrollOptions = {
                                 behavior: 'smooth',
                                 block: 'center'
@@ -85,6 +92,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             
                             parentCard.scrollIntoView(scrollOptions);
                         }
+                    }, 100);
+                } else if (wasActive) {
+                    // If card was active and is now closing, scroll back to its original position
+                    setTimeout(() => {
+                        window.scrollTo({
+                            top: window.scrollY + cardPosition.top,
+                            behavior: 'smooth'
+                        });
                     }, 100);
                 }
             });
@@ -197,6 +212,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 const symbol = button.getAttribute('data-symbol');
                 const name = button.getAttribute('data-name');
                 
+                // Store current scroll position before opening modal
+                scrollPosition = window.pageYOffset;
+                
                 // Set modal title
                 modalTitle.textContent = name;
                 
@@ -222,16 +240,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Update button state
                     fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
                     modal.classList.remove('fullscreen');
+                    
+                    // Restore scroll position
+                    window.scrollTo(0, scrollPosition);
+                    
                 }).catch(err => {
                     console.error('Error exiting fullscreen:', err);
                     // Still close the modal even if fullscreen exit fails
                     modal.classList.remove('active');
                     document.body.style.overflow = ''; // Restore scrolling
+                    
+                    // Restore scroll position
+                    window.scrollTo(0, scrollPosition);
                 });
             } else {
                 // If not in fullscreen, just close the modal
                 modal.classList.remove('active');
                 document.body.style.overflow = ''; // Restore scrolling
+                
+                // Restore scroll position
+                window.scrollTo(0, scrollPosition);
             }
             
             // Clear modal content after transition
@@ -239,8 +267,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 modalBody.innerHTML = '';
             }, 300);
         };
-        
-        // Close modal
+		// Close modal
         addEvent(closeBtn, 'click', closeModal);
         
         // Close modal when clicking outside
@@ -280,7 +307,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     };
-/**
+
+    /**
      * Market Concepts Section
      * Handles the expanding/collapsing of concept items with centering focus
      */
@@ -309,6 +337,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const parentItem = header.closest('.concept-item');
                 const toggleIcon = header.querySelector('.concept-toggle i');
                 
+                // Save current position for potential closing restoration
+                const itemPosition = parentItem.getBoundingClientRect();
+                const wasActive = parentItem.classList.contains('active');
+                
                 // Close other items first
                 closeOtherItems(parentItem);
                 
@@ -327,10 +359,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 // If active, scroll into view with a slight delay to ensure smooth animation
                 if (parentItem.classList.contains('active')) {
                     setTimeout(() => {
-                        const itemPosition = parentItem.getBoundingClientRect();
+                        const newItemPosition = parentItem.getBoundingClientRect();
                         
                         // Only scroll if the item is not fully visible
-                        if (itemPosition.bottom > window.innerHeight) {
+                        if (newItemPosition.bottom > window.innerHeight) {
                             const scrollOptions = {
                                 behavior: 'smooth',
                                 block: 'center'
@@ -339,6 +371,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             parentItem.scrollIntoView(scrollOptions);
                         }
                     }, 300);
+                } else if (wasActive) {
+                    // If item was active and is now closing, scroll back to its original position
+                    setTimeout(() => {
+                        window.scrollTo({
+                            top: window.scrollY + itemPosition.top,
+                            behavior: 'smooth'
+                        });
+                    }, 100);
                 }
             });
         });
@@ -452,8 +492,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     };
-    
-    /**
+	/**
      * Mobile Optimizations
      * Enhances the experience on mobile devices
      */
