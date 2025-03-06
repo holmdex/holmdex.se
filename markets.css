@@ -280,7 +280,6 @@
     line-height: 1.6;
     margin-bottom: 0.5rem;
 }
-
 /* Color variations for intro cards */
 .intro-card[data-market-type="stocks"] .card-icon {
     background-color: rgba(37, 167, 94, 0.1);
@@ -397,6 +396,7 @@
     gap: 2rem;
     margin-top: 1rem;
 }
+
 /* Index Cards */
 .index-card {
     background-color: white;
@@ -624,7 +624,6 @@
     width: 100% !important;
     height: 100% !important;
 }
-
 /* Market Concepts Section */
 .market-concepts {
     padding: 5rem 0;
@@ -826,6 +825,7 @@
 .concept-item:nth-child(4).active .concept-toggle {
     background-color: rgba(230, 126, 34, 0.1);
 }
+
 /* Currency & Commodity Markets Section - Stacked Layout */
 .forex-commodities {
     padding: 5rem 0;
