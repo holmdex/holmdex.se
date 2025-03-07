@@ -1,6 +1,6 @@
 /**
- * HOLMDEX ENHANCED MARKETS PAGE JAVASCRIPT - PART 1
- * Handles interactive elements and animations
+ * HOLMDEX PROFESSIONAL HOMEPAGE JAVASCRIPT
+ * Simplified with refined animations
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -28,418 +28,222 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     };
     
-    // Store scroll position when modal is opened
-    let scrollPosition = 0;
-    
     /**
-     * Introduction Cards Expandable Functionality
+     * Card Hover Effects
+     * Adds subtle 3D effects for cards on hover
      */
-    const setupIntroCards = () => {
-        const introCards = $$('.intro-card');
-        const introHeaders = $$('.intro-card-header');
+    const setupCardEffects = () => {
+        // Only apply on devices with hover capability
+        if (!window.matchMedia('(hover: hover)').matches) return;
         
-        // Function to close all items except the active one
-        const closeOtherCards = (activeCard) => {
-            introCards.forEach(card => {
-                if (card !== activeCard && card.classList.contains('active')) {
-                    card.classList.remove('active');
-                    
-                    // Update toggle button
-                    const toggle = card.querySelector('.intro-toggle i');
-                    if (toggle) {
-                        toggle.className = 'fas fa-plus';
-                    }
-                }
+        // Apply effect to principle cards
+        const principleCards = $$('.principle-card');
+        
+        principleCards.forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                // Calculate center point
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                // Calculate rotation values (subtle)
+                const rotateY = ((x - centerX) / centerX) * 3; // max ±3 degrees
+                const rotateX = ((centerY - y) / centerY) * 3; // max ±3 degrees
+                
+                // Apply transform
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(5px)`;
             });
-        };
-        
-        // Add click event to headers
-        introHeaders.forEach(header => {
-            addEvent(header, 'click', () => {
-                const parentCard = header.closest('.intro-card');
-                const toggleIcon = header.querySelector('.intro-toggle i');
-                
-                // Save current scroll position before toggling
-                const cardPosition = parentCard.getBoundingClientRect();
-                const wasActive = parentCard.classList.contains('active');
-                
-                // Close other cards first
-                closeOtherCards(parentCard);
-                
-                // Toggle active state
-                parentCard.classList.toggle('active');
-                
-                // Update icon
-                if (toggleIcon) {
-                    if (parentCard.classList.contains('active')) {
-                        toggleIcon.className = 'fas fa-times';
-                    } else {
-                        toggleIcon.className = 'fas fa-plus';
-                    }
-                }
-                
-                // If active, scroll into view with a slight delay to ensure smooth animation
-                if (parentCard.classList.contains('active')) {
-                    setTimeout(() => {
-                        const newCardPosition = parentCard.getBoundingClientRect();
-                        
-                        // Only scroll if the card is not fully visible
-                        if (newCardPosition.bottom > window.innerHeight) {
-                            const scrollOptions = {
-                                behavior: 'smooth',
-                                block: 'center'
-                            };
-                            
-                            parentCard.scrollIntoView(scrollOptions);
-                        }
-                    }, 100);
-                } else if (wasActive) {
-                    // If card was active and is now closing, scroll back to its original position
-                    setTimeout(() => {
-                        window.scrollTo({
-                            top: window.scrollY + cardPosition.top,
-                            behavior: 'smooth'
-                        });
-                    }, 100);
-                }
+            
+            card.addEventListener('mouseleave', () => {
+                // Reset transform
+                card.style.transform = '';
             });
         });
         
-        // Add direct click event to toggle buttons for better accessibility
-        const toggleButtons = $$('.intro-toggle');
+        // Apply effect to resource cards
+        const resourceCards = $$('.resource-card');
         
-        toggleButtons.forEach(button => {
-            addEvent(button, 'click', (e) => {
-                // Prevent bubbling to avoid double-triggering with header click
-                e.stopPropagation();
+        resourceCards.forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
                 
-                // Find parent header and trigger its click event
-                const header = button.closest('.intro-card-header');
-                if (header) {
-                    header.click();
-                }
+                // Calculate center point
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                // Calculate rotation values (subtle)
+                const rotateY = ((x - centerX) / centerX) * 3; // max ±3 degrees
+                const rotateX = ((centerY - y) / centerY) * 3; // max ±3 degrees
+                
+                // Apply transform
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-5px)`;
+            });
+            
+            card.addEventListener('mouseleave', () => {
+                // Reset transform
+                card.style.transform = '';
             });
         });
     };
-    
-    /**
-     * Global Market Indices Tab Functionality
-     */
-    const setupIndexTabs = () => {
-        const tabButtons = $$('.index-tab-btn');
-        const regions = $$('.indices-region');
-        
-        tabButtons.forEach(button => {
-            addEvent(button, 'click', () => {
-                // Get selected region
-                const region = button.getAttribute('data-region');
-                
-                // Update active tab button
-                tabButtons.forEach(btn => btn.classList.remove('active'));
-                button.classList.add('active');
-                
-                // Show selected region, hide others
-                regions.forEach(regionElement => {
-                    if (regionElement.getAttribute('data-region') === region) {
-                        regionElement.classList.add('active');
-                    } else {
-                        regionElement.classList.remove('active');
-                    }
-                });
-            });
-        });
-    };
-    
-    /**
-     * Chart Modal Functionality with proper fullscreen exit handling
-     */
-    const setupChartModal = () => {
-        const modal = $('#chartModal');
-        const modalTitle = $('#chartModalTitle');
-        const modalBody = $('#chartModalBody');
-        const closeBtn = $('#closeChartBtn');
-        const fullscreenBtn = $('#fullscreenBtn');
-        const expandButtons = $$('.expand-chart-btn');
-        
-        // Function to create TradingView widget
-        const createTradingViewWidget = (symbol, container) => {
-            // Create elements
-            const widgetContainer = document.createElement('div');
-            widgetContainer.className = 'tradingview-widget-container';
-            
-            const widgetDiv = document.createElement('div');
-            widgetDiv.id = 'tradingview_modal';
-            
-            // Create scripts
-            const scriptSrc = document.createElement('script');
-            scriptSrc.type = 'text/javascript';
-            scriptSrc.src = 'https://s3.tradingview.com/tv.js';
-            
-            const scriptWidget = document.createElement('script');
-            scriptWidget.type = 'text/javascript';
-            scriptWidget.innerHTML = `
-                new TradingView.widget(
-                {
-                "autosize": true,
-                "symbol": "${symbol}",
-                "interval": "D",
-                "timezone": "Etc/UTC",
-                "theme": "light",
-                "style": "1",
-                "locale": "en",
-                "toolbar_bg": "#f1f3f6",
-                "enable_publishing": false,
-                "hide_top_toolbar": false,
-                "allow_symbol_change": true,
-                "container_id": "tradingview_modal"
-                }
-                );
-            `;
-            
-            // Assemble widget
-            widgetContainer.appendChild(widgetDiv);
-            widgetContainer.appendChild(scriptSrc);
-            widgetContainer.appendChild(scriptWidget);
-            
-            // Add to container
-            container.innerHTML = '';
-            container.appendChild(widgetContainer);
-        };
-        
-        // Open modal when clicking an expand button
-        expandButtons.forEach(button => {
-            addEvent(button, 'click', () => {
-                const symbol = button.getAttribute('data-symbol');
-                const name = button.getAttribute('data-name');
-                
-                // Store current scroll position before opening modal
-                scrollPosition = window.pageYOffset;
-                
-                // Set modal title
-                modalTitle.textContent = name;
-                
-                // Create TradingView widget
-                createTradingViewWidget(symbol, modalBody);
-                
-                // Show modal
-                modal.classList.add('active');
-                document.body.style.overflow = 'hidden'; // Prevent scrolling
-            });
-        });
-        
-        // Function to properly close modal and exit fullscreen if needed
-        const closeModal = () => {
-            // First check if we're in fullscreen mode
-            if (document.fullscreenElement) {
-                // Exit fullscreen first
-                document.exitFullscreen().then(() => {
-                    // Then close the modal after exiting fullscreen
-                    modal.classList.remove('active');
-                    document.body.style.overflow = ''; // Restore scrolling
-                    
-                    // Update button state
-                    fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
-                    modal.classList.remove('fullscreen');
-                    
-                    // Restore scroll position
-                    window.scrollTo(0, scrollPosition);
-                    
-                }).catch(err => {
-                    console.error('Error exiting fullscreen:', err);
-                    // Still close the modal even if fullscreen exit fails
-                    modal.classList.remove('active');
-                    document.body.style.overflow = ''; // Restore scrolling
-                    
-                    // Restore scroll position
-                    window.scrollTo(0, scrollPosition);
-                });
-            } else {
-                // If not in fullscreen, just close the modal
-                modal.classList.remove('active');
-                document.body.style.overflow = ''; // Restore scrolling
-                
-                // Restore scroll position
-                window.scrollTo(0, scrollPosition);
-            }
-            
-            // Clear modal content after transition
-            setTimeout(() => {
-                modalBody.innerHTML = '';
-            }, 300);
-        };
-		// Close modal
-        addEvent(closeBtn, 'click', closeModal);
-        
-        // Close modal when clicking outside
-        addEvent(modal, 'click', (e) => {
-            if (e.target === modal) {
-                closeModal();
-            }
-        });
-        
-        // Escape key to close modal
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && modal.classList.contains('active')) {
-                closeModal();
-            }
-        });
-        
-        // Fullscreen toggle
-        addEvent(fullscreenBtn, 'click', () => {
-            const modalContent = $('.chart-modal-content');
-            
-            if (document.fullscreenElement) {
-                document.exitFullscreen();
-                fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
-                modal.classList.remove('fullscreen');
-            } else if (modalContent.requestFullscreen) {
-                modalContent.requestFullscreen();
-                fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
-                modal.classList.add('fullscreen');
-            }
-        });
-        
-        // Update button when exiting fullscreen via Escape key
-        document.addEventListener('fullscreenchange', () => {
-            if (!document.fullscreenElement) {
-                fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
-                modal.classList.remove('fullscreen');
-            }
-        });
-    };
+   /**
+ * HOLMDEX TRUSTED SOURCES TICKER
+ * Sets up the continuous ticker and duplicates content for smooth scrolling
+ */
 
+document.addEventListener('DOMContentLoaded', function() {
     /**
-     * Market Concepts Section
-     * Handles the expanding/collapsing of concept items with centering focus
+     * Set up the sources ticker
+     * Makes sure there's enough content for smooth infinite scrolling
      */
-    const setupConceptItems = () => {
-        const conceptItems = $$('.concept-item');
-        const conceptHeaders = $$('.concept-header');
+    const setupSourcesTicker = () => {
+        const ticker = document.querySelector('.sources-ticker');
+        if (!ticker) return;
         
-        // Function to close all items except the active one
-        const closeOtherItems = (activeItem) => {
-            conceptItems.forEach(item => {
-                if (item !== activeItem && item.classList.contains('active')) {
-                    item.classList.remove('active');
-                    
-                    // Update toggle button
-                    const toggle = item.querySelector('.concept-toggle i');
-                    if (toggle) {
-                        toggle.className = 'fas fa-plus';
-                    }
-                }
-            });
-        };
+        // Clone all source items to ensure the ticker has enough content
+        // This creates the illusion of infinite scrolling
+        const sourceItems = ticker.querySelectorAll('.source-item');
         
-        // Add click event to headers
-        conceptHeaders.forEach(header => {
-            addEvent(header, 'click', () => {
-                const parentItem = header.closest('.concept-item');
-                const toggleIcon = header.querySelector('.concept-toggle i');
-                
-                // Save current position for potential closing restoration
-                const itemPosition = parentItem.getBoundingClientRect();
-                const wasActive = parentItem.classList.contains('active');
-                
-                // Close other items first
-                closeOtherItems(parentItem);
-                
-                // Toggle active state
-                parentItem.classList.toggle('active');
-                
-                // Update icon
-                if (toggleIcon) {
-                    if (parentItem.classList.contains('active')) {
-                        toggleIcon.className = 'fas fa-times';
-                    } else {
-                        toggleIcon.className = 'fas fa-plus';
-                    }
-                }
-                
-                // If active, scroll into view with a slight delay to ensure smooth animation
-                if (parentItem.classList.contains('active')) {
-                    setTimeout(() => {
-                        const newItemPosition = parentItem.getBoundingClientRect();
-                        
-                        // Only scroll if the item is not fully visible
-                        if (newItemPosition.bottom > window.innerHeight) {
-                            const scrollOptions = {
-                                behavior: 'smooth',
-                                block: 'center'
-                            };
-                            
-                            parentItem.scrollIntoView(scrollOptions);
-                        }
-                    }, 300);
-                } else if (wasActive) {
-                    // If item was active and is now closing, scroll back to its original position
-                    setTimeout(() => {
-                        window.scrollTo({
-                            top: window.scrollY + itemPosition.top,
-                            behavior: 'smooth'
-                        });
-                    }, 100);
-                }
-            });
+        // Create a document fragment to avoid multiple repaints
+        const fragment = document.createDocumentFragment();
+        
+        // Clone all source items
+        sourceItems.forEach(item => {
+            const clone = item.cloneNode(true);
+            fragment.appendChild(clone);
         });
         
-        // Add direct click event to toggle buttons for better accessibility
-        const toggleButtons = $$('.concept-toggle');
+        // Append the clones to the ticker
+        ticker.appendChild(fragment);
         
-        toggleButtons.forEach(button => {
-            addEvent(button, 'click', (e) => {
-                // Prevent bubbling to avoid double-triggering with header click
-                e.stopPropagation();
-                
-                // Find parent header and trigger its click event
-                const header = button.closest('.concept-header');
-                if (header) {
-                    header.click();
+        // Calculate the total width to ensure smooth animation
+        const totalWidth = Array.from(ticker.children)
+            .reduce((sum, item) => sum + item.offsetWidth, 0);
+        
+        // Make sure the ticker width is at least twice the container
+        const container = document.querySelector('.sources-ticker-container');
+        if (container) {
+            const containerWidth = container.offsetWidth;
+            
+            // If we don't have enough content, clone everything again
+            if (totalWidth < containerWidth * 2) {
+                const sourceItems = ticker.querySelectorAll('.source-item');
+                sourceItems.forEach(item => {
+                    const clone = item.cloneNode(true);
+                    ticker.appendChild(clone);
+                });
+            }
+        }
+    };
+    
+    /**
+     * Add hover effect for source items
+     */
+    const setupSourceItemHover = () => {
+        const sourceItems = document.querySelectorAll('.source-item');
+        
+        sourceItems.forEach(item => {
+            // Add subtle bounce effect on hover
+            item.addEventListener('mouseenter', () => {
+                const icon = item.querySelector('i');
+                if (icon) {
+                    icon.style.transform = 'scale(1.2)';
+                    icon.style.transition = 'transform 0.3s ease';
+                }
+            });
+            
+            item.addEventListener('mouseleave', () => {
+                const icon = item.querySelector('i');
+                if (icon) {
+                    icon.style.transform = '';
                 }
             });
         });
     };
     
+    /**
+     * Adjust ticker speed based on screen width
+     */
+    const adjustTickerSpeed = () => {
+        const ticker = document.querySelector('.sources-ticker');
+        if (!ticker) return;
+        
+        // Adjust animation duration based on screen size
+        const duration = window.innerWidth < 768 ? '60s' : '90s';
+        ticker.style.animationDuration = duration;
+    };
+    
+    /**
+     * Initialize ticker functionality
+     */
+    const initTicker = () => {
+        setupSourcesTicker();
+        setupSourceItemHover();
+        adjustTickerSpeed();
+        
+        // Re-adjust on resize
+        window.addEventListener('resize', debounce(() => {
+            adjustTickerSpeed();
+        }, 250));
+    };
+    
+    /**
+     * Debounce function to limit function call frequency
+     */
+    const debounce = (func, wait = 100) => {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    };
+    
+    // Initialize when the DOM is ready
+    initTicker();
+}); 
     /**
      * Scroll-Based Animations
      * Handles animations that trigger on scroll
      */
     const setupScrollAnimations = () => {
         // Elements to animate on scroll
-        const animateElements = [
-            ...$$('.intro-card'), 
-            ...$$('.index-card'),
-            ...$$('.concept-item')
-        ];
+        const principleCards = $$('.principle-card');
+        const resourceCards = $$('.resource-card');
+        const sourceLogos = $$('.source-logo');
         
         // Check if Intersection Observer is supported
         if (!('IntersectionObserver' in window)) {
             // Apply animations immediately for older browsers
-            animateElements.forEach(el => {
-                el.style.opacity = '1';
-                el.style.transform = 'translateY(0)';
+            principleCards.forEach(card => {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
             });
+            
+            resourceCards.forEach(card => {
+                card.classList.add('visible');
+            });
+            
+            sourceLogos.forEach(logo => {
+                logo.style.opacity = '0.7';
+            });
+            
             return;
         }
         
-        // Create observer for elements
-        const observer = new IntersectionObserver((entries) => {
+        // Create observer for principle cards
+        const principleObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    // Add appropriate animation class with delay
-                    const index = animateElements.indexOf(entry.target);
-                    entry.target.classList.add('fade-in');
-                    
-                    // Add delay classes based on position in the grid
-                    const columnIndex = index % 3;
-                    if (columnIndex === 1) {
-                        entry.target.classList.add('fade-in-delay-1');
-                    } else if (columnIndex === 2) {
-                        entry.target.classList.add('fade-in-delay-2');
-                    }
+                    // The card is now visible
+                    const delay = entry.target.getAttribute('data-delay') || 0;
+                    entry.target.style.setProperty('--delay', delay);
                     
                     // Stop observing this element
-                    observer.unobserve(entry.target);
+                    principleObserver.unobserve(entry.target);
                 }
             });
         }, {
@@ -447,255 +251,253 @@ document.addEventListener('DOMContentLoaded', function() {
             rootMargin: '0px 0px -50px 0px'
         });
         
+        // Create observer for resource cards
+        const resourceObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    // The card is now visible
+                    entry.target.classList.add('visible');
+                    
+                    // Stop observing this element
+                    resourceObserver.unobserve(entry.target);
+                }
+            });
+        }, {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        });
+        
+        // Create observer for source logos
+        const logoObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    // Staggered animation for source logos
+                    const index = Array.from(sourceLogos).indexOf(entry.target);
+                    setTimeout(() => {
+                        entry.target.style.opacity = '0.7';
+                        entry.target.style.transform = 'translateY(0)';
+                    }, index * 100);
+                    
+                    // Stop observing this element
+                    logoObserver.unobserve(entry.target);
+                }
+            });
+        }, {
+            threshold: 0.1
+        });
+        
         // Start observing elements
-        animateElements.forEach(el => {
-            observer.observe(el);
+        principleCards.forEach(card => {
+            principleObserver.observe(card);
+        });
+        
+        resourceCards.forEach(card => {
+            resourceObserver.observe(card);
+        });
+        
+        sourceLogos.forEach(logo => {
+            // Initial state
+            logo.style.opacity = '0';
+            logo.style.transform = 'translateY(10px)';
+            logo.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            
+            // Observe
+            logoObserver.observe(logo);
+        });
+    };
+    
+    /**
+     * Source Logos Animation
+     * Subtle animations for trusted sources logos
+     */
+    const setupSourceLogos = () => {
+        const sourceLogos = $$('.source-logo');
+        
+        sourceLogos.forEach((logo, index) => {
+            // Add hover effect for source logos
+            logo.addEventListener('mouseenter', () => {
+                const icon = logo.querySelector('i');
+                if (icon) {
+                    icon.style.transform = 'scale(1.2)';
+                    icon.style.transition = 'transform 0.3s ease';
+                }
+            });
+            
+            logo.addEventListener('mouseleave', () => {
+                const icon = logo.querySelector('i');
+                if (icon) {
+                    icon.style.transform = '';
+                }
+            });
         });
     };
     
     /**
      * Back To Top Button
-     * Adds a button to quickly scroll back to the top of the page
+     * Creates and manages a "back to top" button
      */
     const setupBackToTop = () => {
-        // Create button if it doesn't exist
-        if (!$('#back-to-top')) {
-            const backToTopBtn = document.createElement('button');
+        // Check if button already exists or create it
+        let backToTopBtn = $('#back-to-top');
+        
+        if (!backToTopBtn) {
+            backToTopBtn = document.createElement('button');
             backToTopBtn.id = 'back-to-top';
             backToTopBtn.className = 'back-to-top';
             backToTopBtn.setAttribute('aria-label', 'Back to top');
             backToTopBtn.innerHTML = '<i class="fas fa-arrow-up"></i>';
             
             document.body.appendChild(backToTopBtn);
-            
-            // Show button when scrolled down
-            const toggleBackToTopVisibility = () => {
-                if (window.pageYOffset > 300) {
-                    backToTopBtn.classList.add('visible');
-                } else {
-                    backToTopBtn.classList.remove('visible');
-                }
-            };
-            
-            // Check initial position
-            toggleBackToTopVisibility();
-            
-            // Update on scroll
-            window.addEventListener('scroll', debounce(toggleBackToTopVisibility, 100));
-            
-            // Scroll to top when clicked
-            backToTopBtn.addEventListener('click', () => {
-                window.scrollTo({
-                    top: 0,
-                    behavior: 'smooth'
-                });
-            });
         }
-    };
-	/**
-     * Mobile Optimizations
-     * Enhances the experience on mobile devices
-     */
-    const setupMobileOptimizations = () => {
-        // Check if device is mobile
-        const isMobile = window.innerWidth < 768 || 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         
-        if (isMobile) {
-            document.body.classList.add('mobile-device');
-            
-            // Make concept cards more touch-friendly
-            const conceptHeaders = $$('.concept-header');
-            conceptHeaders.forEach(header => {
-                header.style.padding = '1.25rem 1rem';
+        // Show/hide button based on scroll position
+        const toggleBackToTopButton = () => {
+            if (window.pageYOffset > 300) {
+                backToTopBtn.classList.add('visible');
+            } else {
+                backToTopBtn.classList.remove('visible');
+            }
+        };
+        
+        // Initial check
+        toggleBackToTopButton();
+        
+        // Add scroll listener
+        window.addEventListener('scroll', () => {
+            toggleBackToTopButton();
+        });
+        
+        // Scroll to top when clicked
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
             });
-            
-            // Make intro cards more touch-friendly
-            const introHeaders = $$('.intro-card-header');
-            introHeaders.forEach(header => {
-                header.style.padding = '1.25rem 1rem';
-            });
-            
-            // Make index cards more touch-friendly
-            const expandBtns = $$('.expand-chart-btn');
-            expandBtns.forEach(btn => {
-                btn.style.padding = '0.75rem 1.25rem';
-            });
-        }
+        });
     };
     
     /**
-     * Accessibility Enhancements
-     * Improves keyboard navigation and screen reader support
+     * Smooth Scroll for Anchor Links
      */
-    const setupAccessibility = () => {
-        // Add proper ARIA roles and labels
-        const setupAriaAttributes = () => {
-            // Index tabs
-            const indexTabsContainer = $('.indices-tabs');
-            if (indexTabsContainer) {
-                indexTabsContainer.setAttribute('role', 'tablist');
-                indexTabsContainer.querySelectorAll('.index-tab-btn').forEach((tab, index) => {
-                    const region = tab.getAttribute('data-region');
-                    tab.setAttribute('role', 'tab');
-                    tab.setAttribute('id', `tab-${region}`);
-                    tab.setAttribute('aria-controls', `region-${region}`);
-                    tab.setAttribute('aria-selected', tab.classList.contains('active'));
+    const setupSmoothScroll = () => {
+        const anchorLinks = $$('a[href^="#"]:not([href="#"])');
+        
+        anchorLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                const targetId = link.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                
+                if (targetElement) {
+                    e.preventDefault();
                     
-                    // Corresponding panel
-                    const panel = $(`.indices-region[data-region="${region}"]`);
-                    if (panel) {
-                        panel.setAttribute('role', 'tabpanel');
-                        panel.setAttribute('id', `region-${region}`);
-                        panel.setAttribute('aria-labelledby', `tab-${region}`);
-                        panel.setAttribute('tabindex', '0');
-                    }
-                });
+                    const headerOffset = 70; // Adjust for header height
+                    const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset;
+                    const offsetPosition = targetPosition - headerOffset;
+                    
+                    window.scrollTo({
+                        top: offsetPosition,
+                        behavior: 'smooth'
+                    });
+                    
+                    // Update URL hash without causing jump
+                    window.history.pushState(null, null, targetId);
+                }
+            });
+        });
+    };
+    
+    /**
+     * Header Scroll Effects
+     * Adds classes to header for scroll-based styling
+     */
+    const setupHeaderEffects = () => {
+        const header = $('.holmdex-header');
+        
+        if (!header) return;
+        
+        let lastScrollTop = 0;
+        const scrollThreshold = 100;
+        
+        const handleScroll = () => {
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            
+            // Add 'scrolled' class when scrolled down
+            if (scrollTop > 10) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
             }
             
-            // Concept items
-            $$('.concept-item').forEach((item, index) => {
-                const concept = item.getAttribute('data-concept');
-                const header = item.querySelector('.concept-header');
-                const content = item.querySelector('.concept-content');
-                const toggle = item.querySelector('.concept-toggle');
-                
-                if (header && content && toggle) {
-                    header.setAttribute('id', `concept-header-${concept}`);
-                    header.setAttribute('aria-controls', `concept-content-${concept}`);
-                    
-                    content.setAttribute('id', `concept-content-${concept}`);
-                    content.setAttribute('aria-labelledby', `concept-header-${concept}`);
-                    content.setAttribute('role', 'region');
-                    
-                    toggle.setAttribute('aria-label', `Toggle ${header.querySelector('h3').textContent} content`);
+            // Hide header when scrolling down quickly past threshold
+            if (scrollTop > scrollThreshold) {
+                if (scrollTop > lastScrollTop + 20) {
+                    // Scrolling down quickly
+                    header.classList.add('header-hidden');
+                } else if (scrollTop < lastScrollTop - 5 || scrollTop < scrollThreshold) {
+                    // Scrolling up or near top
+                    header.classList.remove('header-hidden');
                 }
-            });
+            } else {
+                header.classList.remove('header-hidden');
+            }
             
-            // Intro cards
-            $$('.intro-card').forEach((card) => {
-                const marketType = card.getAttribute('data-market-type');
-                const header = card.querySelector('.intro-card-header');
-                const content = card.querySelector('.intro-card-content');
-                const toggle = card.querySelector('.intro-toggle');
-                
-                if (header && content && toggle) {
-                    header.setAttribute('id', `intro-header-${marketType}`);
-                    header.setAttribute('aria-controls', `intro-content-${marketType}`);
-                    
-                    content.setAttribute('id', `intro-content-${marketType}`);
-                    content.setAttribute('aria-labelledby', `intro-header-${marketType}`);
-                    content.setAttribute('role', 'region');
-                    
-                    toggle.setAttribute('aria-label', `Toggle ${header.querySelector('h3').textContent} content`);
-                }
-            });
+            lastScrollTop = scrollTop;
         };
         
-        // Initialize accessibility attributes
-        setupAriaAttributes();
+        // Throttle scroll event to improve performance
+        let scrollTimeout;
+        window.addEventListener('scroll', () => {
+            if (!scrollTimeout) {
+                scrollTimeout = setTimeout(() => {
+                    handleScroll();
+                    scrollTimeout = null;
+                }, 10);
+            }
+        });
         
-        // Update ARIA attributes when tabs change
-        const updateAriaOnTabChange = () => {
-            // Index tabs
-            $$('.index-tab-btn').forEach(tab => {
-                tab.addEventListener('click', () => {
-                    $$('.index-tab-btn').forEach(t => {
-                        t.setAttribute('aria-selected', t === tab);
-                    });
-                });
-            });
-        };
+        // Initial header state
+        handleScroll();
+    };
+    
+    /**
+     * Detect and Adjust for Animation Preferences
+     */
+    const setupAnimationPreferences = () => {
+        // Check for reduced motion preference
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         
-        updateAriaOnTabChange();
-        
-        // Add keyboard navigation
-        const setupKeyboardNavigation = () => {
-            // For index tabs
-            $$('.index-tab-btn').forEach((tab, index, tabs) => {
-                tab.setAttribute('tabindex', '0');
-                
-                tab.addEventListener('keydown', (e) => {
-                    let targetTab = null;
-                    
-                    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        targetTab = tabs[(index + 1) % tabs.length];
-                    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-                        e.preventDefault();
-                        targetTab = tabs[(index - 1 + tabs.length) % tabs.length];
-                    } else if (e.key === 'Home') {
-                        e.preventDefault();
-                        targetTab = tabs[0];
-                    } else if (e.key === 'End') {
-                        e.preventDefault();
-                        targetTab = tabs[tabs.length - 1];
-                    }
-                    
-                    if (targetTab) {
-                        targetTab.click();
-                        targetTab.focus();
-                    }
-                });
-            });
-            
-            // For concept headers
-            $$('.concept-header').forEach(header => {
-                header.setAttribute('tabindex', '0');
-                
-                header.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        header.click();
-                    }
-                });
-            });
-            
-            // For intro card headers
-            $$('.intro-card-header').forEach(header => {
-                header.setAttribute('tabindex', '0');
-                
-                header.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        header.click();
-                    }
-                });
-            });
-        };
-        
-        setupKeyboardNavigation();
+        if (prefersReducedMotion) {
+            document.body.classList.add('reduced-motion');
+        }
     };
     
     /**
      * Initialize All Functions
      */
     const init = () => {
-        // Set up expandable intro cards
-        setupIntroCards();
-        
-        // Set up global market indices tabs
-        setupIndexTabs();
-        
-        // Set up chart modal
-        setupChartModal();
-        
-        // Set up concept items
-        setupConceptItems();
+        // Set up source logos animation
+        setupSourceLogos();
         
         // Set up scroll-based animations
         setupScrollAnimations();
         
-        // Set up mobile optimizations
-        setupMobileOptimizations();
+        // Set up interactive card effects
+        setupCardEffects();
         
         // Set up back to top button
         setupBackToTop();
         
-        // Set up accessibility enhancements
-        setupAccessibility();
+        // Set up smooth scrolling for anchor links
+        setupSmoothScroll();
+        
+        // Set up header scroll effects
+        setupHeaderEffects();
+        
+        // Set up animation preferences
+        setupAnimationPreferences();
         
         // Log initialization
-        console.log('Holmdex enhanced markets page initialized');
+        console.log('Holmdex professional homepage initialized');
     };
     
     // Start initialization
