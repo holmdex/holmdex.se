@@ -1,0 +1,872 @@
+/* 
+====================================
+ HOLMDEX ABOUT US PAGE CSS
+====================================
+*/
+
+/* Base About Page Styles - all selectors scoped to .about-page */
+.about-page {
+    font-family: 'Nunito', sans-serif;
+    color: var(--primary-dark, #0A2540);
+    overflow-x: hidden;
+    background-color: var(--background, #F9F9F9);
+}
+
+.about-page .container {
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 20px;
+    position: relative;
+}
+
+.about-page .section-header {
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto 3rem;
+}
+
+.about-page .section-header h2 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    position: relative;
+    padding-bottom: 1rem;
+    color: var(--primary-dark, #0A2540);
+}
+
+.about-page .section-header h2::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background-color: var(--accent, #25A75E);
+    border-radius: 9999px;
+}
+
+.about-page .highlight, 
+.about-page .accent {
+    color: var(--accent, #25A75E);
+}
+
+.about-page .text-white {
+    color: white !important;
+}
+
+.about-page .rounded-image {
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    transition: all 0.5s ease;
+    max-width: 100%;
+    height: auto;
+}
+
+/* Hero Section */
+.about-page .about-hero {
+    position: relative;
+    height: 60vh;
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--light-text, #F9F9F9);
+    overflow: hidden;
+}
+
+.about-page .hero-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+}
+
+.about-page .hero-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+.about-page .hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgba(10, 37, 64, 0.9) 0%, rgba(10, 37, 64, 0.7) 100%);
+    z-index: 1;
+}
+
+.about-page .hero-content {
+    text-align: center;
+    position: relative;
+    z-index: 2;
+    padding: 2rem 0;
+    max-width: 800px;
+    animation: fadeInUp 1s ease-out;
+}
+
+.about-page .page-title {
+    font-size: 3.5rem;
+    font-weight: 800;
+    margin-bottom: 1.5rem;
+    line-height: 1.1;
+}
+
+.about-page .page-tagline {
+    font-size: 1.25rem;
+    opacity: 0.9;
+    line-height: 1.6;
+    margin: 0 auto;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Introduction Section */
+.about-page .intro-section {
+    padding: 5rem 0;
+    background-color: white;
+    position: relative;
+}
+
+.about-page .intro-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: center;
+}
+
+.about-page .intro-text h2 {
+    font-size: 2.5rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+    padding-bottom: 1rem;
+}
+
+.about-page .intro-text h2::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 3px;
+    background-color: var(--accent, #25A75E);
+    border-radius: 9999px;
+}
+
+.about-page .intro-text p {
+    color: var(--neutral-gray, #6C7A89);
+    line-height: 1.8;
+    margin-bottom: 1.5rem;
+}
+
+.about-page .intro-text p:last-child {
+    margin-bottom: 0;
+}
+
+.about-page .intro-image {
+    position: relative;
+    padding: 1rem;
+}
+
+.about-page .intro-image::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: radial-gradient(circle, rgba(37, 167, 94, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+    border-radius: 12px;
+    z-index: 0;
+    animation: fadeIn 1s ease-out;
+    opacity: 0.7;
+}
+
+/* Philosophy Section */
+.about-page .philosophy-section {
+    padding: 5rem 0;
+    background-color: var(--background, #F9F9F9);
+    position: relative;
+}
+
+.about-page .philosophy-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.about-page .philosophy-card {
+    background-color: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.about-page .philosophy-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+}
+
+.about-page .card-image {
+    height: 200px;
+    overflow: hidden;
+}
+
+.about-page .card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: all 0.5s ease;
+}
+
+.about-page .philosophy-card:hover .card-img {
+    transform: scale(1.05);
+}
+
+.about-page .card-content {
+    padding: 1.5rem;
+    flex-grow: 1;
+}
+
+.about-page .card-content h3 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+    color: var(--primary-dark, #0A2540);
+    position: relative;
+    padding-bottom: 0.75rem;
+}
+
+.about-page .card-content h3::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 40px;
+    height: 2px;
+    background-color: var(--accent, #25A75E);
+}
+
+.about-page .card-content p {
+    color: var(--neutral-gray, #6C7A89);
+    line-height: 1.6;
+}
+
+/* Global Perspective Section */
+.about-page .global-section {
+    padding: 5rem 0;
+    background-color: white;
+    position: relative;
+}
+
+.about-page .global-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: center;
+}
+
+.about-page .global-text h2 {
+    font-size: 2.5rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+    padding-bottom: 1rem;
+}
+
+.about-page .global-text h2::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 3px;
+    background-color: var(--accent, #25A75E);
+    border-radius: 9999px;
+}
+
+.about-page .global-text p {
+    color: var(--neutral-gray, #6C7A89);
+    line-height: 1.8;
+    margin-bottom: 1.5rem;
+}
+
+.about-page .global-text p:last-child {
+    margin-bottom: 0;
+}
+
+.about-page .image-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(2, 1fr);
+    gap: 1rem;
+    height: 100%;
+}
+
+.about-page .grid-item {
+    overflow: hidden;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+}
+
+.about-page .grid-item.large {
+    grid-row: span 2;
+}
+
+.about-page .grid-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: all 0.5s ease;
+}
+
+.about-page .grid-item:hover .grid-img {
+    transform: scale(1.05);
+}
+
+/* Approach Section */
+.about-page .approach-section {
+    padding: 5rem 0;
+    background-color: var(--background, #F9F9F9);
+    position: relative;
+}
+
+.about-page .approach-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: center;
+}
+
+.about-page .approach-item {
+    display: flex;
+    margin-bottom: 2rem;
+}
+
+.about-page .approach-item:last-child {
+    margin-bottom: 0;
+}
+
+.about-page .approach-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: rgba(37, 167, 94, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1.5rem;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.about-page .approach-icon i {
+    font-size: 1.5rem;
+    color: var(--accent, #25A75E);
+    transition: all 0.3s ease;
+}
+
+.about-page .approach-item:hover .approach-icon {
+    background-color: var(--accent, #25A75E);
+    transform: scale(1.1) rotate(10deg);
+}
+
+.about-page .approach-item:hover .approach-icon i {
+    color: white;
+}
+
+.about-page .approach-details h3 {
+    font-size: 1.3rem;
+    margin-bottom: 0.5rem;
+    color: var(--primary-dark, #0A2540);
+}
+
+.about-page .approach-details p {
+    color: var(--neutral-gray, #6C7A89);
+    line-height: 1.6;
+}
+
+/* Message Section */
+.about-page .message-section {
+    padding: 5rem 0;
+    background-color: white;
+    position: relative;
+}
+
+.about-page .message-content {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 3rem;
+    align-items: center;
+}
+
+.about-page .message-image {
+    position: relative;
+    overflow: hidden;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.about-page .message-img {
+    width: 100%;
+    transition: all 0.5s ease;
+}
+
+.about-page .message-image:hover .message-img {
+    transform: scale(1.05);
+}
+
+/* Profile image circular styling */
+.about-page .profile-image-container {
+    width: 250px;
+    height: 250px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin: 0 auto;
+    border: 4px solid var(--accent, #25A75E);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.about-page .profile-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    transition: transform 0.5s ease;
+}
+
+.about-page .profile-image-container:hover .profile-image {
+    transform: scale(1.05);
+}
+
+.about-page .message-text h2 {
+    font-size: 2.5rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+    padding-bottom: 1rem;
+}
+
+.about-page .message-text h2::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 3px;
+    background-color: var(--accent, #25A75E);
+    border-radius: 9999px;
+}
+
+.about-page .message-text p {
+    color: var(--neutral-gray, #6C7A89);
+    line-height: 1.8;
+    margin-bottom: 1.5rem;
+}
+
+.about-page .founder-signature {
+    margin-top: 2rem;
+}
+
+.about-page .signature-text {
+    font-family: 'Roboto', sans-serif;
+    font-weight: 700;
+    font-size: 1.3rem;
+    color: var(--primary-dark, #0A2540);
+    margin-bottom: 0.25rem;
+}
+
+.about-page .signature-title {
+    font-size: 0.9rem;
+    color: var(--neutral-gray, #6C7A89);
+}
+
+/* CTA Section */
+.about-page .cta-section {
+    padding: 5rem 0;
+    background-color: var(--primary-dark, #0A2540);
+    position: relative;
+    overflow: hidden;
+}
+
+.about-page .cta-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #0A2540 0%, #224870 100%);
+    z-index: 0;
+}
+
+.about-page .cta-content {
+    position: relative;
+    text-align: center;
+    z-index: 1;
+    color: white;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.about-page .cta-content h2 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: white;
+}
+
+.about-page .cta-content p {
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+    opacity: 0.9;
+}
+
+.about-page .cta-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.about-page .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+}
+
+.about-page .btn-primary {
+    background-color: var(--accent, #25A75E);
+    color: white;
+    border: none;
+}
+
+.about-page .btn-primary:hover {
+    background-color: var(--accent-dark, #1E8A4C);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(37, 167, 94, 0.3);
+}
+
+.about-page .btn-secondary {
+    background-color: transparent;
+    color: white;
+    border: 2px solid white;
+}
+
+.about-page .btn-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(255, 255, 255, 0.1);
+}
+
+/* Back to top button styling specific to About page */
+.about-back-to-top {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: var(--accent, #25A75E);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    border: none;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    z-index: 99;
+}
+
+.about-back-to-top.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.about-back-to-top:hover {
+    background-color: var(--accent-dark, #1E8A4C);
+    transform: translateY(-5px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* Animation classes */
+.about-page .reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.about-page .reveal.animate {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.about-page .keyboard-focus {
+    outline: 2px solid var(--accent, #25A75E);
+    outline-offset: 2px;
+}
+
+/* Responsive styles */
+@media (max-width: 1200px) {
+    .about-page .page-title {
+        font-size: 3rem;
+    }
+    
+    .about-page .section-header h2,
+    .about-page .intro-text h2,
+    .about-page .global-text h2,
+    .about-page .message-text h2,
+    .about-page .cta-content h2 {
+        font-size: 2.2rem;
+    }
+}
+
+@media (max-width: 992px) {
+    .about-page .intro-content,
+    .about-page .global-content,
+    .about-page .approach-content,
+    .about-page .message-content {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+    
+    .about-page .philosophy-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .about-page .intro-image,
+    .about-page .global-images {
+        order: -1;
+    }
+    
+    .about-page .page-title {
+        font-size: 2.5rem;
+    }
+    
+    .about-page .section-header h2,
+    .about-page .intro-text h2,
+    .about-page .global-text h2,
+    .about-page .message-text h2,
+    .about-page .cta-content h2 {
+        font-size: 2rem;
+    }
+    
+    .about-page .profile-image-container {
+        margin: 0 auto 2rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .about-page .philosophy-grid {
+        grid-template-columns: 1fr;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .about-page .page-title {
+        font-size: 2rem;
+    }
+    
+    .about-page .page-tagline {
+        font-size: 1.1rem;
+    }
+    
+    .about-page .section-header h2,
+    .about-page .intro-text h2,
+    .about-page .global-text h2,
+    .about-page .message-text h2,
+    .about-page .cta-content h2 {
+        font-size: 1.8rem;
+    }
+    
+    .about-page .approach-item {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .about-page .approach-icon {
+        margin: 0 auto 1rem;
+    }
+    
+    .about-page .cta-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .about-page .btn {
+        width: 100%;
+        max-width: 300px;
+    }
+    
+    .about-page .profile-image-container {
+        width: 200px;
+        height: 200px;
+    }
+}
+
+@media (max-width: 576px) {
+    .about-page .about-hero {
+        height: 50vh;
+    }
+    
+    .about-page .page-title {
+        font-size: 1.8rem;
+    }
+    
+    .about-page .page-tagline {
+        font-size: 1rem;
+    }
+    
+    .about-page .section-header h2,
+    .about-page .intro-text h2,
+    .about-page .global-text h2,
+    .about-page .message-text h2,
+    .about-page .cta-content h2 {
+        font-size: 1.6rem;
+    }
+    
+    .about-page .intro-section,
+    .about-page .philosophy-section,
+    .about-page .global-section,
+    .about-page .approach-section,
+    .about-page .message-section,
+    .about-page .cta-section {
+        padding: 3rem 0;
+    }
+
+    .about-page .message-content {
+        grid-template-columns: 1fr;
+    }
+
+    .about-page .approach-image {
+        margin-bottom: 2rem;
+    }
+    
+    .about-page .profile-image-container {
+        width: 180px;
+        height: 180px;
+    }
+}
+
+/* Animation classes */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    .about-page * {
+        animation-duration: 0.001s !important;
+        animation-delay: 0s !important;
+        transition-duration: 0.001s !important;
+    }
+    
+    .about-page .reveal,
+    .about-page .animate {
+        opacity: 1;
+        transform: none !important;
+        transition: none !important;
+    }
+    
+    .about-page .philosophy-card:hover,
+    .about-page .approach-item:hover .approach-icon,
+    .about-page .grid-item:hover .grid-img,
+    .about-page .message-image:hover .message-img,
+    .about-page .btn:hover,
+    .about-page .profile-image-container:hover .profile-image {
+        transform: none !important;
+    }
+}
+
+/* Print styles */
+@media print {
+    .about-page {
+        background-color: white !important;
+    }
+    
+    .about-page .about-hero {
+        height: auto;
+        min-height: auto;
+        background: none !important;
+        color: black;
+        padding: 2rem 0;
+    }
+    
+    .about-page .hero-overlay,
+    .about-page .hero-image,
+    .about-page .intro-image::before,
+    .about-page .cta-section::before,
+    .about-back-to-top {
+        display: none !important;
+    }
+    
+    .about-page .page-title,
+    .about-page .page-tagline {
+        color: black !important;
+    }
+    
+    .about-page .intro-section,
+    .about-page .philosophy-section,
+    .about-page .global-section,
+    .about-page .approach-section,
+    .about-page .message-section {
+        padding: 2rem 0;
+        page-break-inside: avoid;
+    }
+    
+    .about-page .intro-content,
+    .about-page .philosophy-grid,
+    .about-page .global-content,
+    .about-page .approach-content,
+    .about-page .message-content {
+        display: block;
+    }
+    
+    .about-page .philosophy-card,
+    .about-page .approach-item {
+        page-break-inside: avoid;
+        margin-bottom: 2rem;
+    }
+    
+    .about-page .cta-section {
+        background-color: white !important;
+        color: black !important;
+    }
+    
+    .about-page .cta-content h2,
+    .about-page .cta-content p {
+        color: black !important;
+    }
+    
+    .about-page .btn {
+        border: 1px solid black;
+        color: black !important;
+        background: none !important;
+    }
+}
