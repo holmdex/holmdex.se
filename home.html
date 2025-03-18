@@ -1,1122 +1,246 @@
-<!-- HOLMDEX ENHANCED MARKETS PAGE -->
-<main id="main-content" class="holmdex-main markets-page">
-    <!-- Hero Section with simple intro -->
-    <section class="market-hero">
+<!-- HOLMDEX HOMEPAGE - Professional Version -->
+<main id="main-content" class="holmdex-main">
+    <!-- Hero Section -->
+    <section class="hero-section">
         <div class="container">
             <div class="hero-content">
-                <h1 class="page-title"><span class="text-white">World</span> <span class="highlight">Markets</span></h1>
-                <p class="page-tagline">
-                    Track global markets with straightforward tools and clear explanations.
+                <h1 class="hero-title">Financial data made <span class="highlight">useful</span></h1>
+                <p class="hero-tagline">
+                    For businesses and individuals who want to make better financial decisions.
                 </p>
             </div>
         </div>
     </section>
     
-    <!-- Introduction Section -->
-    <section class="markets-intro">
+<!-- Trusted Sources Ticker -->
+<section class="trusted-sources">
+    <div class="sources-heading">
         <div class="container">
-            <div class="section-header">
-                <h2>Understanding <span class="highlight">Markets</span></h2>
-                <p class="section-description">
-                    Financial markets are where buyers and sellers trade assets like stocks, bonds, currencies, and commodities. These markets serve as important economic indicators and offer investment opportunities.
-                </p>
-            </div>
-            
-            <div class="intro-grid">
-                <!-- Stock Markets Card -->
-                <div class="intro-card" data-market-type="stocks">
-                    <div class="intro-card-header">
-                        <div class="card-icon">
-                            <i class="fas fa-chart-line"></i>
-                        </div>
-                        <h3>Stock Markets</h3>
-                        <button class="intro-toggle" aria-label="Expand stock markets content">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                    </div>
-                    <div class="intro-card-content">
-                        <p>Markets where shares of publicly traded companies are bought and sold. Major indices track the performance of groups of stocks to represent overall market movement.</p>
-                        
-                        <div class="intro-card-expandable">
-                            <h4>What is a Stock?</h4>
-                            <p>A stock (also called a share) represents partial ownership in a company. When you buy a stock, you're buying a small piece of that company.</p>
-                            
-                            <h4>Why Do Companies Issue Stocks?</h4>
-                            <p>Companies issue stocks to raise money for growth, research, paying off debt, or other business needs without taking loans.</p>
-                            
-                            <h4>How Do Stock Prices Change?</h4>
-                            <p>Stock prices change based on supply and demand. When more people want to buy than sell, prices rise. When more want to sell than buy, prices fall.</p>
-                            
-                            <h4>What Influences Stock Prices?</h4>
-                            <ul>
-                                <li>Company performance and earnings</li>
-                                <li>Industry and economic conditions</li>
-                                <li>Market sentiment and investor psychology</li>
-                                <li>Interest rates and inflation</li>
-                                <li>News and events affecting the company</li>
-                            </ul>
-                            
-                            <h4>What are Stock Indices?</h4>
-                            <p>Indices (like S&P 500, OMXS30, or FTSE 100) track groups of stocks to show how a particular market or sector is performing. They provide a benchmark for overall market performance.</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Currency Markets Card -->
-                <div class="intro-card" data-market-type="currency">
-                    <div class="intro-card-header">
-                        <div class="card-icon">
-                            <i class="fas fa-dollar-sign"></i>
-                        </div>
-                        <h3>Currency Markets</h3>
-                        <button class="intro-toggle" aria-label="Expand currency markets content">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                    </div>
-                    <div class="intro-card-content">
-                        <p>Markets where one currency is exchanged for another. Exchange rates fluctuate based on economic data, interest rates, and political events.</p>
-                        
-                        <div class="intro-card-expandable">
-                            <h4>What is Foreign Exchange (Forex)?</h4>
-                            <p>The Forex market is where currencies are traded against each other. It's the largest financial market in the world, trading trillions of dollars daily.</p>
-                            
-                            <h4>How to Read Currency Pairs</h4>
-                            <p>Currencies are always quoted in pairs, like EUR/USD or USD/JPY. The first currency is the "base currency" and the second is the "quote currency." The price shows how much of the quote currency is needed to buy one unit of the base currency.</p>
-                            
-                            <h4>Example:</h4>
-                            <p>If EUR/USD = 1.10, it means 1 Euro costs 1.10 US Dollars.</p>
-                            
-                            <h4>What Affects Currency Values?</h4>
-                            <ul>
-                                <li>Interest rates: Higher rates often strengthen a currency</li>
-                                <li>Inflation: Lower inflation typically strengthens a currency</li>
-                                <li>Economic growth: Strong economies often have stronger currencies</li>
-                                <li>Political stability: Stable governments attract more foreign investment</li>
-                                <li>Trade balances: Countries exporting more than importing often have stronger currencies</li>
-                            </ul>
-                            
-                            <h4>Major Currency Pairs</h4>
-                            <p>The most traded currency pairs include EUR/USD (Euro/US Dollar), USD/JPY (US Dollar/Japanese Yen), GBP/USD (British Pound/US Dollar), and USD/CHF (US Dollar/Swiss Franc).</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Commodity Markets Card -->
-                <div class="intro-card" data-market-type="commodity">
-                    <div class="intro-card-header">
-                        <div class="card-icon">
-                            <i class="fas fa-coins"></i>
-                        </div>
-                        <h3>Commodity Markets</h3>
-                        <button class="intro-toggle" aria-label="Expand commodity markets content">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                    </div>
-                    <div class="intro-card-content">
-                        <p>Markets for trading raw materials like gold, oil, agricultural products, and metals. Prices are influenced by supply and demand factors globally.</p>
-                        
-                        <div class="intro-card-expandable">
-                            <h4>What are Commodities?</h4>
-                            <p>Commodities are physical goods that are basically the same regardless of who produces them. They form the building blocks of our economy.</p>
-                            
-                            <h4>Main Types of Commodities</h4>
-                            <ul>
-                                <li><strong>Energy:</strong> Crude oil, natural gas, gasoline, heating oil</li>
-                                <li><strong>Precious Metals:</strong> Gold, silver, platinum, palladium</li>
-                                <li><strong>Industrial Metals:</strong> Copper, aluminum, zinc, nickel</li>
-                                <li><strong>Agricultural:</strong> Wheat, corn, soybeans, cotton, coffee, sugar</li>
-                                <li><strong>Livestock:</strong> Cattle, hogs</li>
-                            </ul>
-                            
-                            <h4>Why Do Commodity Prices Change?</h4>
-                            <ul>
-                                <li>Supply disruptions (like weather events or mining strikes)</li>
-                                <li>Changes in global demand</li>
-                                <li>Storage levels and inventories</li>
-                                <li>Seasonal patterns (especially for agricultural products)</li>
-                                <li>Currency values (since most commodities are priced in USD)</li>
-                                <li>Economic growth or contraction</li>
-                            </ul>
-                            
-                            <h4>Why Watch Commodities?</h4>
-                            <p>Commodity prices often signal economic changes. Rising industrial metal prices may indicate economic growth, while rising oil prices might warn of inflation. Gold often rises during uncertainty as a "safe haven" asset.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-<!-- Global Market Indices Section -->
-    <section class="global-indices">
-        <div class="container">
-            <div class="section-header">
-                <h2>Global <span class="highlight">Market Indices</span></h2>
-                <p class="section-description">
-                    Market indices track the performance of selected groups of stocks, providing a snapshot of market conditions worldwide. Click on any index to explore its chart.
-                </p>
-            </div>
-            
-            <div class="indices-tabs">
-                <button class="index-tab-btn active" data-region="americas">Americas</button>
-                <button class="index-tab-btn" data-region="europe">Europe</button>
-                <button class="index-tab-btn" data-region="asia">Asia-Pacific</button>
-                <button class="index-tab-btn" data-region="other">Other Markets</button>
-            </div>
-            
-            <!-- Americas Indices -->
-            <div class="indices-region active" data-region="americas">
-                <div class="indices-grid">
-                    <div class="index-card" data-color="#0066CC">
-                        <div class="index-header">
-                            <h3>S&P 500</h3>
-                            <span class="index-symbol">SPX</span>
-                        </div>
-                        <p>Tracks 500 large U.S. companies across industries. Often considered the best representation of the U.S. stock market.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "FOREXCOM:SPXUSD",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#0066CC",
-                                "underLineColor": "rgba(0, 102, 204, 0.15)",
-                                "underLineBottomColor": "rgba(0, 102, 204, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="FOREXCOM:SPXUSD" data-name="S&P 500">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-
-                    <div class="index-card" data-color="#0066CC">
-                        <div class="index-header">
-                            <h3>Dow Jones Industrial</h3>
-                            <span class="index-symbol">DJI</span>
-                        </div>
-                        <p>Comprises 30 large blue-chip companies in the U.S. One of the oldest and most-watched indices globally.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "FOREXCOM:DJI",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#0066CC",
-                                "underLineColor": "rgba(0, 102, 204, 0.15)",
-                                "underLineBottomColor": "rgba(0, 102, 204, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="FOREXCOM:DJI" data-name="Dow Jones Industrial">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-
-                    <div class="index-card" data-color="#0066CC">
-                        <div class="index-header">
-                            <h3>NASDAQ Composite</h3>
-                            <span class="index-symbol">IXIC</span>
-                        </div>
-                        <p>Includes over 3,000 companies listed on the NASDAQ exchange, with a heavy focus on technology stocks.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "FOREXCOM:NSXUSD",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#0066CC",
-                                "underLineColor": "rgba(0, 102, 204, 0.15)",
-                                "underLineBottomColor": "rgba(0, 102, 204, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="FOREXCOM:NSXUSD" data-name="NASDAQ Composite">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-
-                    <div class="index-card" data-color="#0066CC">
-                        <div class="index-header">
-                            <h3>Russell 2000</h3>
-                            <span class="index-symbol">RUT</span>
-                        </div>
-                        <p>Tracks 2,000 small-cap companies in the U.S. Used as a benchmark for small-cap stocks and growth potential.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "FRED:RU2000",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#0066CC",
-                                "underLineColor": "rgba(0, 102, 204, 0.15)",
-                                "underLineBottomColor": "rgba(0, 102, 204, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="FRED:RU2000" data-name="Russell 2000">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-                    
-                    <div class="index-card" data-color="#0066CC">
-                        <div class="index-header">
-                            <h3>TSX Composite</h3>
-                            <span class="index-symbol">GSPTSE</span>
-                        </div>
-                        <p>The main index for the Canadian equity market, representing approximately 70% of total market capitalization on the Toronto Stock Exchange.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "TSX:TSX",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#0066CC",
-                                "underLineColor": "rgba(0, 102, 204, 0.15)",
-                                "underLineBottomColor": "rgba(0, 102, 204, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="TSX:TSX" data-name="TSX Composite">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- European Indices -->
-            <div class="indices-region" data-region="europe">
-                <div class="indices-grid">
-                    <div class="index-card" data-color="#006633">
-                        <div class="index-header">
-                            <h3>FTSE 100</h3>
-                            <span class="index-symbol">UKX</span>
-                        </div>
-                        <p>Tracks the 100 largest companies listed on the London Stock Exchange by market capitalization.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "FOREXCOM:UKXGBP",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#006633",
-                                "underLineColor": "rgba(0, 102, 51, 0.15)",
-                                "underLineBottomColor": "rgba(0, 102, 51, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="FOREXCOM:UKXGBP" data-name="FTSE 100">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-
-                    <div class="index-card" data-color="#006633">
-                        <div class="index-header">
-                            <h3>DAX 40</h3>
-                            <span class="index-symbol">DAX</span>
-                        </div>
-                        <p>Germany's blue-chip stock market index consisting of the 40 major German companies trading on the Frankfurt Stock Exchange.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "INDEX:DAX",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#006633",
-                                "underLineColor": "rgba(0, 102, 51, 0.15)",
-                                "underLineBottomColor": "rgba(0, 102, 51, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="INDEX:DAX" data-name="DAX 40">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-
-                    <div class="index-card" data-color="#006633">
-                        <div class="index-header">
-                            <h3>OMXS30</h3>
-                            <span class="index-symbol">OMXS30</span>
-                        </div>
-                        <p>Stockholm's benchmark index comprising 30 of the most-traded stocks on the Stockholm Stock Exchange.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "OMXSTO:OMXS30",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#006633",
-                                "underLineColor": "rgba(0, 102, 51, 0.15)",
-                                "underLineBottomColor": "rgba(0, 102, 51, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="OMXSTO:OMXS30" data-name="OMXS30">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-
-                    <div class="index-card" data-color="#006633">
-                        <div class="index-header">
-                            <h3>CAC 40</h3>
-                            <span class="index-symbol">PX1</span>
-                        </div>
-                        <p>French stock market index representing the 40 most significant companies among the 100 largest market caps on the Euronext Paris.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "PARIS:CAC",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#006633",
-                                "underLineColor": "rgba(0, 102, 51, 0.15)",
-                                "underLineBottomColor": "rgba(0, 102, 51, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="PARIS:CAC" data-name="CAC 40">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-                    
-                    <div class="index-card" data-color="#006633">
-                        <div class="index-header">
-                            <h3>STOXX Europe 600</h3>
-                            <span class="index-symbol">SXXP</span>
-                        </div>
-                        <p>Represents large, mid and small capitalization companies across 17 European countries, offering a broader view of the European market.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "TVC:STOXX600",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#006633",
-                                "underLineColor": "rgba(0, 102, 51, 0.15)",
-                                "underLineBottomColor": "rgba(0, 102, 51, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="TVC:STOXX600" data-name="STOXX Europe 600">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-                </div>
-            </div>
-<!-- Asia-Pacific Indices -->
-            <div class="indices-region" data-region="asia">
-                <div class="indices-grid">
-                    <div class="index-card" data-color="#993366">
-                        <div class="index-header">
-                            <h3>Nikkei 225</h3>
-                            <span class="index-symbol">NKY</span>
-                        </div>
-                        <p>Japan's primary stock market index tracking the top 225 companies listed on the Tokyo Stock Exchange.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "INDEX:NKY",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#993366",
-                                "underLineColor": "rgba(153, 51, 102, 0.15)",
-                                "underLineBottomColor": "rgba(153, 51, 102, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="INDEX:NKY" data-name="Nikkei 225">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-
-                    <div class="index-card" data-color="#993366">
-                        <div class="index-header">
-                            <h3>Hang Seng</h3>
-                            <span class="index-symbol">HSI</span>
-                        </div>
-                        <p>The main indicator of the Hong Kong stock market performance, tracking the largest companies listed on the Hong Kong Stock Exchange.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "INDEX:HSI",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#993366",
-                                "underLineColor": "rgba(153, 51, 102, 0.15)",
-                                "underLineBottomColor": "rgba(153, 51, 102, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="INDEX:HSI" data-name="Hang Seng">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-
-                    <div class="index-card" data-color="#993366">
-                        <div class="index-header">
-                            <h3>Shanghai Composite</h3>
-                            <span class="index-symbol">SHCOMP</span>
-                        </div>
-                        <p>A stock market index of all stocks traded on the Shanghai Stock Exchange, weighted by market capitalization.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "SSE:000001",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#993366",
-                                "underLineColor": "rgba(153, 51, 102, 0.15)",
-                                "underLineBottomColor": "rgba(153, 51, 102, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="SSE:000001" data-name="Shanghai Composite">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-
-                    <div class="index-card" data-color="#993366">
-                        <div class="index-header">
-                            <h3>ASX 200</h3>
-                            <span class="index-symbol">AS51</span>
-                        </div>
-                        <p>Australia's primary stock market index, representing the 200 largest companies listed on the Australian Securities Exchange.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "ASX:XJO",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#993366",
-                                "underLineColor": "rgba(153, 51, 102, 0.15)",
-                                "underLineBottomColor": "rgba(153, 51, 102, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="ASX:XJO" data-name="ASX 200">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-                    
-                    <div class="index-card" data-color="#993366">
-                        <div class="index-header">
-                            <h3>Nifty 50</h3>
-                            <span class="index-symbol">NSEI</span>
-                        </div>
-                        <p>India's benchmark stock market index representing the weighted average of 50 of the largest Indian companies listed on the National Stock Exchange.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "TVC:NIFTY",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#993366",
-                                "underLineColor": "rgba(153, 51, 102, 0.15)",
-                                "underLineBottomColor": "rgba(153, 51, 102, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="TVC:NIFTY" data-name="Nifty 50">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Other Markets Indices -->
-            <div class="indices-region" data-region="other">
-                <div class="indices-grid">
-                    <div class="index-card" data-color="#663399">
-                        <div class="index-header">
-                            <h3>Bovespa</h3>
-                            <span class="index-symbol">BVSP</span>
-                        </div>
-                        <p>The benchmark index of about 50-60 stocks traded on the B3 (Brasil Bolsa Balcão), the largest stock exchange in Brazil.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "BMFBOVESPA:IBOV",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#663399",
-                                "underLineColor": "rgba(102, 51, 153, 0.15)",
-                                "underLineBottomColor": "rgba(102, 51, 153, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="BMFBOVESPA:IBOV" data-name="Bovespa">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-
-                    <div class="index-card" data-color="#663399">
-                        <div class="index-header">
-                            <h3>JSE Top 40</h3>
-                            <span class="index-symbol">TOP40</span>
-                        </div>
-                        <p>South Africa's main stock index, consisting of the top 40 companies listed on the Johannesburg Stock Exchange.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "TVC:SATOP40",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#663399",
-                                "underLineColor": "rgba(102, 51, 153, 0.15)",
-                                "underLineBottomColor": "rgba(102, 51, 153, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="TVC:SATOP40" data-name="JSE Top 40">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-
-                    <div class="index-card" data-color="#663399">
-                        <div class="index-header">
-                            <h3>MSCI World</h3>
-                            <span class="index-symbol">MSCIW</span>
-                        </div>
-                        <p>A global stock market index tracking the performance of large and mid-cap stocks across 23 developed market countries.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "TVC:MSWORLD",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#663399",
-                                "underLineColor": "rgba(102, 51, 153, 0.15)",
-                                "underLineBottomColor": "rgba(102, 51, 153, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="TVC:MSWORLD" data-name="MSCI World">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-
-                    <div class="index-card" data-color="#663399">
-                        <div class="index-header">
-                            <h3>MSCI Emerging Markets</h3>
-                            <span class="index-symbol">MSCIEM</span>
-                        </div>
-                        <p>An index tracking the performance of stocks in fast-growing economies such as China, India, Brazil, Russia, and other emerging markets.</p>
-                        <div class="index-preview">
-                            <!-- TradingView Widget BEGIN -->
-                            <div class="tradingview-widget-container">
-                                <div class="tradingview-widget-container__widget"></div>
-                                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-                                {
-                                "symbol": "TVC:MSEMRG",
-                                "width": "100%",
-                                "height": "150",
-                                "locale": "en",
-                                "dateRange": "12M",
-                                "colorTheme": "light",
-                                "trendLineColor": "#663399",
-                                "underLineColor": "rgba(102, 51, 153, 0.15)",
-                                "underLineBottomColor": "rgba(102, 51, 153, 0)",
-                                "isTransparent": false,
-                                "autosize": true,
-                                "largeChartUrl": ""
-                                }
-                                </script>
-                            </div>
-                            <!-- TradingView Widget END -->
-                        </div>
-                        <button class="expand-chart-btn" data-symbol="TVC:MSEMRG" data-name="MSCI Emerging Markets">
-                            <i class="fas fa-chart-line"></i> View Interactive Chart
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-    
-    <!-- Interactive Chart Modal -->
-    <div class="chart-modal" id="chartModal">
-        <div class="chart-modal-content">
-            <div class="chart-modal-header">
-                <h3 id="chartModalTitle">Chart Title</h3>
-                <div class="chart-modal-controls">
-                    <button class="chart-control-btn fullscreen-btn" id="fullscreenBtn" title="Fullscreen">
-                        <i class="fas fa-expand"></i>
-                    </button>
-                    <button class="chart-control-btn close-btn" id="closeChartBtn" title="Close">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="chart-modal-body" id="chartModalBody">
-                <!-- TradingView chart will be inserted here -->
-            </div>
+            <div class="sources-label">Analyzing data from trusted sources</div>
         </div>
     </div>
+    <div class="sources-ticker-container">
+        <div class="sources-ticker">
+            <!-- Global Financial Sites -->
+            <a href="https://www.bloomberg.com/" target="_blank" class="source-item">
+                <i class="fas fa-chart-line"></i>
+                <span>Bloomberg</span>
+            </a>
+            <a href="https://www.morningstar.com/" target="_blank" class="source-item">
+                <i class="fas fa-star"></i>
+                <span>Morningstar</span>
+            </a>
+            <a href="https://www.reuters.com/" target="_blank" class="source-item">
+                <i class="fas fa-globe"></i>
+                <span>Reuters</span>
+            </a>
+            <a href="https://www.ft.com/" target="_blank" class="source-item">
+                <i class="fas fa-newspaper"></i>
+                <span>Financial Times</span>
+            </a>
+            <a href="https://www.cnbc.com/" target="_blank" class="source-item">
+                <i class="fas fa-broadcast-tower"></i>
+                <span>CNBC</span>
+            </a>
+
+            <!-- Nordics -->
+            <a href="https://www.placera.se/" target="_blank" class="source-item">
+                <i class="fas fa-landmark"></i>
+                <span>Placera.se</span>
+            </a>
+            <a href="https://www.di.se/" target="_blank" class="source-item">
+                <i class="fas fa-file-invoice-dollar"></i>
+                <span>Dagens Industri</span>
+            </a>
+            <a href="https://www.kauppalehti.fi/" target="_blank" class="source-item">
+                <i class="fas fa-chart-bar"></i>
+                <span>Kauppalehti</span>
+            </a>
+            <a href="https://borsen.dk/" target="_blank" class="source-item">
+                <i class="fas fa-money-bill-wave"></i>
+                <span>Børsen</span>
+            </a>
+            <a href="https://www.dn.no/" target="_blank" class="source-item">
+                <i class="fas fa-file-contract"></i>
+                <span>Dagens Næringsliv</span>
+            </a>
+
+            <!-- European -->
+            <a href="https://www.handelsblatt.com/" target="_blank" class="source-item">
+                <i class="fas fa-euro-sign"></i>
+                <span>Handelsblatt</span>
+            </a>
+            <a href="https://www.zonebourse.com/" target="_blank" class="source-item">
+                <i class="fas fa-exchange-alt"></i>
+                <span>Zone Bourse</span>
+            </a>
+            <a href="https://www.ilsole24ore.com/" target="_blank" class="source-item">
+                <i class="fas fa-sun"></i>
+                <span>Il Sole 24 Ore</span>
+            </a>
+            <a href="https://www.expansion.com/" target="_blank" class="source-item">
+                <i class="fas fa-chart-area"></i>
+                <span>Expansión</span>
+            </a>
+            <a href="https://www.vedomosti.ru/" target="_blank" class="source-item">
+                <i class="fas fa-file-alt"></i>
+                <span>Ведомости</span>
+            </a>
+
+            <!-- Asian -->
+            <a href="https://www.caixinglobal.com/" target="_blank" class="source-item">
+                <i class="fas fa-yen-sign"></i>
+                <span>Caixin Global</span>
+            </a>
+            <a href="https://asia.nikkei.com/" target="_blank" class="source-item">
+                <i class="fas fa-torii-gate"></i>
+                <span>Nikkei Asia</span>
+            </a>
+            <a href="https://www.scmp.com/" target="_blank" class="source-item">
+                <i class="fas fa-building"></i>
+                <span>South China Morning Post</span>
+            </a>
+            <a href="https://www.businesstimes.com.sg/" target="_blank" class="source-item">
+                <i class="fas fa-city"></i>
+                <span>The Business Times</span>
+            </a>
+            <a href="https://economictimes.indiatimes.com/" target="_blank" class="source-item">
+                <i class="fas fa-rupee-sign"></i>
+                <span>Economic Times</span>
+            </a>
+
+            <!-- Oceania & Africa -->
+            <a href="https://www.afr.com/" target="_blank" class="source-item">
+                <i class="fas fa-map-marker-alt"></i>
+                <span>Australian Financial Review</span>
+            </a>
+            <a href="https://www.nzherald.co.nz/business/" target="_blank" class="source-item">
+                <i class="fas fa-mountain"></i>
+                <span>NZ Herald Business</span>
+            </a>
+            <a href="https://businesstech.co.za/" target="_blank" class="source-item">
+                <i class="fas fa-tree"></i>
+                <span>BusinessTech</span>
+            </a>
+            <a href="https://www.businesslive.co.za/" target="_blank" class="source-item">
+                <i class="fas fa-atlas"></i>
+                <span>Business Live SA</span>
+            </a>
+
+            <!-- Americas -->
+            <a href="https://www.theglobeandmail.com/" target="_blank" class="source-item">
+                <i class="fas fa-leaf"></i>
+                <span>The Globe and Mail</span>
+            </a>
+            <a href="https://financialpost.com/" target="_blank" class="source-item">
+                <i class="fas fa-mail-bulk"></i>
+                <span>Financial Post</span>
+            </a>
+            <a href="https://www.eleconomista.com.mx/" target="_blank" class="source-item">
+                <i class="fas fa-coins"></i>
+                <span>El Economista</span>
+            </a>
+            <a href="https://valor.globo.com/" target="_blank" class="source-item">
+                <i class="fas fa-landmark"></i>
+                <span>Valor Econômico</span>
+            </a>
+
+            <!-- Middle East -->
+            <a href="https://www.arabnews.com/business-economy" target="_blank" class="source-item">
+                <i class="fas fa-moon"></i>
+                <span>Arab News</span>
+            </a>
+            <a href="https://gulfbusiness.com/" target="_blank" class="source-item">
+                <i class="fas fa-oil-can"></i>
+                <span>Gulf Business</span>
+            </a>
+        </div>
+    </div>
+</section>
     
-    <!-- Market Concepts Section -->
-    <section class="market-concepts">
+    <!-- Core Principles Section (renamed from Why Holmdex) -->
+    <section class="core-principles">
         <div class="container">
-            <div class="section-header">
-                <h2>Key Market <span class="highlight">Concepts</span></h2>
-                <p class="section-description">
-                    Understanding these fundamental concepts will help you interpret market movements and make more informed decisions.
-                </p>
+            <div class="section-heading">
+                <h2>Our <span class="accent">Approach</span></h2>
             </div>
             
-            <div class="concepts-container">
-                <div class="concept-item" data-concept="cycles">
-                    <div class="concept-header">
-                        <div class="concept-icon">
-                            <i class="fas fa-chart-line"></i>
-                        </div>
-                        <h3>Market Cycles</h3>
-                        <button class="concept-toggle" aria-label="Expand market cycles content">
-                            <i class="fas fa-plus"></i>
-                        </button>
+            <div class="principles-grid">
+                <div class="principle-card" data-delay="0" tabindex="0">
+                    <div class="principle-icon">
+                        <i class="fas fa-eye"></i>
                     </div>
-                    <div class="concept-content">
-                        <p>Financial markets move in cycles that tend to repeat over time. Understanding these patterns can help you make better investment decisions.</p>
-                        
-                        <h4>The Four Main Phases:</h4>
-                        <ol>
-                            <li><strong>Accumulation Phase:</strong> The market has bottomed, and informed investors begin buying. Sentiment is still negative, and most investors remain cautious.</li>
-                            <li><strong>Mark-Up Phase:</strong> Prices trend upward as more investors notice the improvement. Technical indicators turn positive, and optimism grows.</li>
-                            <li><strong>Distribution Phase:</strong> The market approaches its peak. Informed investors begin selling to less experienced investors who are just joining due to FOMO (fear of missing out).</li>
-                            <li><strong>Mark-Down Phase:</strong> Prices decline, sentiment turns negative, and the selling accelerates as more investors exit positions.</li>
-                        </ol>
-                        
-                        <p>Market cycles can occur over various timeframes—from short-term cycles lasting days or weeks to longer-term cycles spanning years or decades. Being aware of which cycle phase the market is in can help you adjust your strategy accordingly.</p>
-                    </div>
+                    <h3>Transparent</h3>
+                    <p>Clear financial data without the jargon. We strip away complexity and present information in a straightforward way anyone can understand.</p>
                 </div>
                 
-                <div class="concept-item" data-concept="psychology">
-                    <div class="concept-header">
-                        <div class="concept-icon">
-                            <i class="fas fa-brain"></i>
-                        </div>
-                        <h3>Market Psychology</h3>
-                        <button class="concept-toggle" aria-label="Expand market psychology content">
-                            <i class="fas fa-plus"></i>
-                        </button>
+<div class="principle-card" data-delay="100" tabindex="0">
+    <div class="principle-icon">
+        <i class="fas fa-balance-scale"></i>
+    </div>
+    <h3>Independent</h3>
+    <p>Unbiased insights driven by data, not commissions. We analyze information from diverse global sources to provide objective, balanced perspectives on market trends.</p>
+</div>
+                
+                <div class="principle-card" data-delay="200" tabindex="0">
+                    <div class="principle-icon">
+                        <i class="fas fa-chart-pie"></i>
                     </div>
-                    <div class="concept-content">
-                        <p>Markets are ultimately driven by human emotions, particularly fear and greed. Understanding market psychology can help you avoid common emotional pitfalls.</p>
-                        
-                        <h4>Key Psychological Factors:</h4>
-                        <ul>
-                            <li><strong>Fear:</strong> Causes panic selling and overreaction to negative news, often creating buying opportunities for disciplined investors.</li>
-                            <li><strong>Greed:</strong> Leads to excessive risk-taking and price bubbles as investors chase returns without considering fundamentals.</li>
-                            <li><strong>Herd Mentality:</strong> The tendency to follow what others are doing rather than making independent decisions based on research.</li>
-                            <li><strong>Recency Bias:</strong> Giving too much weight to recent events and assuming current trends will continue indefinitely.</li>
-                            <li><strong>Loss Aversion:</strong> The psychological principle that losses hurt more than equivalent gains feel good, leading to irrational decision-making.</li>
-                        </ul>
-                        
-                        <p>Successful investors learn to recognize these emotional patterns in themselves and the broader market, allowing them to act more rationally when others are driven by emotion.</p>
-                    </div>
+                    <h3>Visual</h3>
+                    <p>Complex data transformed into intuitive visuals. We believe you shouldn't need a finance degree to understand market trends. Our visualizations make patterns clear at a glance.</p>
                 </div>
                 
-                <div class="concept-item" data-concept="diversification">
-                    <div class="concept-header">
-                        <div class="concept-icon">
-                            <i class="fas fa-balance-scale"></i>
-                        </div>
-                        <h3>Diversification</h3>
-                        <button class="concept-toggle" aria-label="Expand diversification content">
-                            <i class="fas fa-plus"></i>
-                        </button>
+                <div class="principle-card" data-delay="300" tabindex="0">
+                    <div class="principle-icon">
+                        <i class="fas fa-tools"></i>
                     </div>
-                    <div class="concept-content">
-                        <p>"Don't put all your eggs in one basket" is perhaps the most fundamental principle of investing. Diversification helps manage risk without necessarily sacrificing returns.</p>
-                        
-                        <h4>Effective Diversification Methods:</h4>
-                        <ul>
-                            <li><strong>Asset Classes:</strong> Spread investments across stocks, bonds, real estate, commodities, and cash.</li>
-                            <li><strong>Geographic Regions:</strong> Invest across different countries and regions to reduce exposure to any single economy.</li>
-                            <li><strong>Sectors and Industries:</strong> Allocate across different economic sectors to avoid concentration in any single industry.</li>
-                            <li><strong>Market Capitalization:</strong> Include large, mid, and small-cap companies to capture different growth characteristics.</li>
-                            <li><strong>Investment Styles:</strong> Mix value, growth, income, and other investment approaches to perform well in different market conditions.</li>
-                        </ul>
-                        
-                        <p>The goal of diversification isn't to maximize returns but to optimize the risk-return relationship of your portfolio. A properly diversified portfolio will never perform as well as the best-performing asset class but will avoid the worst downturns of any single investment.</p>
-                    </div>
-                </div>
-                
-                <div class="concept-item" data-concept="events">
-                    <div class="concept-header">
-                        <div class="concept-icon">
-                            <i class="fas fa-newspaper"></i>
-                        </div>
-                        <h3>Market-Moving Events</h3>
-                        <button class="concept-toggle" aria-label="Expand market events content">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                    </div>
-                    <div class="concept-content">
-                        <p>Financial markets react to new information. Understanding which events tend to move markets can help you anticipate potential volatility and opportunities.</p>
-                        
-                        <h4>Key Market-Moving Events:</h4>
-                        <ul>
-                            <li><strong>Economic Data Releases:</strong> GDP figures, employment reports, inflation data, and consumer sentiment indices can significantly impact markets.</li>
-                            <li><strong>Central Bank Decisions:</strong> Interest rate changes, monetary policy statements, and speeches by central bank officials often cause market reactions.</li>
-                            <li><strong>Corporate Earnings:</strong> Quarterly earnings reports and guidance from major companies can drive individual stocks and broader market moves.</li>
-                            <li><strong>Geopolitical Events:</strong> Elections, trade disputes, wars, and diplomatic tensions can create uncertainty and market volatility.</li>
-                            <li><strong>Natural Disasters and Health Crises:</strong> Events like hurricanes, earthquakes, or pandemics can disrupt supply chains and economic activity.</li>
-                        </ul>
-                        
-                        <p>While it's impossible to predict all market-moving events, staying informed about scheduled economic releases and monitoring geopolitical developments can help you understand market reactions and make more informed decisions.</p>
-                    </div>
+                    <h3>Practical</h3>
+                    <p>Actionable tools for real financial decisions. Every insight and tool we provide is designed to help you make better financial choices, whether you're an individual investor or running a business.</p>
                 </div>
             </div>
         </div>
     </section>
     
-    <!-- Currency and Commodity Markets Section -->
-    <section class="forex-commodities">
+    <!-- Services Section -->
+    <section class="key-resources">
         <div class="container">
-            <div class="section-header">
-                <h2><span class="currency-highlight">Currency</span> & Commodity Markets</h2>
-                <p class="section-description">
-                    Beyond stocks, currency and commodity markets play crucial roles in the global economy.
-                </p>
+            <div class="section-heading">
+                <h2>Our <span class="accent">Services</span></h2>
             </div>
             
-            <div class="forex-commodity-grid">
-                <div class="market-category">
-                    <h3>Currency Converter & Charts</h3>
-                    <div class="widget-container">
-                        <!-- TradingView Widget BEGIN -->
-                        <div class="tradingview-widget-container">
-                            <div class="tradingview-widget-container__widget"></div>
-                            <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-forex-cross-rates.js" async>
-                            {
-                            "width": "100%",
-                            "height": 400,
-                            "currencies": [
-                                "EUR",
-                                "USD",
-                                "JPY",
-                                "GBP",
-                                "CHF",
-                                "AUD",
-                                "CAD",
-                                "SEK",
-                                "NOK",
-                                "DKK",
-                                "ZAR",
-                                "CNY",
-                                "INR",
-                                "MXN",
-                                "BRL"
-                            ],
-                            "isTransparent": false,
-                            "colorTheme": "light",
-                            "locale": "en"
-                            }
-                            </script>
-                        </div>
-                        <!-- TradingView Widget END -->
+            <div class="resources-grid">
+                <a href="/markets/" class="resource-card">
+                    <div class="resource-icon">
+                        <i class="fas fa-chart-line"></i>
                     </div>
-                    <div class="market-info">
-                        <p>Currency pairs show the exchange rate between two currencies. For example, EUR/USD represents how many US dollars one euro can buy. Click on any pair above to see a detailed chart.</p>
-                        <p>Exchange rates are affected by:</p>
-                        <ul>
-                            <li>Interest rate differentials between countries</li>
-                            <li>Economic growth and stability</li>
-                            <li>Inflation rates</li>
-                            <li>Political events and geopolitical risks</li>
-                        </ul>
+                    <div class="resource-content">
+                        <h3>Market Analysis</h3>
+                        <p>Clear visualizations of market trends that matter to you.</p>
+                        <span class="resource-link">View markets <i class="fas fa-arrow-right"></i></span>
                     </div>
-                </div>
+                </a>
                 
-                <div class="market-category">
-                    <h3>Key Commodities</h3>
-                    <div class="widget-container">
-                        <!-- TradingView Widget BEGIN -->
-                        <div class="tradingview-widget-container">
-                            <div class="tradingview-widget-container__widget"></div>
-                            <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js" async>
-                            {
-                            "width": "100%",
-                            "height": 400,
-                            "symbolsGroups": [
-                                {
-                                "name": "Energy",
-                                "originalName": "Energy",
-                                "symbols": [
-                                    {
-                                    "name": "NYMEX:CL1!",
-                                    "displayName": "Crude Oil"
-                                    },
-                                    {
-                                    "name": "NYMEX:NG1!",
-                                    "displayName": "Natural Gas"
-                                    }
-                                ]
-                                },
-                                {
-                                "name": "Metals",
-                                "originalName": "Metals",
-                                "symbols": [
-                                    {
-                                    "name": "COMEX:GC1!",
-                                    "displayName": "Gold"
-                                    },
-                                    {
-                                    "name": "COMEX:SI1!",
-                                    "displayName": "Silver"
-                                    },
-                                    {
-                                    "name": "COMEX:HG1!",
-                                    "displayName": "Copper"
-                                    }
-                                ]
-                                },
-                                {
-                                "name": "Agricultural",
-                                "originalName": "Agricultural",
-                                "symbols": [
-                                    {
-                                    "name": "CBOT:ZC1!",
-                                    "displayName": "Corn"
-                                    },
-                                    {
-                                    "name": "CBOT:ZW1!",
-                                    "displayName": "Wheat"
-                                    },
-                                    {
-                                    "name": "NYMEX:KT1!",
-                                    "displayName": "Coffee"
-                                    }
-                                ]
-                                }
-                            ],
-                            "showSymbolLogo": true,
-                            "colorTheme": "light",
-                            "isTransparent": false,
-                            "locale": "en",
-                            "showSymbolLogo": true,
-                            "showFloatingTooltip": false,
-                            "scalePosition": "right",
-                            "scaleMode": "Normal",
-                            "hideEmptyColumns": false,
-                            "columns": [
-                                "open",
-                                "change",
-                                "change_percent"
-                            ]
-                            }
-                            </script>
-                        </div>
-                        <!-- TradingView Widget END -->
+                <a href="/analytics/" class="resource-card">
+                    <div class="resource-icon">
+                        <i class="fas fa-chart-bar"></i>
                     </div>
-                    <div class="market-info">
-                        <p>Commodities are physical goods traded on specialized exchanges. Click on any commodity above to view a detailed chart. Their prices are influenced by:</p>
-                        <ul>
-                            <li>Supply and demand fundamentals</li>
-                            <li>Weather patterns and natural disasters (especially agricultural products)</li>
-                            <li>Geopolitical events (particularly for energy commodities)</li>
-                            <li>Currency fluctuations</li>
-                            <li>Global economic growth prospects</li>
-                        </ul>
+                    <div class="resource-content">
+                        <h3>Financial Analytics</h3>
+                        <p>Compare investment options with straightforward performance metrics.</p>
+                        <span class="resource-link">Explore tools <i class="fas fa-arrow-right"></i></span>
                     </div>
-                </div>
+                </a>
+                
+                <a href="/consulting/" class="resource-card">
+                    <div class="resource-icon">
+                        <i class="fas fa-handshake"></i>
+                    </div>
+                    <div class="resource-content">
+                        <h3>Consulting</h3>
+                        <p>Tailored guidance to help achieve your specific financial goals.</p>
+                        <span class="resource-link">Learn more <i class="fas fa-arrow-right"></i></span>
+                    </div>
+                </a>
             </div>
         </div>
     </section>
