@@ -1,0 +1,639 @@
+---
+title: "Weekday Market Patterns"
+author: ""
+date: ""
+format: 
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 2
+    code-fold: true
+    embed-resources: true
+    self-contained: true
+---
+
+```{r setup, include=FALSE}
+# Load core packages
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(lubridate)
+  library(plotly)
+  library(DT)
+  library(knitr)
+})
+
+# Try to load data packages
+for(pkg in c("quantmod", "tidyquant")) {
+  if(requireNamespace(pkg, quietly = TRUE)) library(pkg, character.only = TRUE)
+}
+
+# Set global options
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = FALSE)
+
+# Set date parameters
+end_date <- Sys.Date()
+start_date <- end_date - years(10)
+```
+
+```{r get-data-function}
+# Function to safely get market data with multiple fallbacks
+get_market_data <- function(symbol, start_date, end_date) {
+  price_data <- NULL
+  
+  # Try quantmod first
+  if(exists("getSymbols")) {
+    tryCatch({
+      ticker <- getSymbols(symbol, src = "yahoo", from = start_date, to = end_date, auto.assign = FALSE)
+      
+      if(!is.null(ticker) && nrow(ticker) > 0) {
+        # Format data
+        price_data <- data.frame(date = index(ticker), coredata(ticker))
+        colnames(price_data) <- c("date", "open", "high", "low", "close", "volume", "adjusted")
+        price_data$symbol <- symbol
+        return(price_data)
+      }
+    }, error = function(e) NULL)
+  }
+  
+  # Try tidyquant if available
+  if(is.null(price_data) && exists("tq_get")) {
+    tryCatch({
+      ticker_data <- tq_get(symbol, from = start_date, to = end_date, get = "stock.prices")
+      
+      if(!is.null(ticker_data) && nrow(ticker_data) > 0) {
+        return(ticker_data)
+      }
+    }, error = function(e) NULL)
+  }
+  
+  # Try Yahoo Finance API directly
+  if(is.null(price_data)) {
+    tryCatch({
+      # Format dates for Yahoo
+      start_unix <- as.numeric(as.POSIXct(start_date))
+      end_unix <- as.numeric(as.POSIXct(end_date))
+      
+      # Build URL
+      url <- paste0(
+        "https://query1.finance.yahoo.com/v7/finance/download/", 
+        symbol,
+        "?period1=", start_unix,
+        "&period2=", end_unix,
+        "&interval=1d&events=history"
+      )
+      
+      # Download data
+      temp_file <- tempfile(fileext = ".csv")
+      download.file(url, temp_file, quiet = TRUE, mode = "wb")
+      
+      if(file.exists(temp_file) && file.info(temp_file)$size > 0) {
+        data <- read.csv(temp_file, stringsAsFactors = FALSE)
+        unlink(temp_file)
+        
+        if(nrow(data) > 0) {
+          # Process data
+          price_data <- data %>%
+            rename_all(tolower) %>%
+            mutate(date = as.Date(date), symbol = symbol)
+          
+          # Handle column naming differences
+          if("adj.close" %in% colnames(price_data)) {
+            price_data <- price_data %>% rename(adjusted = adj.close)
+          } else if("adjclose" %in% colnames(price_data)) {
+            price_data <- price_data %>% rename(adjusted = adjclose)
+          }
+          
+          return(price_data)
+        }
+      }
+      unlink(temp_file)
+    }, error = function(e) NULL)
+  }
+  
+  # Return empty data if all methods failed
+  if(is.null(price_data)) {
+    return(tibble(
+      symbol = character(),
+      date = as.Date(character()),
+      close = numeric(),
+      adjusted = numeric()
+    ))
+  }
+  
+  return(price_data)
+}
+```
+
+```{r get-index-data}
+# Define market indices by region
+market_indices <- list(
+  "🇺🇸 US" = c("^GSPC", "^NDX"),                                    # S&P 500, Nasdaq 100
+  "🇪🇺 Europe" = c("^STOXX50E", "^FTSE", "^GDAXI", "^FCHI"),       # Euro Stoxx 50, FTSE 100, DAX, CAC 40
+  "🇳🇴 Nordics" = c("^OMXSPI", "^OMXC25", "^OMXHPI", "OSEBX.OL"),  # Sweden, Denmark, Finland, Norway
+  "🌏 Asia" = c("^N225", "^HSI", "000300.SS", "^KS11", "^NSEI"),    # Nikkei, Hang Seng, CSI 300, KOSPI, Nifty 50
+  "🌍 Other" = c("^BVSP", "^MXX", "^GSPTSE", "^TASI", "^JN0U.JO")   # Bovespa, IPC Mexico, TSX, Tadawul, JSE Top 40
+)
+
+# Index friendly names with emoji flags
+index_names <- c(
+  "^GSPC" = "🇺🇸 S&P 500", 
+  "^NDX" = "🇺🇸 Nasdaq 100", 
+  "^STOXX50E" = "🇪🇺 EURO STOXX 50", 
+  "^FTSE" = "🇬🇧 FTSE 100", 
+  "^GDAXI" = "🇩🇪 DAX", 
+  "^FCHI" = "🇫🇷 CAC 40",
+  "^OMXSPI" = "🇸🇪 OMX Stockholm", 
+  "^OMXC25" = "🇩🇰 OMX Copenhagen", 
+  "^OMXHPI" = "🇫🇮 OMX Helsinki", 
+  "OSEBX.OL" = "🇳🇴 Oslo OBX",
+  "^N225" = "🇯🇵 Nikkei 225", 
+  "^HSI" = "🇭🇰 Hang Seng", 
+  "000300.SS" = "🇨🇳 CSI 300", 
+  "^KS11" = "🇰🇷 KOSPI", 
+  "^NSEI" = "🇮🇳 Nifty 50", 
+  "^BVSP" = "🇧🇷 Bovespa", 
+  "^MXX" = "🇲🇽 IPC Mexico", 
+  "^GSPTSE" = "🇨🇦 S&P/TSX", 
+  "^TASI" = "🇸🇦 Tadawul", 
+  "^JN0U.JO" = "🇿🇦 JSE Top 40"
+)
+
+# Track which indices successfully loaded
+successful_indices <- character(0)
+
+# Process indices safely
+market_data <- tibble()
+
+for(region_name in names(market_indices)) {
+  for(symbol in market_indices[[region_name]]) {
+    # Get data with error handling
+    index_data <- tryCatch({
+      get_market_data(symbol, start_date, end_date)
+    }, error = function(e) NULL)
+    
+    # Add to dataset if successful (has enough data points)
+    if(!is.null(index_data) && nrow(index_data) > 100) {
+      index_data <- index_data %>%
+        mutate(
+          region = region_name,
+          index_name = index_names[symbol]
+        )
+      
+      market_data <- bind_rows(market_data, index_data)
+      
+      # Track successful indices
+      successful_indices <- c(successful_indices, index_names[symbol])
+    }
+  }
+}
+
+# Process data for analysis
+if(nrow(market_data) > 0) {
+  market_data <- market_data %>%
+    # Calculate returns
+    arrange(symbol, date) %>%
+    group_by(symbol) %>%
+    mutate(
+      # Use adjusted prices if available, otherwise close
+      price_col = if("adjusted" %in% names(.)) adjusted else close,
+      daily_return = (price_col / lag(price_col) - 1) * 100
+    ) %>%
+    filter(!is.na(daily_return)) %>%
+    # Extract weekday
+    mutate(
+      weekday = wday(date, label = TRUE),
+      year = year(date)
+    ) %>%
+    # Remove extreme outliers (> 3 standard deviations)
+    group_by(symbol) %>%
+    mutate(
+      return_zscore = abs(scale(daily_return)),
+      outlier = return_zscore > 3
+    ) %>%
+    filter(!outlier) %>%
+    select(-outlier, -return_zscore, -price_col) %>%
+    ungroup()
+}
+
+# Show data summary
+num_indices <- n_distinct(market_data$symbol)
+num_days <- n_distinct(market_data$date)
+date_range <- range(market_data$date)
+```
+
+### Global Patterns: Is There a "Best Day" for Markets?
+
+The chart below shows average returns by weekday across all global markets. Green bars show better performance, while red bars show weaker days.
+
+```{r global-weekday-returns}
+# Define red-to-green color gradient for performance
+performance_colors <- c("#FF4136", "#FF851B", "#FFDC00", "#A3D15C", "#2ECC40")
+
+# Calculate global weekday statistics
+global_weekday_stats <- market_data %>%
+  group_by(weekday) %>%
+  summarize(
+    mean_return = mean(daily_return, na.rm = TRUE),
+    median_return = median(daily_return, na.rm = TRUE),
+    volatility = sd(daily_return, na.rm = TRUE),
+    positive_days = sum(daily_return > 0, na.rm = TRUE),
+    total_days = n(),
+    pct_positive = positive_days / total_days * 100,
+    .groups = "drop"
+  ) %>%
+  mutate(weekday = factor(weekday, levels = c("Mon", "Tue", "Wed", "Thu", "Fri")))
+
+# Find best and worst weekdays
+best_weekday <- global_weekday_stats$weekday[which.max(global_weekday_stats$mean_return)]
+worst_weekday <- global_weekday_stats$weekday[which.min(global_weekday_stats$mean_return)]
+
+# Assign day-specific emojis
+weekday_emojis <- c("Mon" = "😴", "Tue" = "🚀", "Wed" = "📈", "Thu" = "💼", "Fri" = "🎉")
+
+# Map returns to color gradient (red to green)
+weekday_colors <- colorRamp(performance_colors)(
+  scales::rescale(global_weekday_stats$mean_return)
+) %>% rgb(maxColorValue = 255)
+
+# Create custom hover template with emojis
+hover_template <- lapply(1:nrow(global_weekday_stats), function(i) {
+  day <- global_weekday_stats$weekday[i]
+  emoji <- weekday_emojis[as.character(day)]
+  paste0(
+    "<b>", emoji, " ", day, "</b><br>",
+    "Average Return: ", round(global_weekday_stats$mean_return[i], 2), "%<br>",
+    "Positive Days: ", round(global_weekday_stats$pct_positive[i], 1), "% of the time<br>",
+    "<extra></extra>"
+  )
+})
+
+# Create enhanced global chart
+plot_ly(
+  data = global_weekday_stats,
+  x = ~weekday,
+  y = ~mean_return,
+  type = "bar",
+  text = ~paste0(weekday_emojis[as.character(weekday)], " ", weekday),
+  textposition = "none",
+  marker = list(
+    color = weekday_colors,
+    line = list(color = "#333333", width = 1.5)
+  ),
+  hovertemplate = unlist(hover_template)
+) %>%
+  layout(
+    title = list(
+      text = "Global Weekday Returns 🌎",
+      font = list(size = 24)
+    ),
+    xaxis = list(
+      title = "",
+      tickfont = list(size = 16)
+    ),
+    yaxis = list(
+      title = "Average Daily Return (%)",
+      titlefont = list(size = 16),
+      tickfont = list(size = 14)
+    ),
+    annotations = list(
+      list(
+        x = best_weekday,
+        y = global_weekday_stats$mean_return[global_weekday_stats$weekday == best_weekday],
+        text = paste0("⭐ Best Day ⭐<br>", round(global_weekday_stats$mean_return[global_weekday_stats$weekday == best_weekday], 2), "%"),
+        showarrow = TRUE,
+        arrowhead = 2,
+        arrowsize = 1,
+        arrowwidth = 2,
+        arrowcolor = "#25A75E",
+        ax = 0,
+        ay = -40,
+        bgcolor = "#25A75E",
+        bordercolor = "#25A75E",
+        borderwidth = 2,
+        borderpad = 4,
+        font = list(color = "white", size = 12)
+      ),
+      list(
+        x = worst_weekday,
+        y = global_weekday_stats$mean_return[global_weekday_stats$weekday == worst_weekday],
+        text = paste0("⚠️ Worst Day ⚠️<br>", round(global_weekday_stats$mean_return[global_weekday_stats$weekday == worst_weekday], 2), "%"),
+        showarrow = TRUE,
+        arrowhead = 2,
+        arrowsize = 1,
+        arrowwidth = 2,
+        arrowcolor = "#d9534f",
+        ax = 0,
+        ay = 40,
+        bgcolor = "#d9534f",
+        bordercolor = "#d9534f",
+        borderwidth = 2,
+        borderpad = 4,
+        font = list(color = "white", size = 12)
+      )
+    ),
+    margin = list(t = 100, b = 80, l = 80, r = 80),
+    plot_bgcolor = '#f8f9fa',
+    paper_bgcolor = '#f8f9fa'
+  )
+```
+
+*Markets included in this analysis: `r paste(sort(successful_indices), collapse=", ")`*
+
+### Check Your Market's Pattern
+
+Different markets can show different patterns. Click on any flag to see its specific weekday performance:
+
+```{r market-specific-analysis}
+# Filter to only include successfully loaded indices
+market_data_filtered <- market_data %>%
+  filter(index_name %in% successful_indices)
+
+# Calculate statistics for each index by weekday
+index_weekday_stats <- market_data_filtered %>%
+  group_by(region, symbol, index_name, weekday) %>%
+  summarize(
+    mean_return = mean(daily_return, na.rm = TRUE),
+    median_return = median(daily_return, na.rm = TRUE),
+    volatility = sd(daily_return, na.rm = TRUE),
+    positive_days = sum(daily_return > 0, na.rm = TRUE),
+    total_days = n(),
+    pct_positive = positive_days / total_days * 100,
+    .groups = "drop"
+  ) %>%
+  mutate(weekday = factor(weekday, levels = c("Mon", "Tue", "Wed", "Thu", "Fri")))
+
+# Get unique indices that have data
+available_indices <- unique(index_weekday_stats$index_name)
+
+# Extract the flag emoji from each index name
+flags <- sapply(available_indices, function(idx) {
+  # Extract the flag emoji at the beginning of the string
+  flag <- stringr::str_extract(idx, "^[\\p{So}]+")
+  # If no emoji is found, use a default
+  if(is.na(flag)) flag <- "🏳️"
+  return(flag)
+})
+
+# Create buttons for the flag selector
+flag_buttons <- lapply(seq_along(available_indices), function(i) {
+  idx <- available_indices[i]
+  flag <- flags[i]
+  
+  # Filter data for this index
+  idx_data <- index_weekday_stats %>%
+    filter(index_name == idx)
+  
+  # Find best and worst days
+  best_day <- idx_data$weekday[which.max(idx_data$mean_return)]
+  best_return <- max(idx_data$mean_return)
+  worst_day <- idx_data$weekday[which.min(idx_data$mean_return)]
+  worst_return <- min(idx_data$mean_return)
+  
+  # Create color mapping
+  bar_colors <- colorRamp(performance_colors)(
+    scales::rescale(idx_data$mean_return)
+  ) %>% rgb(maxColorValue = 255)
+  
+  # Create button with flag as the label
+  list(
+    method = "update",
+    args = list(
+      # Trace update
+      list(
+        x = list(idx_data$weekday),
+        y = list(idx_data$mean_return),
+        marker = list(color = bar_colors),
+        customdata = list(cbind(
+          idx_data$pct_positive
+        ))
+      ),
+      # Layout update
+      list(
+        title = list(
+          text = paste0("Weekday Returns: ", idx, " 📈"),
+          font = list(size = 24)
+        ),
+        annotations = list(
+          list(
+            x = best_day,
+            y = best_return,
+            text = paste0("⭐ Best Day ⭐<br>", round(best_return, 2), "%"),
+            showarrow = TRUE,
+            arrowhead = 2,
+            arrowsize = 1,
+            arrowwidth = 2,
+            arrowcolor = "#25A75E",
+            ax = 0,
+            ay = -40,
+            bgcolor = "#25A75E",
+            bordercolor = "#25A75E",
+            borderwidth = 2,
+            borderpad = 4,
+            font = list(color = "white", size = 12)
+          ),
+          list(
+            x = worst_day,
+            y = worst_return,
+            text = paste0("⚠️ Worst Day ⚠️<br>", round(worst_return, 2), "%"),
+            showarrow = TRUE,
+            arrowhead = 2,
+            arrowsize = 1,
+            arrowwidth = 2,
+            arrowcolor = "#d9534f",
+            ax = 0,
+            ay = 40,
+            bgcolor = "#d9534f",
+            bordercolor = "#d9534f",
+            borderwidth = 2,
+            borderpad = 4,
+            font = list(color = "white", size = 12)
+          ),
+          list(
+            xref = "paper",
+            yref = "paper",
+            x = 0.5,
+            y = -0.15,
+            text = paste("Currently showing:", idx),
+            showarrow = FALSE,
+            font = list(size = 14)
+          )
+        )
+      )
+    ),
+    label = flag,
+    args2 = list(
+      # Secondary trigger to update title below the chart
+      list(),
+      list(
+        annotations = list(
+          list(
+            x = best_day,
+            y = best_return,
+            text = paste0("⭐ Best Day ⭐<br>", round(best_return, 2), "%"),
+            showarrow = TRUE,
+            arrowhead = 2,
+            arrowsize = 1,
+            arrowwidth = 2,
+            arrowcolor = "#25A75E",
+            ax = 0,
+            ay = -40,
+            bgcolor = "#25A75E",
+            bordercolor = "#25A75E",
+            borderwidth = 2,
+            borderpad = 4,
+            font = list(color = "white", size = 12)
+          ),
+          list(
+            x = worst_day,
+            y = worst_return,
+            text = paste0("⚠️ Worst Day ⚠️<br>", round(worst_return, 2), "%"),
+            showarrow = TRUE,
+            arrowhead = 2,
+            arrowsize = 1,
+            arrowwidth = 2,
+            arrowcolor = "#d9534f",
+            ax = 0,
+            ay = 40,
+            bgcolor = "#d9534f",
+            bordercolor = "#d9534f",
+            borderwidth = 2,
+            borderpad = 4,
+            font = list(color = "white", size = 12)
+          ),
+          list(
+            xref = "paper",
+            yref = "paper",
+            x = 0.5,
+            y = -0.15,
+            text = paste("Currently showing:", idx),
+            showarrow = FALSE,
+            font = list(size = 14)
+          )
+        )
+      )
+    )
+  )
+})
+
+# Get first index data for initial plot
+first_idx <- available_indices[1]
+first_idx_data <- index_weekday_stats %>%
+  filter(index_name == first_idx)
+
+# Find best and worst days for first index
+first_best_day <- first_idx_data$weekday[which.max(first_idx_data$mean_return)]
+first_best_return <- max(first_idx_data$mean_return)
+first_worst_day <- first_idx_data$weekday[which.min(first_idx_data$mean_return)]
+first_worst_return <- min(first_idx_data$mean_return)
+
+# Create color mapping for first index
+first_bar_colors <- colorRamp(performance_colors)(
+  scales::rescale(first_idx_data$mean_return)
+) %>% rgb(maxColorValue = 255)
+
+# Create plot with flag buttons
+plot_ly(
+  data = first_idx_data,
+  x = ~weekday,
+  y = ~mean_return,
+  type = "bar",
+  text = ~paste0(weekday_emojis[as.character(weekday)], " ", weekday),
+  textposition = "none",
+  marker = list(
+    color = first_bar_colors,
+    line = list(color = "#333333", width = 1.5)
+  ),
+  hovertemplate = paste(
+    "<b>%{text}</b><br>",
+    "Average Return: %{y:.2f}%<br>",
+    "Positive Days: %{customdata[0]:.1f}% of the time<br>",
+    "<extra></extra>"
+  ),
+  # This contains additional data for each bar that's used in the hover template
+  customdata = cbind(
+    first_idx_data$pct_positive
+  )
+) %>%
+  layout(
+    title = list(
+      text = paste0("Weekday Returns: ", first_idx, " 📈"),
+      font = list(size = 24)
+    ),
+    xaxis = list(
+      title = "",
+      tickfont = list(size = 16)
+    ),
+    yaxis = list(
+      title = "Average Daily Return (%)",
+      titlefont = list(size = 16),
+      tickfont = list(size = 14),
+      zeroline = TRUE,
+      zerolinecolor = '#ddd',
+      zerolinewidth = 1
+    ),
+    updatemenus = list(
+      list(
+        buttons = flag_buttons,
+        type = "buttons",
+        direction = "right",
+        xanchor = "center",
+        yanchor = "top",
+        x = 0.5,
+        y = 1.15,
+        font = list(size = 24), # Larger font for flags
+        padding = list(t = 5, b = 5),
+        borderwidth = 0,
+        showactive = TRUE
+      )
+    ),
+    annotations = list(
+      list(
+        x = first_best_day,
+        y = first_best_return,
+        text = paste0("⭐ Best Day ⭐<br>", round(first_best_return, 2), "%"),
+        showarrow = TRUE,
+        arrowhead = 2,
+        arrowsize = 1,
+        arrowwidth = 2,
+        arrowcolor = "#25A75E",
+        ax = 0,
+        ay = -40,
+        bgcolor = "#25A75E",
+        bordercolor = "#25A75E",
+        borderwidth = 2,
+        borderpad = 4,
+        font = list(color = "white", size = 12)
+      ),
+      list(
+        x = first_worst_day,
+        y = first_worst_return,
+        text = paste0("⚠️ Worst Day ⚠️<br>", round(first_worst_return, 2), "%"),
+        showarrow = TRUE,
+        arrowhead = 2,
+        arrowsize = 1,
+        arrowwidth = 2,
+        arrowcolor = "#d9534f",
+        ax = 0,
+        ay = 40,
+        bgcolor = "#d9534f",
+        bordercolor = "#d9534f",
+        borderwidth = 2,
+        borderpad = 4,
+        font = list(color = "white", size = 12)
+      ),
+      list(
+        xref = "paper",
+        yref = "paper",
+        x = 0.5,
+        y = -0.15,
+        text = paste("Currently showing:", first_idx),
+        showarrow = FALSE,
+        font = list(size = 14)
+      )
+    ),
+    margin = list(t = 100, b = 100, l = 80, r = 80),
+    plot_bgcolor = '#f8f9fa',
+    paper_bgcolor = '#f8f9fa',
+    showlegend = FALSE
+  )
+```
