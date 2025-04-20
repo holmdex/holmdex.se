@@ -1,7 +1,7 @@
 ---
 title: "Weekday Market Patterns"
-author: ""
-date: ""
+author: "Holmdex"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
 format: 
   html:
     theme: cosmo
@@ -134,6 +134,15 @@ market_indices <- list(
   "🌍 Other" = c("^BVSP", "^MXX", "^GSPTSE", "^TASI", "^JN0U.JO")   # Bovespa, IPC Mexico, TSX, Tadawul, JSE Top 40
 )
 
+# Full region descriptions for display
+region_descriptions <- c(
+  "🇺🇸 US" = "United States (S&P 500, Nasdaq 100)",
+  "🇪🇺 Europe" = "Europe (STOXX50E, FTSE, DAX, CAC40)",
+  "🇳🇴 Nordics" = "Nordic Countries (Sweden, Denmark, Finland, Norway)",
+  "🌏 Asia" = "Asia (Japan, Hong Kong, China, South Korea, India)",
+  "🌍 Other" = "Other Markets (Brazil, Mexico, Canada, Saudi Arabia, South Africa)"
+)
+
 # Index friendly names with emoji flags
 index_names <- c(
   "^GSPC" = "🇺🇸 S&P 500", 
@@ -158,64 +167,88 @@ index_names <- c(
   "^JN0U.JO" = "🇿🇦 JSE Top 40"
 )
 
-# Track which indices successfully loaded
-successful_indices <- character(0)
+# Try to load cached data if available
+cache_file <- "market_data_cache.rds"
+market_data <- NULL
 
-# Process indices safely
-market_data <- tibble()
-
-for(region_name in names(market_indices)) {
-  for(symbol in market_indices[[region_name]]) {
-    # Get data with error handling
-    index_data <- tryCatch({
-      get_market_data(symbol, start_date, end_date)
+if (file.exists(cache_file)) {
+  # Check if cache is recent (less than 7 days old)
+  cache_age <- difftime(Sys.time(), file.info(cache_file)$mtime, units = "days")
+  if (cache_age < 7) {
+    tryCatch({
+      market_data <- readRDS(cache_file)
     }, error = function(e) NULL)
-    
-    # Add to dataset if successful (has enough data points)
-    if(!is.null(index_data) && nrow(index_data) > 100) {
-      index_data <- index_data %>%
-        mutate(
-          region = region_name,
-          index_name = index_names[symbol]
-        )
-      
-      market_data <- bind_rows(market_data, index_data)
-      
-      # Track successful indices
-      successful_indices <- c(successful_indices, index_names[symbol])
-    }
   }
 }
 
-# Process data for analysis
-if(nrow(market_data) > 0) {
-  market_data <- market_data %>%
-    # Calculate returns
-    arrange(symbol, date) %>%
-    group_by(symbol) %>%
-    mutate(
-      # Use adjusted prices if available, otherwise close
-      price_col = if("adjusted" %in% names(.)) adjusted else close,
-      daily_return = (price_col / lag(price_col) - 1) * 100
-    ) %>%
-    filter(!is.na(daily_return)) %>%
-    # Extract weekday
-    mutate(
-      weekday = wday(date, label = TRUE),
-      year = year(date)
-    ) %>%
-    # Remove extreme outliers (> 3 standard deviations)
-    group_by(symbol) %>%
-    mutate(
-      return_zscore = abs(scale(daily_return)),
-      outlier = return_zscore > 3
-    ) %>%
-    filter(!outlier) %>%
-    select(-outlier, -return_zscore, -price_col) %>%
-    ungroup()
+# Get fresh data if needed
+if (is.null(market_data)) {
+  # Track which indices successfully loaded
+  successful_indices <- character(0)
+  
+  # Process indices safely
+  market_data <- tibble()
+  
+  for(region_name in names(market_indices)) {
+    for(symbol in market_indices[[region_name]]) {
+      # Get data with error handling
+      index_data <- tryCatch({
+        get_market_data(symbol, start_date, end_date)
+      }, error = function(e) NULL)
+      
+      # Add to dataset if successful (has enough data points)
+      if(!is.null(index_data) && nrow(index_data) > 100) {
+        index_data <- index_data %>%
+          mutate(
+            region = region_name,
+            index_name = index_names[symbol]
+          )
+        
+        market_data <- bind_rows(market_data, index_data)
+        
+        # Track successful indices
+        successful_indices <- c(successful_indices, index_names[symbol])
+      }
+    }
+  }
+  
+  # Process data for analysis
+  if(nrow(market_data) > 0) {
+    market_data <- market_data %>%
+      # Calculate returns
+      arrange(symbol, date) %>%
+      group_by(symbol) %>%
+      mutate(
+        # Use adjusted prices if available, otherwise close
+        price_col = if("adjusted" %in% names(.)) adjusted else close,
+        daily_return = (price_col / lag(price_col) - 1) * 100
+      ) %>%
+      filter(!is.na(daily_return)) %>%
+      # Extract weekday as character to avoid factor level issues
+      mutate(
+        weekday = as.character(wday(date, label = TRUE)),
+        year = year(date)
+      ) %>%
+      # Remove extreme outliers (> 3 standard deviations)
+      group_by(symbol) %>%
+      mutate(
+        return_zscore = abs(scale(daily_return)),
+        outlier = return_zscore > 3
+      ) %>%
+      filter(!outlier) %>%
+      select(-outlier, -return_zscore, -price_col) %>%
+      ungroup()
+    
+    # Save to cache
+    saveRDS(market_data, cache_file)
+  }
 }
 
+# Define fixed weekday order to use throughout
+weekday_order <- c("Mon", "Tue", "Wed", "Thu", "Fri")
+
 # Show data summary
+successful_indices <- unique(market_data$index_name)
 num_indices <- n_distinct(market_data$symbol)
 num_days <- n_distinct(market_data$date)
 date_range <- range(market_data$date)
@@ -229,6 +262,31 @@ The chart below shows average returns by weekday across all global markets. Gree
 # Define red-to-green color gradient for performance
 performance_colors <- c("#FF4136", "#FF851B", "#FFDC00", "#A3D15C", "#2ECC40")
 
+# Calculate regional statistics to determine weights
+regional_stats <- market_data %>%
+  group_by(region, weekday) %>%
+  summarize(
+    mean_return = mean(daily_return, na.rm = TRUE),
+    median_return = median(daily_return, na.rm = TRUE),
+    volatility = sd(daily_return, na.rm = TRUE),
+    positive_days = sum(daily_return > 0, na.rm = TRUE),
+    total_days = n(),
+    pct_positive = positive_days / total_days * 100,
+    data_points = n(),
+    .groups = "drop"
+  )
+
+# Calculate region weights based on data points
+region_weights <- regional_stats %>%
+  group_by(region) %>%
+  summarize(
+    total_points = sum(data_points),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    weight_pct = total_points / sum(total_points) * 100
+  )
+
 # Calculate global weekday statistics
 global_weekday_stats <- market_data %>%
   group_by(weekday) %>%
@@ -240,8 +298,27 @@ global_weekday_stats <- market_data %>%
     total_days = n(),
     pct_positive = positive_days / total_days * 100,
     .groups = "drop"
-  ) %>%
-  mutate(weekday = factor(weekday, levels = c("Mon", "Tue", "Wed", "Thu", "Fri")))
+  )
+
+# Create regional weight information for each weekday
+# This is the critical fix - using character weekday to avoid factor level issues
+regional_contributions <- regional_stats %>%
+  left_join(region_weights, by = "region") %>%
+  group_by(weekday) %>%
+  summarize(
+    region_weights = paste0(
+      unique(region), ": ", 
+      round(weight_pct, 1), "%", 
+      collapse = ", "
+    ),
+    .groups = "drop"
+  )
+
+# Join regional contributions to global stats using character weekday
+global_weekday_stats <- global_weekday_stats %>%
+  left_join(regional_contributions, by = "weekday") %>%
+  # Now reorder weekdays properly after joining
+  mutate(weekday = factor(weekday, levels = weekday_order))
 
 # Find best and worst weekdays
 best_weekday <- global_weekday_stats$weekday[which.max(global_weekday_stats$mean_return)]
@@ -255,20 +332,30 @@ weekday_colors <- colorRamp(performance_colors)(
   scales::rescale(global_weekday_stats$mean_return)
 ) %>% rgb(maxColorValue = 255)
 
-# Create custom hover template with emojis
+# Create custom hover template with emojis, median and std dev
 hover_template <- lapply(1:nrow(global_weekday_stats), function(i) {
   day <- global_weekday_stats$weekday[i]
   emoji <- weekday_emojis[as.character(day)]
   paste0(
     "<b>", emoji, " ", day, "</b><br>",
     "Average Return: ", round(global_weekday_stats$mean_return[i], 2), "%<br>",
+    "Median Return: ", round(global_weekday_stats$median_return[i], 2), "%<br>",
+    "Standard Deviation: ", round(global_weekday_stats$volatility[i], 2), "%<br>", 
     "Positive Days: ", round(global_weekday_stats$pct_positive[i], 1), "% of the time<br>",
     "<extra></extra>"
   )
 })
 
+# Format the regional weights with detailed descriptions
+regional_weights_display <- paste("*Regional weights:", paste(
+  sapply(names(region_weights$weight_pct), function(region) {
+    paste0(region_descriptions[region], " - ", round(region_weights$weight_pct[region_weights$region == region], 1), "%")
+  }),
+  collapse = "; "
+))
+
 # Create enhanced global chart
-plot_ly(
+global_chart <- plot_ly(
   data = global_weekday_stats,
   x = ~weekday,
   y = ~mean_return,
@@ -329,19 +416,32 @@ plot_ly(
         borderwidth = 2,
         borderpad = 4,
         font = list(color = "white", size = 12)
+      ),
+      # Add regional weights as a subtitle annotation with more detailed descriptions
+      list(
+        xref = "paper",
+        yref = "paper",
+        x = 0.5,
+        y = -0.15,
+        text = regional_weights_display,
+        showarrow = FALSE,
+        font = list(size = 12, color = "gray", italic = TRUE)
       )
     ),
-    margin = list(t = 100, b = 80, l = 80, r = 80),
+    margin = list(t = 100, b = 100, l = 80, r = 80),
     plot_bgcolor = '#f8f9fa',
     paper_bgcolor = '#f8f9fa'
   )
+
+# Display the global chart
+global_chart
 ```
 
 *Markets included in this analysis: `r paste(sort(successful_indices), collapse=", ")`*
 
 ### Check Your Market's Pattern
 
-Different markets can show different patterns. Click on any flag to see its specific weekday performance:
+Different markets can show different patterns. Use the dropdown menu to select a market index:
 
 ```{r market-specific-analysis}
 # Filter to only include successfully loaded indices
@@ -360,24 +460,48 @@ index_weekday_stats <- market_data_filtered %>%
     pct_positive = positive_days / total_days * 100,
     .groups = "drop"
   ) %>%
-  mutate(weekday = factor(weekday, levels = c("Mon", "Tue", "Wed", "Thu", "Fri")))
+  # Use the same weekday ordering as the global chart
+  mutate(weekday = factor(weekday, levels = weekday_order))
 
-# Get unique indices that have data
-available_indices <- unique(index_weekday_stats$index_name)
+# Group indices by region for better organization
+region_indices <- market_data_filtered %>%
+  select(region, index_name) %>%
+  distinct() %>%
+  arrange(region, index_name)
 
-# Extract the flag emoji from each index name
-flags <- sapply(available_indices, function(idx) {
-  # Extract the flag emoji at the beginning of the string
-  flag <- stringr::str_extract(idx, "^[\\p{So}]+")
-  # If no emoji is found, use a default
-  if(is.na(flag)) flag <- "🏳️"
-  return(flag)
-})
+# Create button labels that include region headers
+button_labels <- c()
+for (region in unique(region_indices$region)) {
+  # Add a region separator
+  button_labels <- c(button_labels, paste0("📍 ", region, " 📍"))
+  
+  # Add all indices from this region
+  region_label_indices <- region_indices %>%
+    filter(region == !!region) %>%
+    pull(index_name)
+  
+  button_labels <- c(button_labels, region_label_indices)
+}
 
-# Create buttons for the flag selector
-flag_buttons <- lapply(seq_along(available_indices), function(i) {
-  idx <- available_indices[i]
-  flag <- flags[i]
+# Get actual indices (without separators)
+available_indices <- region_indices$index_name
+
+# Create buttons for the dropdown
+index_buttons <- lapply(seq_along(button_labels), function(i) {
+  label <- button_labels[i]
+  
+  # Check if this is a region separator
+  if (startsWith(label, "📍")) {
+    # Return a non-functional button for the region header
+    return(list(
+      method = "skip",
+      label = label,
+      args = list(list(), list())
+    ))
+  }
+  
+  # This is an actual index - create a functional button
+  idx <- label
   
   # Filter data for this index
   idx_data <- index_weekday_stats %>%
@@ -394,7 +518,7 @@ flag_buttons <- lapply(seq_along(available_indices), function(i) {
     scales::rescale(idx_data$mean_return)
   ) %>% rgb(maxColorValue = 255)
   
-  # Create button with flag as the label
+  # Create button with full index name as the label
   list(
     method = "update",
     args = list(
@@ -404,7 +528,9 @@ flag_buttons <- lapply(seq_along(available_indices), function(i) {
         y = list(idx_data$mean_return),
         marker = list(color = bar_colors),
         customdata = list(cbind(
-          idx_data$pct_positive
+          idx_data$pct_positive,
+          idx_data$median_return,
+          idx_data$volatility
         ))
       ),
       # Layout update
@@ -447,71 +573,11 @@ flag_buttons <- lapply(seq_along(available_indices), function(i) {
             borderwidth = 2,
             borderpad = 4,
             font = list(color = "white", size = 12)
-          ),
-          list(
-            xref = "paper",
-            yref = "paper",
-            x = 0.5,
-            y = -0.15,
-            text = paste("Currently showing:", idx),
-            showarrow = FALSE,
-            font = list(size = 14)
           )
         )
       )
     ),
-    label = flag,
-    args2 = list(
-      # Secondary trigger to update title below the chart
-      list(),
-      list(
-        annotations = list(
-          list(
-            x = best_day,
-            y = best_return,
-            text = paste0("⭐ Best Day ⭐<br>", round(best_return, 2), "%"),
-            showarrow = TRUE,
-            arrowhead = 2,
-            arrowsize = 1,
-            arrowwidth = 2,
-            arrowcolor = "#25A75E",
-            ax = 0,
-            ay = -40,
-            bgcolor = "#25A75E",
-            bordercolor = "#25A75E",
-            borderwidth = 2,
-            borderpad = 4,
-            font = list(color = "white", size = 12)
-          ),
-          list(
-            x = worst_day,
-            y = worst_return,
-            text = paste0("⚠️ Worst Day ⚠️<br>", round(worst_return, 2), "%"),
-            showarrow = TRUE,
-            arrowhead = 2,
-            arrowsize = 1,
-            arrowwidth = 2,
-            arrowcolor = "#d9534f",
-            ax = 0,
-            ay = 40,
-            bgcolor = "#d9534f",
-            bordercolor = "#d9534f",
-            borderwidth = 2,
-            borderpad = 4,
-            font = list(color = "white", size = 12)
-          ),
-          list(
-            xref = "paper",
-            yref = "paper",
-            x = 0.5,
-            y = -0.15,
-            text = paste("Currently showing:", idx),
-            showarrow = FALSE,
-            font = list(size = 14)
-          )
-        )
-      )
-    )
+    label = label
   )
 })
 
@@ -531,8 +597,8 @@ first_bar_colors <- colorRamp(performance_colors)(
   scales::rescale(first_idx_data$mean_return)
 ) %>% rgb(maxColorValue = 255)
 
-# Create plot with flag buttons
-plot_ly(
+# Create plot with dropdown menu
+index_chart <- plot_ly(
   data = first_idx_data,
   x = ~weekday,
   y = ~mean_return,
@@ -546,12 +612,16 @@ plot_ly(
   hovertemplate = paste(
     "<b>%{text}</b><br>",
     "Average Return: %{y:.2f}%<br>",
+    "Median Return: %{customdata[1]:.2f}%<br>",
+    "Standard Deviation: %{customdata[2]:.2f}%<br>",
     "Positive Days: %{customdata[0]:.1f}% of the time<br>",
     "<extra></extra>"
   ),
   # This contains additional data for each bar that's used in the hover template
   customdata = cbind(
-    first_idx_data$pct_positive
+    first_idx_data$pct_positive,
+    first_idx_data$median_return,
+    first_idx_data$volatility
   )
 ) %>%
   layout(
@@ -573,17 +643,17 @@ plot_ly(
     ),
     updatemenus = list(
       list(
-        buttons = flag_buttons,
-        type = "buttons",
-        direction = "right",
+        buttons = index_buttons,
+        type = "dropdown",
+        direction = "down",
+        showactive = TRUE,
+        x = 0.5,
+        y = 1.2,
         xanchor = "center",
         yanchor = "top",
-        x = 0.5,
-        y = 1.15,
-        font = list(size = 24), # Larger font for flags
-        padding = list(t = 5, b = 5),
-        borderwidth = 0,
-        showactive = TRUE
+        bgcolor = "#ffffff",
+        bordercolor = "#d3d3d3",
+        font = list(size = 14)
       )
     ),
     annotations = list(
@@ -621,19 +691,23 @@ plot_ly(
         borderpad = 4,
         font = list(color = "white", size = 12)
       ),
+      # Add label for the dropdown
       list(
         xref = "paper",
         yref = "paper",
         x = 0.5,
-        y = -0.15,
-        text = paste("Currently showing:", first_idx),
+        y = 1.15,
+        text = "Select Market Index:",
         showarrow = FALSE,
-        font = list(size = 14)
+        font = list(size = 14, color = "#333")
       )
     ),
-    margin = list(t = 100, b = 100, l = 80, r = 80),
+    margin = list(t = 120, b = 80, l = 80, r = 80),
     plot_bgcolor = '#f8f9fa',
     paper_bgcolor = '#f8f9fa',
     showlegend = FALSE
   )
+
+# Display the index chart
+index_chart
 ```
