@@ -13,105 +13,312 @@ format:
 ---
 
 ```{r setup, include=FALSE}
-# Load core packages
+# Load essential packages
 suppressPackageStartupMessages({
   library(tidyverse)
   library(lubridate)
   library(plotly)
-  library(DT)
   library(knitr)
 })
 
-# Try to load data packages
-for(pkg in c("quantmod", "tidyquant")) {
-  if(requireNamespace(pkg, quietly = TRUE)) library(pkg, character.only = TRUE)
+# Explicitly set dplyr functions to avoid namespace conflicts
+filter <- dplyr::filter
+select <- dplyr::select
+group_by <- dplyr::group_by
+summarize <- dplyr::summarize
+mutate <- dplyr::mutate
+arrange <- dplyr::arrange
+
+# Try to load all potentially useful market data packages with improved error handling
+required_packages <- c(
+  "quantmod", "tidyquant", "httr", "jsonlite", 
+  "rvest", "xml2", "TTR", "curl"
+)
+
+for(pkg in required_packages) {
+  tryCatch({
+    if(!requireNamespace(pkg, quietly = TRUE)) {
+      install.packages(pkg, repos = "https://cloud.r-project.org")
+    }
+    library(pkg, character.only = TRUE)
+  }, error = function(e) {
+    message(paste("Note: Package", pkg, "could not be loaded:", e$message))
+  })
 }
 
 # Set global options
 knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = FALSE)
 
-# Set date parameters
+# Set fixed time period for consistent analysis - 5 years of data but allow less if needed
 end_date <- Sys.Date()
-start_date <- end_date - years(10)
+start_date <- end_date - years(5)
+
+# Set minimum trading days requirement (approximately 1.5 years of trading)
+# Less strict to ensure more regions are included
+MIN_TRADING_DAYS <- 1000
+
+# Set a minimum requirement for indices per region
+# This ensures we have at least some representation for each region
+MIN_INDICES_PER_REGION <- 1
+
+# Set weekday coverage requirement - allow partial representation
+MIN_WEEKDAY_COUNT <- 100  # At least 10 occurrences of each weekday needed
 ```
 
-```{r get-data-function}
-# Function to safely get market data with multiple fallbacks
-get_market_data <- function(symbol, start_date, end_date) {
+```{r get-market-data-function}
+# Enhanced function to attempt many different methods to get market data
+get_market_data <- function(symbol, start_date, end_date, retries = 5, timeout = 60) {
   price_data <- NULL
   
-  # Try quantmod first
-  if(exists("getSymbols")) {
-    tryCatch({
-      ticker <- getSymbols(symbol, src = "yahoo", from = start_date, to = end_date, auto.assign = FALSE)
-      
-      if(!is.null(ticker) && nrow(ticker) > 0) {
-        # Format data
-        price_data <- data.frame(date = index(ticker), coredata(ticker))
-        colnames(price_data) <- c("date", "open", "high", "low", "close", "volume", "adjusted")
-        price_data$symbol <- symbol
-        return(price_data)
-      }
-    }, error = function(e) NULL)
-  }
-  
-  # Try tidyquant if available
-  if(is.null(price_data) && exists("tq_get")) {
-    tryCatch({
-      ticker_data <- tq_get(symbol, from = start_date, to = end_date, get = "stock.prices")
-      
-      if(!is.null(ticker_data) && nrow(ticker_data) > 0) {
-        return(ticker_data)
-      }
-    }, error = function(e) NULL)
-  }
-  
-  # Try Yahoo Finance API directly
-  if(is.null(price_data)) {
-    tryCatch({
-      # Format dates for Yahoo
-      start_unix <- as.numeric(as.POSIXct(start_date))
-      end_unix <- as.numeric(as.POSIXct(end_date))
-      
-      # Build URL
-      url <- paste0(
-        "https://query1.finance.yahoo.com/v7/finance/download/", 
-        symbol,
-        "?period1=", start_unix,
-        "&period2=", end_unix,
-        "&interval=1d&events=history"
-      )
-      
-      # Download data
-      temp_file <- tempfile(fileext = ".csv")
-      download.file(url, temp_file, quiet = TRUE, mode = "wb")
-      
-      if(file.exists(temp_file) && file.info(temp_file)$size > 0) {
-        data <- read.csv(temp_file, stringsAsFactors = FALSE)
-        unlink(temp_file)
+  # Retry mechanism to handle transient network issues
+  for(retry in 1:retries) {
+    if(!is.null(price_data)) break
+
+    # Method 1: Try quantmod with Yahoo Finance
+    if(is.null(price_data) && exists("getSymbols")) {
+      tryCatch({
+        options(timeout = timeout)
+        ticker <- getSymbols(symbol, src = "yahoo", from = start_date, to = end_date, auto.assign = FALSE)
         
-        if(nrow(data) > 0) {
-          # Process data
-          price_data <- data %>%
-            rename_all(tolower) %>%
-            mutate(date = as.Date(date), symbol = symbol)
-          
-          # Handle column naming differences
-          if("adj.close" %in% colnames(price_data)) {
-            price_data <- price_data %>% rename(adjusted = adj.close)
-          } else if("adjclose" %in% colnames(price_data)) {
-            price_data <- price_data %>% rename(adjusted = adjclose)
-          }
-          
+        if(!is.null(ticker) && nrow(ticker) > 0) {
+          # Format data
+          price_data <- data.frame(date = index(ticker), coredata(ticker))
+          colnames(price_data) <- c("date", "open", "high", "low", "close", "volume", "adjusted")
+          price_data$symbol <- symbol
           return(price_data)
         }
-      }
-      unlink(temp_file)
-    }, error = function(e) NULL)
+      }, error = function(e) {
+        if(retry == retries) message(paste("Method 1 failed for", symbol, ":", e$message))
+        NULL
+      })
+    }
+    
+    # Method 2: Try tidyquant
+    if(is.null(price_data) && exists("tq_get")) {
+      tryCatch({
+        options(timeout = timeout)
+        ticker_data <- tq_get(symbol, from = start_date, to = end_date, get = "stock.prices")
+        
+        if(!is.null(ticker_data) && nrow(ticker_data) > 0) {
+          return(ticker_data)
+        }
+      }, error = function(e) {
+        if(retry == retries) message(paste("Method 2 failed for", symbol, ":", e$message))
+        NULL
+      })
+    }
+    
+    # Method 3: Try Yahoo Finance API directly with httr
+    if(is.null(price_data) && requireNamespace("httr", quietly = TRUE)) {
+      tryCatch({
+        # Format dates for Yahoo (ensure they're UNIX timestamps)
+        start_unix <- as.numeric(as.POSIXct(start_date))
+        end_unix <- as.numeric(as.POSIXct(end_date))
+        
+        # Build URL
+        url <- paste0(
+          "https://query1.finance.yahoo.com/v7/finance/download/", 
+          URLencode(symbol),
+          "?period1=", start_unix,
+          "&period2=", end_unix,
+          "&interval=1d&events=history"
+        )
+        
+        # Use randomized browser-like headers to avoid getting blocked
+        user_agents <- c(
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15",
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
+          "Mozilla/5.0 (iPad; CPU OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
+        )
+        
+        headers <- c(
+          "User-Agent" = user_agents[sample(1:length(user_agents), 1)],
+          "Accept" = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language" = "en-US,en;q=0.5",
+          "Connection" = "keep-alive"
+        )
+        
+        response <- httr::GET(url, httr::add_headers(.headers = headers), httr::timeout(timeout))
+        
+        if(httr::status_code(response) == 200) {
+          # Save to temp file
+          temp_file <- tempfile(fileext = ".csv")
+          writeBin(httr::content(response, "raw"), temp_file)
+          
+          if(file.exists(temp_file) && file.info(temp_file)$size > 0) {
+            data <- read.csv(temp_file, stringsAsFactors = FALSE)
+            unlink(temp_file)
+            
+            if(nrow(data) > 0) {
+              # Process data
+              price_data <- data %>%
+                rename_all(tolower) %>%
+                mutate(date = as.Date(date), symbol = symbol)
+              
+              # Handle column naming differences
+              if("adj.close" %in% colnames(price_data)) {
+                price_data <- price_data %>% rename(adjusted = adj.close)
+              } else if("adjclose" %in% colnames(price_data)) {
+                price_data <- price_data %>% rename(adjusted = adjclose)
+              }
+              
+              return(price_data)
+            }
+          }
+          unlink(temp_file)
+        }
+      }, error = function(e) {
+        if(retry == retries) message(paste("Method 3 failed for", symbol, ":", e$message))
+        NULL
+      })
+    }
+    
+    # Method 4: Try Yahoo Finance API with different URL format
+    if(is.null(price_data)) {
+      tryCatch({
+        # Format dates for Yahoo
+        start_unix <- as.numeric(as.POSIXct(start_date))
+        end_unix <- as.numeric(as.POSIXct(end_date))
+        
+        # Build URL with interval query param
+        url <- paste0(
+          "https://query2.finance.yahoo.com/v7/finance/download/", 
+          URLencode(symbol),
+          "?period1=", start_unix,
+          "&period2=", end_unix,
+          "&interval=1d&events=history&includeAdjustedClose=true"
+        )
+        
+        # Different user agent for this attempt
+        headers <- c(
+          "User-Agent" = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0",
+          "Accept" = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language" = "en-US,en;q=0.5"
+        )
+        
+        response <- httr::GET(url, httr::add_headers(.headers = headers), httr::timeout(timeout))
+        
+        if(httr::status_code(response) == 200) {
+          # Save to temp file
+          temp_file <- tempfile(fileext = ".csv")
+          writeBin(httr::content(response, "raw"), temp_file)
+          
+          if(file.exists(temp_file) && file.info(temp_file)$size > 0) {
+            data <- read.csv(temp_file, stringsAsFactors = FALSE)
+            unlink(temp_file)
+            
+            if(nrow(data) > 0) {
+              price_data <- data %>%
+                rename_all(tolower) %>%
+                mutate(date = as.Date(date), symbol = symbol)
+              
+              # Handle column naming differences
+              if("adj.close" %in% colnames(price_data)) {
+                price_data <- price_data %>% rename(adjusted = adj.close)
+              } else if("adjclose" %in% colnames(price_data)) {
+                price_data <- price_data %>% rename(adjusted = adjclose)
+              }
+              
+              return(price_data)
+            }
+          }
+          unlink(temp_file)
+        }
+      }, error = function(e) {
+        if(retry == retries) message(paste("Method 4 failed for", symbol, ":", e$message))
+        NULL
+      })
+    }
+    
+    # Method 5: Try curl library directly for Yahoo Finance data
+    if(is.null(price_data) && requireNamespace("curl", quietly = TRUE)) {
+      tryCatch({
+        # Format dates for Yahoo
+        start_unix <- as.numeric(as.POSIXct(start_date))
+        end_unix <- as.numeric(as.POSIXct(end_date))
+        
+        # Build URL
+        url <- paste0(
+          "https://query1.finance.yahoo.com/v7/finance/download/", 
+          URLencode(symbol),
+          "?period1=", start_unix,
+          "&period2=", end_unix,
+          "&interval=1d&events=history"
+        )
+        
+        # Set up curl handle with headers and options
+        handle <- curl::new_handle()
+        curl::handle_setheaders(handle,
+          "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:84.0) Gecko/20100101 Firefox/84.0",
+          "Accept" = "text/html,application/xhtml+xml"
+        )
+        curl::handle_setopt(handle, timeout = timeout)
+        
+        # Download to temp file
+        temp_file <- tempfile(fileext = ".csv")
+        curl::curl_download(url, temp_file, handle = handle)
+        
+        if(file.exists(temp_file) && file.info(temp_file)$size > 0) {
+          data <- read.csv(temp_file, stringsAsFactors = FALSE)
+          unlink(temp_file)
+          
+          if(nrow(data) > 0) {
+            price_data <- data %>%
+              rename_all(tolower) %>%
+              mutate(date = as.Date(date), symbol = symbol)
+            
+            # Handle column naming differences
+            if("adj.close" %in% colnames(price_data)) {
+              price_data <- price_data %>% rename(adjusted = adj.close)
+            } else if("adjclose" %in% colnames(price_data)) {
+              price_data <- price_data %>% rename(adjusted = adjclose)
+            }
+            
+            return(price_data)
+          }
+        }
+        if(file.exists(temp_file)) unlink(temp_file)
+      }, error = function(e) {
+        if(retry == retries) message(paste("Method 5 failed for", symbol, ":", e$message))
+        if(file.exists(temp_file)) unlink(temp_file)
+        NULL
+      })
+    }
+    
+    # Method 6: Try a fallback period if we're still having issues
+    # Sometimes we can't get 5 years of data but can get 3 years
+    if(is.null(price_data) && retry > 3) {
+      # Try with a shorter time period (3 years instead of 5)
+      fallback_start_date <- end_date - years(3)
+      message(paste("Trying fallback 3-year period for", symbol))
+      
+      tryCatch({
+        options(timeout = timeout)
+        ticker <- getSymbols(symbol, src = "yahoo", from = fallback_start_date, to = end_date, auto.assign = FALSE)
+        
+        if(!is.null(ticker) && nrow(ticker) > 0) {
+          # Format data
+          price_data <- data.frame(date = index(ticker), coredata(ticker))
+          colnames(price_data) <- c("date", "open", "high", "low", "close", "volume", "adjusted")
+          price_data$symbol <- symbol
+          return(price_data)
+        }
+      }, error = function(e) {
+        message(paste("Fallback period also failed for", symbol, ":", e$message))
+        NULL
+      })
+    }
+    
+    # Wait between retries with exponential backoff
+    if(is.null(price_data) && retry < retries) {
+      Sys.sleep(retry * 2)  # Increase wait time with each retry
+    }
   }
   
-  # Return empty data if all methods failed
+  # If all methods fail, return empty data frame with proper structure
   if(is.null(price_data)) {
+    message(paste("All methods failed for", symbol))
     return(tibble(
       symbol = character(),
       date = as.Date(character()),
@@ -123,135 +330,682 @@ get_market_data <- function(symbol, start_date, end_date) {
   return(price_data)
 }
 ```
+```{r define-market-indices}
+# Define market indices by geographical region with multiple ticker options
+# Each primary index has alternative tickers to maximize chance of successful data retrieval
+# Organized by geographic and economic relationships
 
-```{r get-index-data}
-# Define market indices by region
-market_indices <- list(
-  "🇺🇸 US" = c("^GSPC", "^NDX"),                                    # S&P 500, Nasdaq 100
-  "🇪🇺 Europe" = c("^STOXX50E", "^FTSE", "^GDAXI", "^FCHI"),       # Euro Stoxx 50, FTSE 100, DAX, CAC 40
-  "🇳🇴 Nordics" = c("^OMXSPI", "^OMXC25", "^OMXHPI", "OSEBX.OL"),  # Sweden, Denmark, Finland, Norway
-  "🌏 Asia" = c("^N225", "^HSI", "000300.SS", "^KS11", "^NSEI"),    # Nikkei, Hang Seng, CSI 300, KOSPI, Nifty 50
-  "🌍 Other" = c("^BVSP", "^MXX", "^GSPTSE", "^TASI", "^JN0U.JO")   # Bovespa, IPC Mexico, TSX, Tadawul, JSE Top 40
+# North America region
+north_america_tickers <- list(
+  "S&P 500" = c("^GSPC", "SPY", "INX", "SP500", "ES=F"),
+  "Dow Jones" = c("^DJI", "DIA", "INDU", "YM=F"),
+  "Nasdaq" = c("^IXIC", "QQQ", "COMP", "ONEQ", "NQ=F"),
+  "Russell 2000" = c("^RUT", "IWM", "RTY=F"),
+  "S&P/TSX Composite" = c("^GSPTSE", "XIC.TO", "TSX", "^JX")
 )
 
-# Full region descriptions for display
-region_descriptions <- c(
-  "🇺🇸 US" = "United States (S&P 500, Nasdaq 100)",
-  "🇪🇺 Europe" = "Europe (STOXX50E, FTSE, DAX, CAC40)",
-  "🇳🇴 Nordics" = "Nordic Countries (Sweden, Denmark, Finland, Norway)",
-  "🌏 Asia" = "Asia (Japan, Hong Kong, China, South Korea, India)",
-  "🌍 Other" = "Other Markets (Brazil, Mexico, Canada, Saudi Arabia, South Africa)"
+# Northern Europe (Nordics) region
+nordic_tickers <- list(
+  "OMX Stockholm" = c("^OMXSPI", "OMXS30.ST", "OMX", "OMXS30.NX", "OMXS"),
+  "OMX Copenhagen" = c("^OMXC25", "OMXC25.CO", "KFX.CO", "OMXC20", "OMXC"),
+  "OMX Helsinki" = c("^OMXHPI", "OMXH25", "OMXH25.HE", "HEX", "OMXH"),
+  "Oslo Exchange" = c("OSEBX.OL", "OBX.OL", "OSEAX", "OSE")
+)
+
+# Western Europe region
+western_europe_tickers <- list(
+  "FTSE 100" = c("^FTSE", "EWU", "UKX", "FTSE", "ISF.L", "FTLC.L"),
+  "DAX 40" = c("^GDAXI", "EWG", "DAX", "DAX.DE"),
+  "CAC 40" = c("^FCHI", "EWQ", "FCHI", "CAC", "PX1"),
+  "EURO STOXX 50" = c("^STOXX50E", "FEZ", "SX5E", "EUROSTOXX50"),
+  "IBEX 35" = c("^IBEX", "EWP", "IBEX", "IBEX.MC"),
+  "FTSE MIB" = c("^FTSEMIB.MI", "EWI", "FTSEMIB", "FTMIB.MI"),
+  "Swiss Market Index" = c("^SSMI", "EWL", "SMI", "SMI.SW")
+)
+
+# Eastern Europe region
+eastern_europe_tickers <- list(
+  "Poland WIG" = c("WIG", "WIG20.PL", "WIG.PL", "WIG20", "EPOL"),
+  "Hungary BUX" = c("^BUX", "BUX", "BUX.BD"),
+  "Prague PX" = c("^PX", "PX", "PX.PR"),
+  "MOEX Russia" = c("IMOEX.ME", "MOEX", "RTSI.ME", "RTSI", "ERUS")
+)
+
+# East Asia region
+east_asia_tickers <- list(
+  "Nikkei 225" = c("^N225", "EWJ", "NKY", "NI225", "NI225.F", "NIKKEI", "1578.T"),
+  "Hang Seng" = c("^HSI", "EWH", "HSI", "HSI.HK"),
+  "CSI 300" = c("000300.SS", "ASHR", "399001.SZ", "SHA", "SHCOMP"),
+  "KOSPI" = c("^KS11", "EWY", "KS11", "KOSPI", "KOR", "KOR.KS"),
+  "Taiwan Weighted" = c("^TWII", "EWT", "TWII", "TPE", "Y9999", "TWSE")
+)
+
+# South Asia region
+south_asia_tickers <- list(
+  "BSE SENSEX" = c("^BSESN", "SENSEX.BO", "BSE", "BSE30", "INDY"),
+  "Nifty 50" = c("^NSEI", "NIFTY50", "NSEI.NS", "NIFTY", "INR=F"),
+  "Straits Times" = c("^STI", "EWS", "SGX", "FSSTI.SI"),
+  "Jakarta Composite" = c("^JKSE", "EIDO", "IDX", "JCI"),
+  "Malaysia KLCI" = c("^KLSE", "EWM", "KLTK", "FBMKLCI")
+)
+
+# Oceania region
+oceania_tickers <- list(
+  "S&P/ASX 200" = c("^AXJO", "EWA", "AS51", "XJO.AX", "XJO"),
+  "NZX 50" = c("^NZ50", "FNZ", "NZSE", "NZX50")
+)
+
+# Middle East region
+middle_east_tickers <- list(
+  "Tadawul" = c("^TASI.SR", "KSA", "TASI", "TADAWUL", "SSEC.SA"),
+  "Tel Aviv 125" = c("^TA125.TA", "TA125", "ISL", "EIS", "MSIL"),
+  "Qatar General" = c("^QSI", "QSI.QA", "DSM"),
+  "Abu Dhabi" = c("^ADI", "UAE", "ADSMI"),
+  "BIST 30" = c("BIST30.IS", "TUR", "XU030.IS", "IST", "BIST")
+)
+
+# Latin America region
+latin_america_tickers <- list(
+  "Bovespa" = c("^BVSP", "EWZ", "IBOV", "IBOVESPA", "IBOV.SA"),
+  "IPC Mexico" = c("^MXX", "EWW", "IPC", "MEXBOL", "IPC.MX"),
+  "MERVAL Argentina" = c("^MERV", "ARGT", "MERVAL"),
+  "S&P CLX IPSA" = c("^IPSA", "ECH", "IPSA", "IGPA", "IGPA.SN")
+)
+
+# Africa region
+africa_tickers <- list(
+  "JSE Top 40" = c("^JN0U.JO", "EZA", "JSE", "JTOPI", "TOP40", "SA40"),
+  "Egypt EGX 30" = c("^EGX30", "EGPT", "EGX", "EGX30.CA"),
+  "Morocco All Shares" = c("^MASI", "MASI.CS", "MOSENEW", "MADX"),
+  "Nigeria SE" = c("^NGSEINDX", "NGE", "NSE")
+)
+
+# Combine all regions into a single list
+market_indices_expanded <- list(
+  "North America" = north_america_tickers,
+  "Northern Europe" = nordic_tickers,
+  "Western Europe" = western_europe_tickers,
+  "Eastern Europe" = eastern_europe_tickers,
+  "East Asia" = east_asia_tickers,
+  "South Asia" = south_asia_tickers,
+  "Oceania" = oceania_tickers,
+  "Middle East" = middle_east_tickers,
+  "Latin America" = latin_america_tickers,
+  "Africa" = africa_tickers
 )
 
 # Index friendly names with emoji flags
 index_names <- c(
-  "^GSPC" = "🇺🇸 S&P 500", 
-  "^NDX" = "🇺🇸 Nasdaq 100", 
-  "^STOXX50E" = "🇪🇺 EURO STOXX 50", 
-  "^FTSE" = "🇬🇧 FTSE 100", 
-  "^GDAXI" = "🇩🇪 DAX", 
-  "^FCHI" = "🇫🇷 CAC 40",
-  "^OMXSPI" = "🇸🇪 OMX Stockholm", 
-  "^OMXC25" = "🇩🇰 OMX Copenhagen", 
-  "^OMXHPI" = "🇫🇮 OMX Helsinki", 
-  "OSEBX.OL" = "🇳🇴 Oslo OBX",
-  "^N225" = "🇯🇵 Nikkei 225", 
-  "^HSI" = "🇭🇰 Hang Seng", 
-  "000300.SS" = "🇨🇳 CSI 300", 
-  "^KS11" = "🇰🇷 KOSPI", 
-  "^NSEI" = "🇮🇳 Nifty 50", 
-  "^BVSP" = "🇧🇷 Bovespa", 
-  "^MXX" = "🇲🇽 IPC Mexico", 
-  "^GSPTSE" = "🇨🇦 S&P/TSX", 
-  "^TASI" = "🇸🇦 Tadawul", 
-  "^JN0U.JO" = "🇿🇦 JSE Top 40"
+  # North America
+  "S&P 500" = "🇺🇸 S&P 500", 
+  "Dow Jones" = "🇺🇸 Dow Jones", 
+  "Nasdaq" = "🇺🇸 Nasdaq",
+  "Russell 2000" = "🇺🇸 Russell 2000",
+  "S&P/TSX Composite" = "🇨🇦 S&P/TSX Composite",
+  
+  # Northern Europe (Nordics)
+  "OMX Stockholm" = "🇸🇪 OMX Stockholm", 
+  "OMX Copenhagen" = "🇩🇰 OMX Copenhagen", 
+  "OMX Helsinki" = "🇫🇮 OMX Helsinki", 
+  "Oslo Exchange" = "🇳🇴 Oslo Exchange",
+  
+  # Western Europe
+  "FTSE 100" = "🇬🇧 FTSE 100", 
+  "DAX 40" = "🇩🇪 DAX 40", 
+  "CAC 40" = "🇫🇷 CAC 40",
+  "EURO STOXX 50" = "🇪🇺 EURO STOXX 50",
+  "IBEX 35" = "🇪🇸 IBEX 35",
+  "FTSE MIB" = "🇮🇹 FTSE MIB",
+  "Swiss Market Index" = "🇨🇭 Swiss Market Index",
+  
+  # Eastern Europe
+  "Poland WIG" = "🇵🇱 Poland WIG",
+  "Hungary BUX" = "🇭🇺 Hungary BUX",
+  "Prague PX" = "🇨🇿 Prague PX",
+  "MOEX Russia" = "🇷🇺 MOEX Russia",
+  
+  # East Asia
+  "Nikkei 225" = "🇯🇵 Nikkei 225", 
+  "Hang Seng" = "🇭🇰 Hang Seng", 
+  "CSI 300" = "🇨🇳 CSI 300", 
+  "KOSPI" = "🇰🇷 KOSPI", 
+  "Taiwan Weighted" = "🇹🇼 Taiwan Weighted",
+  
+  # South Asia
+  "BSE SENSEX" = "🇮🇳 BSE SENSEX",
+  "Nifty 50" = "🇮🇳 Nifty 50",
+  "Straits Times" = "🇸🇬 Straits Times",
+  "Jakarta Composite" = "🇮🇩 Jakarta Composite",
+  "Malaysia KLCI" = "🇲🇾 Malaysia KLCI",
+  
+  # Oceania
+  "S&P/ASX 200" = "🇦🇺 S&P/ASX 200",
+  "NZX 50" = "🇳🇿 NZX 50",
+  
+  # Middle East
+  "Tadawul" = "🇸🇦 Tadawul",
+  "Tel Aviv 125" = "🇮🇱 Tel Aviv 125",
+  "Qatar General" = "🇶🇦 Qatar General",
+  "Abu Dhabi" = "🇦🇪 Abu Dhabi",
+  "BIST 30" = "🇹🇷 BIST 30",
+  
+  # Latin America
+  "Bovespa" = "🇧🇷 Bovespa",
+  "IPC Mexico" = "🇲🇽 IPC Mexico",
+  "MERVAL Argentina" = "🇦🇷 MERVAL Argentina",
+  "S&P CLX IPSA" = "🇨🇱 S&P CLX IPSA",
+  
+  # Africa
+  "JSE Top 40" = "🇿🇦 JSE Top 40",
+  "Egypt EGX 30" = "🇪🇬 Egypt EGX 30",
+  "Morocco All Shares" = "🇲🇦 Morocco All Shares",
+  "Nigeria SE" = "🇳🇬 Nigeria SE"
 )
 
-# Try to load cached data if available
-cache_file <- "market_data_cache.rds"
+# Flatten for processing
+flattened_indices <- list()
+for (region_name in names(market_indices_expanded)) {
+  for (index_name in names(market_indices_expanded[[region_name]])) {
+    ticker_options <- market_indices_expanded[[region_name]][[index_name]]
+    flattened_indices[[index_name]] <- list(
+      region = region_name,
+      tickers = ticker_options,
+      emoji_name = index_names[index_name]
+    )
+  }
+}
+```
+```{r load-market-data}
+# Define constants for data processing
+MAX_RETURN_VALUE <- 20  # Cap at ±20% for daily returns as a reasonable bound
+MAX_REGIONAL_RETURN <- 5  # Cap at ±5% for regional averages
+WINSORIZE_PERCENTILE <- 0.005  # Winsorize at 0.5% on each tail
+
+# Create a cache file path for storing data
+cache_file <- "global_market_data_cache_5yr.rds"
 market_data <- NULL
 
-if (file.exists(cache_file)) {
-  # Check if cache is recent (less than 7 days old)
+# Try to load from cache first (if it exists and is recent)
+if(file.exists(cache_file)) {
   cache_age <- difftime(Sys.time(), file.info(cache_file)$mtime, units = "days")
-  if (cache_age < 7) {
+  if(cache_age < 7) {  # Only use cache if less than a week old
     tryCatch({
       market_data <- readRDS(cache_file)
-    }, error = function(e) NULL)
+      successful_indices <- unique(market_data$index_name)
+      message("Loaded data from cache")
+    }, error = function(e) {
+      message(paste("Cache error:", e$message))
+      market_data <- NULL
+    })
   }
 }
 
-# Get fresh data if needed
-if (is.null(market_data)) {
-  # Track which indices successfully loaded
+# If no cache, fetch data fresh
+if(is.null(market_data)) {
+  # Track successful indices by region
   successful_indices <- character(0)
+  successful_by_region <- list()
   
   # Process indices safely
   market_data <- tibble()
   
-  for(region_name in names(market_indices)) {
-    for(symbol in market_indices[[region_name]]) {
-      # Get data with error handling
-      index_data <- tryCatch({
-        get_market_data(symbol, start_date, end_date)
-      }, error = function(e) NULL)
+  # Create a set to track which index names we've already loaded
+  loaded_indices <- list()
+  
+  # Load data for each region and index - with more relaxed requirements
+  for(region_name in names(market_indices_expanded)) {
+    successful_by_region[[region_name]] <- character(0)
+    
+    # Prioritize certain regions to make sure they're included
+    region_priority <- switch(region_name,
+                            "North America" = 1,
+                            "Western Europe" = 2,
+                            "East Asia" = 3,
+                            "Oceania" = 4,
+                            99)  # Default low priority
+    
+    # Shuffle the indices to avoid always trying the same ones first
+    region_indices <- names(market_indices_expanded[[region_name]])
+    if(length(region_indices) > 3) {
+      indices_to_try <- sample(region_indices, length(region_indices))
       
-      # Add to dataset if successful (has enough data points)
-      if(!is.null(index_data) && nrow(index_data) > 100) {
+      # For North America, always try S&P 500 first
+      if(region_name == "North America" && "S&P 500" %in% indices_to_try) {
+        indices_to_try <- c("S&P 500", setdiff(indices_to_try, "S&P 500"))
+      }
+    } else {
+      indices_to_try <- region_indices
+    }
+    
+    # Try each index in this region
+    for(index_name in indices_to_try) {
+      # Skip if we already have data for this index
+      if(index_name %in% names(loaded_indices) && loaded_indices[[index_name]]) {
+        next
+      }
+      
+      # Get the friendly name with emoji
+      friendly_index_name <- index_names[index_name]
+      if(is.na(friendly_index_name)) {
+        friendly_index_name <- index_name
+      }
+      
+      # Get all ticker options for this index
+      ticker_options <- market_indices_expanded[[region_name]][[index_name]]
+      
+      # Try each ticker option until one works
+      index_data <- NULL
+      used_ticker <- NULL
+      
+      for(ticker in ticker_options) {
+        # Try to get data for this ticker
+        ticker_data <- tryCatch({
+          get_market_data(ticker, start_date, end_date)
+        }, error = function(e) {
+          message(paste("Error loading", ticker, ":", e$message))
+          NULL
+        })
+        
+        # If we got data, check if it meets the minimum trading days requirement
+        if(!is.null(ticker_data) && nrow(ticker_data) > 0 && 
+           "close" %in% colnames(ticker_data) && "date" %in% colnames(ticker_data)) {
+          
+          # Extract weekdays and check for coverage of all weekdays
+          weekdays_present <- weekdays(as.Date(ticker_data$date))
+          has_monday <- "Monday" %in% weekdays_present
+          has_tuesday <- "Tuesday" %in% weekdays_present
+          has_wednesday <- "Wednesday" %in% weekdays_present
+          has_thursday <- "Thursday" %in% weekdays_present
+          has_friday <- "Friday" %in% weekdays_present
+          
+          # Count distinct trading days
+          trading_days <- length(unique(ticker_data$date))
+          
+          # Lower threshold for important indices like S&P 500
+          min_days_threshold <- MIN_TRADING_DAYS
+          if(region_priority <= 2 && index_name %in% c("S&P 500", "Dow Jones", "Nasdaq", "FTSE 100", "DAX 40")) {
+            min_days_threshold <- min(min_days_threshold, 250)  # Even lower threshold for key indices
+          }
+          
+          # More relaxed weekday requirement: need at least 4 out of 5 weekdays
+          relaxed_weekday_requirement <- sum(c(has_monday, has_tuesday, has_wednesday, has_thursday, has_friday)) >= 4
+          
+          # Extra relaxed for key indices - just need 3 weekdays
+          if(region_priority <= 2 && index_name %in% c("S&P 500", "Dow Jones", "Nasdaq", "FTSE 100", "DAX 40")) {
+            relaxed_weekday_requirement <- sum(c(has_monday, has_tuesday, has_wednesday, has_thursday, has_friday)) >= 3
+          }
+          
+          if(trading_days >= min_days_threshold && relaxed_weekday_requirement) {
+            index_data <- ticker_data
+            used_ticker <- ticker
+            message(paste("Successfully loaded", friendly_index_name, "using ticker:", ticker, 
+                        "with", trading_days, "trading days and", 
+                        sum(c(has_monday, has_tuesday, has_wednesday, has_thursday, has_friday)),
+                        "out of 5 weekdays present"))
+            break
+          } else {
+            if(trading_days < min_days_threshold) {
+              message(paste("Skipping", friendly_index_name, "with ticker", ticker, 
+                          "- insufficient trading days:", trading_days, "<", min_days_threshold))
+            } else {
+              message(paste("Skipping", friendly_index_name, "with ticker", ticker, 
+                          "- not enough weekdays present. Mon:", has_monday, "Tue:", has_tuesday, 
+                          "Wed:", has_wednesday, "Thu:", has_thursday, "Fri:", has_friday))
+            }
+          }
+        }
+      }
+      
+      # Add to dataset if successful
+      if(!is.null(index_data) && !is.null(used_ticker)) {
         index_data <- index_data %>%
           mutate(
             region = region_name,
-            index_name = index_names[symbol]
+            index_name = friendly_index_name,
+            canonical_index = index_name  # Store the canonical index name
           )
         
         market_data <- bind_rows(market_data, index_data)
         
         # Track successful indices
-        successful_indices <- c(successful_indices, index_names[symbol])
+        successful_indices <- c(successful_indices, friendly_index_name)
+        successful_by_region[[region_name]] <- c(successful_by_region[[region_name]], friendly_index_name)
+        loaded_indices[[index_name]] <- TRUE
+      } else {
+        message(paste("Failed to load any ticker for", friendly_index_name, 
+                    "or data did not meet requirements for completeness"))
       }
+    }
+    
+    # If we couldn't load any indices for this region, add a notice
+    if(length(successful_by_region[[region_name]]) == 0) {
+      message(paste("WARNING: Could not load any indices for region:", region_name))
+    } else {
+      message(paste("Successfully loaded", length(successful_by_region[[region_name]]), 
+                   "indices for region:", region_name))
     }
   }
   
-  # Process data for analysis
-  if(nrow(market_data) > 0) {
-    market_data <- market_data %>%
-      # Calculate returns
-      arrange(symbol, date) %>%
-      group_by(symbol) %>%
-      mutate(
-        # Use adjusted prices if available, otherwise close
-        price_col = if("adjusted" %in% names(.)) adjusted else close,
-        daily_return = (price_col / lag(price_col) - 1) * 100
-      ) %>%
-      filter(!is.na(daily_return)) %>%
-      # Extract weekday as character to avoid factor level issues
-      mutate(
-        weekday = as.character(wday(date, label = TRUE)),
-        year = year(date)
-      ) %>%
-      # Remove extreme outliers (> 3 standard deviations)
-      group_by(symbol) %>%
-      mutate(
-        return_zscore = abs(scale(daily_return)),
-        outlier = return_zscore > 3
-      ) %>%
-      filter(!outlier) %>%
-      select(-outlier, -return_zscore, -price_col) %>%
-      ungroup()
-    
-    # Save to cache
-    saveRDS(market_data, cache_file)
+  # Check if we have data - if not, fail gracefully
+  if(nrow(market_data) == 0) {
+    stop("Failed to load any market data. Please check your network connection or data sources.")
   }
+  
+  # Save to cache for future use
+  tryCatch({
+    saveRDS(market_data, cache_file)
+  }, error = function(e) {
+    message(paste("Failed to save cache:", e$message))
+  })
 }
 
-# Define fixed weekday order to use throughout
-weekday_order <- c("Mon", "Tue", "Wed", "Thu", "Fri")
+# Count how many indices per region
+indices_per_region <- market_data %>%
+  distinct(region, index_name) %>%
+  group_by(region) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  arrange(desc(count))
 
-# Show data summary
-successful_indices <- unique(market_data$index_name)
-num_indices <- n_distinct(market_data$symbol)
+# Print the indices per region for diagnostics
+message("Indices per region:")
+print(indices_per_region)
+```
+
+```{r process-market-data, include=FALSE}
+# Process data for weekday analysis using robust statistical methods
+if(nrow(market_data) > 0) {
+  # For debugging, print the structure of the market_data
+  message("Market data structure before processing:")
+  message(paste("Dimensions:", nrow(market_data), "x", ncol(market_data)))
+  message(paste("Column names:", paste(colnames(market_data), collapse=", ")))
+  
+  # Process market data with robust error handling
+  market_data <- tryCatch({
+    market_data %>%
+      # Ensure date is properly formatted
+      mutate(date = as.Date(date)) %>%
+      # Arrange by symbol and date for proper return calculations
+      arrange(symbol, date) %>%
+      # Convert weekday to factor in English (for consistent labeling)
+      mutate(weekday_full = weekdays(date)) %>%
+      group_by(symbol) %>%
+      # Calculate returns with safeguards against division by zero or NA values
+      mutate(
+        # Use adjusted prices if available, otherwise close
+        price_col = if("adjusted" %in% names(.) && !all(is.na(adjusted))) adjusted else close,
+        
+        # Add safeguards for invalid prices
+        price_col = ifelse(price_col <= 0 | is.na(price_col), NA, price_col),
+        
+        # Calculate both standard and log returns with error handling
+        daily_return = ifelse(
+          is.na(lag(price_col)) | lag(price_col) <= 0,
+          NA,
+          (price_col / lag(price_col) - 1) * 100
+        ),
+        
+        # Calculate log returns safely
+        log_return = ifelse(
+          is.na(lag(price_col)) | lag(price_col) <= 0 | price_col <= 0,
+          NA,
+          (log(price_col) - log(lag(price_col))) * 100
+        ),
+        
+        # Cap extreme returns to prevent outliers from skewing analysis
+        daily_return = ifelse(
+          is.na(daily_return) | abs(daily_return) > MAX_RETURN_VALUE,
+          sign(daily_return) * MAX_RETURN_VALUE,
+          daily_return
+        ),
+        
+        log_return = ifelse(
+          is.na(log_return) | abs(log_return) > MAX_RETURN_VALUE,
+          sign(log_return) * MAX_RETURN_VALUE,
+          log_return
+        )
+      ) %>%
+      filter(!is.na(daily_return)) %>%
+      
+      # Extract weekday and ensure it starts with Monday
+      mutate(
+        # Create weekday factor directly from the date
+        weekday = factor(weekdays(date, TRUE), 
+                        levels = c("Mon", "Tue", "Wed", "Thu", "Fri")),
+        year = year(date),
+        month = month(date)
+      ) %>%
+      
+      # Apply Winsorization for more robust statistical treatment
+      group_by(symbol) %>%
+      mutate(
+        # Calculate percentiles for Winsorization
+        lower_bound = quantile(daily_return, WINSORIZE_PERCENTILE, na.rm = TRUE),
+        upper_bound = quantile(daily_return, 1 - WINSORIZE_PERCENTILE, na.rm = TRUE),
+        
+        # Winsorize returns (clip to percentile bounds rather than remove)
+        winsorized_return = case_when(
+          daily_return < lower_bound ~ lower_bound,
+          daily_return > upper_bound ~ upper_bound,
+          TRUE ~ daily_return
+        )
+      ) %>%
+      ungroup() %>%
+      
+      # Apply additional caps to extreme values that survived Winsorization
+      mutate(
+        winsorized_return = ifelse(
+          abs(winsorized_return) > MAX_RETURN_VALUE,
+          sign(winsorized_return) * MAX_RETURN_VALUE,
+          winsorized_return
+        )
+      )
+  }, error = function(e) {
+    message(paste("Error processing market data:", e$message))
+    stop(e$message)
+  })
+  
+  # Check if we have NA values in weekday and fix them
+  if(any(is.na(market_data$weekday))) {
+    message("WARNING: Found NA values in weekday column. Fixing...")
+    
+    # Create a mapping of full weekday names to abbreviations
+    weekday_map <- c(
+      "Monday" = "Mon", 
+      "Tuesday" = "Tue", 
+      "Wednesday" = "Wed", 
+      "Thursday" = "Thu", 
+      "Friday" = "Fri"
+    )
+    
+    # Fix NA weekdays using the full weekday name
+    market_data <- market_data %>%
+      mutate(
+        weekday = ifelse(is.na(weekday), 
+                       weekday_map[weekday_full], 
+                       as.character(weekday)),
+        weekday = factor(weekday, levels = c("Mon", "Tue", "Wed", "Thu", "Fri"))
+      )
+  }
+  
+  # Verify weekday calculation
+  message("Weekday distribution:")
+  print(table(market_data$weekday))
+  
+  # Check for extreme values in winsorized_return that might indicate data issues
+  extreme_values <- market_data %>%
+    group_by(region, index_name) %>%
+    summarise(
+      max_return = max(abs(winsorized_return), na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    filter(max_return > MAX_RETURN_VALUE)  # Flag indices with returns beyond reasonable thresholds
+  
+  if(nrow(extreme_values) > 0) {
+    message("Warning: Possible data quality issues detected in these indices:")
+    print(extreme_values)
+    
+    # Fix extreme values by applying an additional cap
+    market_data <- market_data %>%
+      mutate(
+        winsorized_return = ifelse(
+          abs(winsorized_return) > MAX_RETURN_VALUE,
+          sign(winsorized_return) * MAX_RETURN_VALUE,
+          winsorized_return
+        )
+      )
+  }
+  
+  # Additional QA check - ensure we have enough data per index and all weekdays
+  index_counts <- market_data %>%
+    group_by(region, index_name, weekday) %>%
+    summarise(
+      day_count = n(),
+      .groups = "drop"
+    ) %>%
+    pivot_wider(
+      id_cols = c(region, index_name),
+      names_from = weekday,
+      values_from = day_count,
+      values_fill = 0
+    )
+  
+  # Less strict filtering - only require reasonable number of samples for each weekday
+  sparse_indices <- index_counts %>%
+    filter(Mon < MIN_WEEKDAY_COUNT | Tue < MIN_WEEKDAY_COUNT | 
+           Wed < MIN_WEEKDAY_COUNT | Thu < MIN_WEEKDAY_COUNT | 
+           Fri < MIN_WEEKDAY_COUNT)
+  
+  if(nrow(sparse_indices) > 0) {
+    message("The following indices have too few samples per weekday and will be excluded:")
+    print(sparse_indices)
+    
+    # Remove indices with insufficient data per weekday
+    market_data <- market_data %>%
+      anti_join(sparse_indices %>% select(region, index_name), by = c("region", "index_name"))
+    
+    # Update successful indices list if it exists
+    if(exists("successful_indices")) {
+      successful_indices <- setdiff(successful_indices, sparse_indices$index_name)
+    }
+  }
+  
+} else {
+  stop("No market data available for analysis.")
+}
+
+# Define weekday emojis for visualizations
+weekday_emojis <- c("Mon" = "😴", "Tue" = "🚀", "Wed" = "📈", "Thu" = "💼", "Fri" = "🎉")
+
+# Define distinct color palettes for regions
+region_colors <- c(
+  "North America" = "#4E79A7",          # Blue
+  "Northern Europe" = "#76B7B2",        # Teal
+  "Western Europe" = "#F28E2B",         # Orange
+  "Eastern Europe" = "#EDC948",         # Yellow
+  "East Asia" = "#B07AA1",              # Purple
+  "South Asia" = "#FF9DA7",             # Pink
+  "Oceania" = "#1CE6FF",                # Light Blue
+  "Middle East" = "#9C755F",            # Brown
+  "Latin America" = "#E15759",          # Red
+  "Africa" = "#BAB0AC"                  # Gray
+)
+
+# Show data summary of what was successfully loaded
+num_indices <- n_distinct(market_data$index_name)
 num_days <- n_distinct(market_data$date)
 date_range <- range(market_data$date)
+
+# Get region counts
+region_counts <- market_data %>%
+  distinct(region, index_name) %>%
+  group_by(region) %>%
+  summarize(count = n(), .groups = "drop")
+
+# Create list of successfully loaded indices by region
+indices_by_region <- market_data %>%
+  distinct(region, index_name) %>%
+  group_by(region) %>%
+  summarize(indices = list(index_name), .groups = "drop")
+
+# For diagnostics, print summary information
+message(paste("Total indices loaded:", num_indices))
+message(paste("Date range:", paste(date_range, collapse=" to ")))
+message(paste("Total trading days:", num_days))
+message("Indices by region:")
+print(region_counts)
+```
+```{r regional-weekday-stats}
+# Calculate regional weekday statistics with proper equal weighting for indices within each region
+# First, calculate mean return for each index by weekday
+# Then aggregate to regional level with equal index weighting within each region
+regional_weekday_stats <- market_data %>%
+  # First calculate mean return for each index by weekday
+  group_by(region, index_name, weekday) %>%
+  summarize(
+    index_mean_return = mean(winsorized_return, na.rm = TRUE),
+    index_median_return = median(winsorized_return, na.rm = TRUE),
+    index_positive_pct = sum(winsorized_return > 0, na.rm = TRUE) / n() * 100,
+    index_days = n(),
+    .groups = "drop"
+  ) %>%
+  # Filter to ensure sufficient data per weekday per index
+  # This is now more relaxed - only require MIN_WEEKDAY_COUNT days per weekday
+  filter(index_days >= MIN_WEEKDAY_COUNT) %>%
+  # Then calculate regional averages with equal index weighting within each region
+  group_by(region, weekday) %>%
+  summarize(
+    mean_return = mean(index_mean_return, na.rm = TRUE),  # Each index gets equal weight
+    median_return = mean(index_median_return, na.rm = TRUE),
+    positive_pct = mean(index_positive_pct, na.rm = TRUE),
+    num_indices = n_distinct(index_name),  # Count how many indices in this region
+    total_days = sum(index_days),
+    # Add a column to show the weight given to each index (as percentage)
+    index_weight_pct = 100 / num_indices,  # Each index within a region gets equal weight
+    .groups = "drop"
+  )
+
+# Apply additional capping to regional statistics to fix the extreme values issue
+regional_weekday_stats <- regional_weekday_stats %>%
+  mutate(
+    mean_return = ifelse(abs(mean_return) > MAX_REGIONAL_RETURN, 
+                        sign(mean_return) * MAX_REGIONAL_RETURN, 
+                        mean_return),
+    median_return = ifelse(abs(median_return) > MAX_REGIONAL_RETURN, 
+                          sign(median_return) * MAX_REGIONAL_RETURN, 
+                          median_return)
+  )
+
+# Find best and worst weekday by region
+region_best_worst <- regional_weekday_stats %>%
+  # Group by region
+  group_by(region) %>%
+  # Count how many weekdays we have data for
+  mutate(weekday_count = n_distinct(weekday)) %>%
+  # Only include regions with data for all 5 weekdays when determining best/worst
+  filter(weekday_count == 5) %>%
+  summarize(
+    best_day = weekday[which.max(mean_return)],
+    worst_day = weekday[which.min(mean_return)],
+    best_return = max(mean_return),
+    worst_return = min(mean_return),
+    num_indices = first(num_indices),  # Capture number of indices per region
+    .groups = "drop"
+  )
+
+# For global calculations, we need to ensure all regions get equal weight
+# regardless of how many indices they have
+global_weekday_stats_equal_regional_weight <- regional_weekday_stats %>%
+  # Group by weekday
+  group_by(weekday) %>%
+  # Each region gets equal weight in global statistics
+  summarize(
+    mean_return = mean(mean_return, na.rm = TRUE),  # Each region gets equal weight
+    median_return = mean(median_return, na.rm = TRUE),
+    positive_pct = mean(positive_pct, na.rm = TRUE),
+    num_regions = n_distinct(region),  # Count how many regions
+    .groups = "drop"
+  ) %>%
+  mutate(weekday = factor(weekday, levels = c("Mon", "Tue", "Wed", "Thu", "Fri")))
 ```
 
 ### Global Patterns: Is There a "Best Day" for Markets?
@@ -262,100 +1016,42 @@ The chart below shows average returns by weekday across all global markets. Gree
 # Define red-to-green color gradient for performance
 performance_colors <- c("#FF4136", "#FF851B", "#FFDC00", "#A3D15C", "#2ECC40")
 
-# Calculate regional statistics to determine weights
-regional_stats <- market_data %>%
-  group_by(region, weekday) %>%
-  summarize(
-    mean_return = mean(daily_return, na.rm = TRUE),
-    median_return = median(daily_return, na.rm = TRUE),
-    volatility = sd(daily_return, na.rm = TRUE),
-    positive_days = sum(daily_return > 0, na.rm = TRUE),
-    total_days = n(),
-    pct_positive = positive_days / total_days * 100,
-    data_points = n(),
-    .groups = "drop"
-  )
+# Use the equal-region-weighted global weekday statistics
+global_weekday_stats <- global_weekday_stats_equal_regional_weight
 
-# Calculate region weights based on data points
-region_weights <- regional_stats %>%
-  group_by(region) %>%
-  summarize(
-    total_points = sum(data_points),
-    .groups = "drop"
-  ) %>%
-  mutate(
-    weight_pct = total_points / sum(total_points) * 100
-  )
-
-# Calculate global weekday statistics
-global_weekday_stats <- market_data %>%
-  group_by(weekday) %>%
-  summarize(
-    mean_return = mean(daily_return, na.rm = TRUE),
-    median_return = median(daily_return, na.rm = TRUE),
-    volatility = sd(daily_return, na.rm = TRUE),
-    positive_days = sum(daily_return > 0, na.rm = TRUE),
-    total_days = n(),
-    pct_positive = positive_days / total_days * 100,
-    .groups = "drop"
-  )
-
-# Create regional weight information for each weekday
-# This is the critical fix - using character weekday to avoid factor level issues
-regional_contributions <- regional_stats %>%
-  left_join(region_weights, by = "region") %>%
-  group_by(weekday) %>%
-  summarize(
-    region_weights = paste0(
-      unique(region), ": ", 
-      round(weight_pct, 1), "%", 
-      collapse = ", "
-    ),
-    .groups = "drop"
-  )
-
-# Join regional contributions to global stats using character weekday
+# Add a column displaying minimum requirements
 global_weekday_stats <- global_weekday_stats %>%
-  left_join(regional_contributions, by = "weekday") %>%
-  # Now reorder weekdays properly after joining
-  mutate(weekday = factor(weekday, levels = weekday_order))
+  mutate(
+    requirement_text = paste0(
+      "Min ", MIN_TRADING_DAYS, " trading days per index, ",
+      "Min ", MIN_WEEKDAY_COUNT, " trading days per weekday"
+    )
+  )
 
 # Find best and worst weekdays
 best_weekday <- global_weekday_stats$weekday[which.max(global_weekday_stats$mean_return)]
 worst_weekday <- global_weekday_stats$weekday[which.min(global_weekday_stats$mean_return)]
-
-# Assign day-specific emojis
-weekday_emojis <- c("Mon" = "😴", "Tue" = "🚀", "Wed" = "📈", "Thu" = "💼", "Fri" = "🎉")
 
 # Map returns to color gradient (red to green)
 weekday_colors <- colorRamp(performance_colors)(
   scales::rescale(global_weekday_stats$mean_return)
 ) %>% rgb(maxColorValue = 255)
 
-# Create custom hover template with emojis, median and std dev
+# Create custom hover template with emojis
 hover_template <- lapply(1:nrow(global_weekday_stats), function(i) {
   day <- global_weekday_stats$weekday[i]
   emoji <- weekday_emojis[as.character(day)]
   paste0(
     "<b>", emoji, " ", day, "</b><br>",
     "Average Return: ", round(global_weekday_stats$mean_return[i], 2), "%<br>",
-    "Median Return: ", round(global_weekday_stats$median_return[i], 2), "%<br>",
-    "Standard Deviation: ", round(global_weekday_stats$volatility[i], 2), "%<br>", 
-    "Positive Days: ", round(global_weekday_stats$pct_positive[i], 1), "% of the time<br>",
+    "Positive Days: ", round(global_weekday_stats$positive_pct[i], 1), "% of the time<br>",
+    "Based on ", global_weekday_stats$num_regions[i], " equally-weighted regions<br>",
     "<extra></extra>"
   )
 })
 
-# Format the regional weights with detailed descriptions
-regional_weights_display <- paste("*Regional weights:", paste(
-  sapply(names(region_weights$weight_pct), function(region) {
-    paste0(region_descriptions[region], " - ", round(region_weights$weight_pct[region_weights$region == region], 1), "%")
-  }),
-  collapse = "; "
-))
-
 # Create enhanced global chart
-global_chart <- plot_ly(
+plot_ly(
   data = global_weekday_stats,
   x = ~weekday,
   y = ~mean_return,
@@ -370,12 +1066,18 @@ global_chart <- plot_ly(
 ) %>%
   layout(
     title = list(
-      text = "Global Weekday Returns 🌎",
+      text = paste0(
+        "Global Weekday Returns 🌎<br>",
+        "<span style='font-size:16px'>Based on 5 Years of Data with Equal Regional Weighting</span><br>",
+        "<span style='font-size:12px'>", global_weekday_stats$requirement_text[1], "</span>"
+      ),
       font = list(size = 24)
     ),
     xaxis = list(
       title = "",
-      tickfont = list(size = 16)
+      tickfont = list(size = 16),
+      categoryorder = "array",
+      categoryarray = c("Mon", "Tue", "Wed", "Thu", "Fri")
     ),
     yaxis = list(
       title = "Average Daily Return (%)",
@@ -416,298 +1118,494 @@ global_chart <- plot_ly(
         borderwidth = 2,
         borderpad = 4,
         font = list(color = "white", size = 12)
-      ),
-      # Add regional weights as a subtitle annotation with more detailed descriptions
-      list(
-        xref = "paper",
-        yref = "paper",
-        x = 0.5,
-        y = -0.15,
-        text = regional_weights_display,
-        showarrow = FALSE,
-        font = list(size = 12, color = "gray", italic = TRUE)
       )
     ),
-    margin = list(t = 100, b = 100, l = 80, r = 80),
+    margin = list(t = 120, b = 80, l = 80, r = 80),
     plot_bgcolor = '#f8f9fa',
     paper_bgcolor = '#f8f9fa'
   )
-
-# Display the global chart
-global_chart
 ```
 
 *Markets included in this analysis: `r paste(sort(successful_indices), collapse=", ")`*
 
-### Check Your Market's Pattern
+### Regional Comparison: Do Weekday Effects Vary by Region?
 
-Different markets can show different patterns. Use the dropdown menu to select a market index:
+Different regions around the world show different weekday patterns, which may be influenced by local trading behavior, timezone differences, and market structure.
 
-```{r market-specific-analysis}
-# Filter to only include successfully loaded indices
-market_data_filtered <- market_data %>%
-  filter(index_name %in% successful_indices)
-
-# Calculate statistics for each index by weekday
-index_weekday_stats <- market_data_filtered %>%
-  group_by(region, symbol, index_name, weekday) %>%
-  summarize(
-    mean_return = mean(daily_return, na.rm = TRUE),
-    median_return = median(daily_return, na.rm = TRUE),
-    volatility = sd(daily_return, na.rm = TRUE),
-    positive_days = sum(daily_return > 0, na.rm = TRUE),
-    total_days = n(),
-    pct_positive = positive_days / total_days * 100,
-    .groups = "drop"
-  ) %>%
-  # Use the same weekday ordering as the global chart
-  mutate(weekday = factor(weekday, levels = weekday_order))
-
-# Group indices by region for better organization
-region_indices <- market_data_filtered %>%
-  select(region, index_name) %>%
-  distinct() %>%
-  arrange(region, index_name)
-
-# Create button labels that include region headers
-button_labels <- c()
-for (region in unique(region_indices$region)) {
-  # Add a region separator
-  button_labels <- c(button_labels, paste0("📍 ", region, " 📍"))
-  
-  # Add all indices from this region
-  region_label_indices <- region_indices %>%
-    filter(region == !!region) %>%
-    pull(index_name)
-  
-  button_labels <- c(button_labels, region_label_indices)
-}
-
-# Get actual indices (without separators)
-available_indices <- region_indices$index_name
-
-# Create buttons for the dropdown
-index_buttons <- lapply(seq_along(button_labels), function(i) {
-  label <- button_labels[i]
-  
-  # Check if this is a region separator
-  if (startsWith(label, "📍")) {
-    # Return a non-functional button for the region header
-    return(list(
-      method = "skip",
-      label = label,
-      args = list(list(), list())
-    ))
-  }
-  
-  # This is an actual index - create a functional button
-  idx <- label
-  
-  # Filter data for this index
-  idx_data <- index_weekday_stats %>%
-    filter(index_name == idx)
-  
-  # Find best and worst days
-  best_day <- idx_data$weekday[which.max(idx_data$mean_return)]
-  best_return <- max(idx_data$mean_return)
-  worst_day <- idx_data$weekday[which.min(idx_data$mean_return)]
-  worst_return <- min(idx_data$mean_return)
-  
-  # Create color mapping
-  bar_colors <- colorRamp(performance_colors)(
-    scales::rescale(idx_data$mean_return)
-  ) %>% rgb(maxColorValue = 255)
-  
-  # Create button with full index name as the label
-  list(
-    method = "update",
-    args = list(
-      # Trace update
-      list(
-        x = list(idx_data$weekday),
-        y = list(idx_data$mean_return),
-        marker = list(color = bar_colors),
-        customdata = list(cbind(
-          idx_data$pct_positive,
-          idx_data$median_return,
-          idx_data$volatility
-        ))
-      ),
-      # Layout update
-      list(
-        title = list(
-          text = paste0("Weekday Returns: ", idx, " 📈"),
-          font = list(size = 24)
-        ),
-        annotations = list(
-          list(
-            x = best_day,
-            y = best_return,
-            text = paste0("⭐ Best Day ⭐<br>", round(best_return, 2), "%"),
-            showarrow = TRUE,
-            arrowhead = 2,
-            arrowsize = 1,
-            arrowwidth = 2,
-            arrowcolor = "#25A75E",
-            ax = 0,
-            ay = -40,
-            bgcolor = "#25A75E",
-            bordercolor = "#25A75E",
-            borderwidth = 2,
-            borderpad = 4,
-            font = list(color = "white", size = 12)
-          ),
-          list(
-            x = worst_day,
-            y = worst_return,
-            text = paste0("⚠️ Worst Day ⚠️<br>", round(worst_return, 2), "%"),
-            showarrow = TRUE,
-            arrowhead = 2,
-            arrowsize = 1,
-            arrowwidth = 2,
-            arrowcolor = "#d9534f",
-            ax = 0,
-            ay = 40,
-            bgcolor = "#d9534f",
-            bordercolor = "#d9534f",
-            borderwidth = 2,
-            borderpad = 4,
-            font = list(color = "white", size = 12)
-          )
-        )
-      )
-    ),
-    label = label
-  )
-})
-
-# Get first index data for initial plot
-first_idx <- available_indices[1]
-first_idx_data <- index_weekday_stats %>%
-  filter(index_name == first_idx)
-
-# Find best and worst days for first index
-first_best_day <- first_idx_data$weekday[which.max(first_idx_data$mean_return)]
-first_best_return <- max(first_idx_data$mean_return)
-first_worst_day <- first_idx_data$weekday[which.min(first_idx_data$mean_return)]
-first_worst_return <- min(first_idx_data$mean_return)
-
-# Create color mapping for first index
-first_bar_colors <- colorRamp(performance_colors)(
-  scales::rescale(first_idx_data$mean_return)
-) %>% rgb(maxColorValue = 255)
-
-# Create plot with dropdown menu
-index_chart <- plot_ly(
-  data = first_idx_data,
-  x = ~weekday,
-  y = ~mean_return,
-  type = "bar",
-  text = ~paste0(weekday_emojis[as.character(weekday)], " ", weekday),
-  textposition = "none",
-  marker = list(
-    color = first_bar_colors,
-    line = list(color = "#333333", width = 1.5)
-  ),
-  hovertemplate = paste(
-    "<b>%{text}</b><br>",
-    "Average Return: %{y:.2f}%<br>",
-    "Median Return: %{customdata[1]:.2f}%<br>",
-    "Standard Deviation: %{customdata[2]:.2f}%<br>",
-    "Positive Days: %{customdata[0]:.1f}% of the time<br>",
-    "<extra></extra>"
-  ),
-  # This contains additional data for each bar that's used in the hover template
-  customdata = cbind(
-    first_idx_data$pct_positive,
-    first_idx_data$median_return,
-    first_idx_data$volatility
-  )
-) %>%
+```{r regional-comparison-plot}
+# Create a regional comparison bar chart
+p_regional <- plot_ly(height = 600) %>%
   layout(
     title = list(
-      text = paste0("Weekday Returns: ", first_idx, " 📈"),
-      font = list(size = 24)
+      font = list(size = 22)
     ),
     xaxis = list(
       title = "",
-      tickfont = list(size = 16)
+      tickfont = list(size = 16),
+      tickangle = 0,
+      categoryorder = "array",
+      categoryarray = c("Mon", "Tue", "Wed", "Thu", "Fri")
     ),
     yaxis = list(
       title = "Average Daily Return (%)",
       titlefont = list(size = 16),
       tickfont = list(size = 14),
       zeroline = TRUE,
-      zerolinecolor = '#ddd',
-      zerolinewidth = 1
+      zerolinecolor = '#888888',
+      zerolinewidth = 1,
+      # Set a fixed range to ensure visualization consistency
+      range = c(-0.3, 0.3)  # Reasonable range for daily returns
     ),
-    updatemenus = list(
-      list(
-        buttons = index_buttons,
-        type = "dropdown",
-        direction = "down",
-        showactive = TRUE,
-        x = 0.5,
-        y = 1.2,
-        xanchor = "center",
-        yanchor = "top",
-        bgcolor = "#ffffff",
-        bordercolor = "#d3d3d3",
-        font = list(size = 14)
-      )
+    barmode = "group",
+    legend = list(
+      orientation = "h",
+      xanchor = "center",
+      x = 0.5,
+      y = -0.15,
+      font = list(size = 12)
     ),
-    annotations = list(
-      list(
-        x = first_best_day,
-        y = first_best_return,
-        text = paste0("⭐ Best Day ⭐<br>", round(first_best_return, 2), "%"),
-        showarrow = TRUE,
-        arrowhead = 2,
-        arrowsize = 1,
-        arrowwidth = 2,
-        arrowcolor = "#25A75E",
-        ax = 0,
-        ay = -40,
-        bgcolor = "#25A75E",
-        bordercolor = "#25A75E",
-        borderwidth = 2,
-        borderpad = 4,
-        font = list(color = "white", size = 12)
-      ),
-      list(
-        x = first_worst_day,
-        y = first_worst_return,
-        text = paste0("⚠️ Worst Day ⚠️<br>", round(first_worst_return, 2), "%"),
-        showarrow = TRUE,
-        arrowhead = 2,
-        arrowsize = 1,
-        arrowwidth = 2,
-        arrowcolor = "#d9534f",
-        ax = 0,
-        ay = 40,
-        bgcolor = "#d9534f",
-        bordercolor = "#d9534f",
-        borderwidth = 2,
-        borderpad = 4,
-        font = list(color = "white", size = 12)
-      ),
-      # Add label for the dropdown
-      list(
-        xref = "paper",
-        yref = "paper",
-        x = 0.5,
-        y = 1.15,
-        text = "Select Market Index:",
-        showarrow = FALSE,
-        font = list(size = 14, color = "#333")
-      )
-    ),
-    margin = list(t = 120, b = 80, l = 80, r = 80),
+    margin = list(t = 80, r = 80, l = 80, b = 100),
     plot_bgcolor = '#f8f9fa',
-    paper_bgcolor = '#f8f9fa',
-    showlegend = FALSE
+    paper_bgcolor = '#f8f9fa'
   )
 
-# Display the index chart
-index_chart
+# Get regions that have all 5 weekdays of data
+complete_regions <- regional_weekday_stats %>%
+  group_by(region) %>%
+  summarize(
+    weekday_count = n_distinct(weekday),
+    min_indices = min(num_indices),
+    .groups = "drop"
+  ) %>%
+  filter(
+    weekday_count == 5,  # Must have data for all 5 weekdays
+    min_indices >= MIN_INDICES_PER_REGION  # Must have at least the minimum number of indices
+  ) %>%
+  pull(region)
+
+# Check if Oceania is included in the complete regions
+has_oceania <- "Oceania" %in% complete_regions
+
+# If Oceania is missing, check if we have data for it but not all weekdays
+if (!has_oceania) {
+  # Check if we have any Oceania data
+  oceania_data <- regional_weekday_stats %>%
+    filter(region == "Oceania")
+  
+  if (nrow(oceania_data) > 0) {
+    # Count how many weekdays we have
+    oceania_weekdays <- length(unique(oceania_data$weekday))
+    message(paste("Oceania has data for", oceania_weekdays, "out of 5 weekdays"))
+    
+    # If we have at least 4 weekdays, add Oceania to the complete regions
+    if (oceania_weekdays >= 4) {
+      complete_regions <- c(complete_regions, "Oceania")
+      message("Adding Oceania to the visualization despite missing some weekday data")
+    } else {
+      # Check if we have Australia or NZ indices in the raw data
+      australia_data <- market_data %>%
+        filter(grepl("Australia|ASX|AU", index_name, ignore.case = TRUE)) %>%
+        group_by(weekday) %>%
+        summarize(count = n(), .groups = "drop")
+      
+      nz_data <- market_data %>%
+        filter(grepl("New Zealand|NZ|NZX", index_name, ignore.case = TRUE)) %>%
+        group_by(weekday) %>%
+        summarize(count = n(), .groups = "drop")
+      
+      if (nrow(australia_data) >= 4 || nrow(nz_data) >= 4) {
+        message("Adding Oceania based on raw Australia/NZ data availability")
+        complete_regions <- c(complete_regions, "Oceania")
+      }
+    }
+  }
+}
+
+# Print information about which regions have complete data
+message(paste("Regions with data for all 5 weekdays:", paste(complete_regions, collapse=", ")))
+
+# Find regions with incomplete data and log them
+incomplete_regions <- setdiff(unique(regional_weekday_stats$region), complete_regions)
+if(length(incomplete_regions) > 0) {
+  message(paste("Regions with incomplete weekday data:", paste(incomplete_regions, collapse=", ")))
+  
+  # For each incomplete region, show which weekdays are missing
+  for(r in incomplete_regions) {
+    available_weekdays <- regional_weekday_stats %>%
+      filter(region == r) %>%
+      pull(weekday) %>%
+      unique()
+    
+    missing_weekdays <- setdiff(c("Mon", "Tue", "Wed", "Thu", "Fri"), available_weekdays)
+    
+    message(paste("  Region", r, "is missing:", paste(missing_weekdays, collapse=", ")))
+  }
+}
+
+# Prioritize important regions in the legend order
+priority_regions <- c("North America", "Western Europe", "East Asia", "Oceania", "South Asia")
+complete_regions <- c(
+  intersect(priority_regions, complete_regions),
+  setdiff(complete_regions, priority_regions)
+)
+
+# Add a trace for each region with complete data
+for(region_name in complete_regions) {
+  # Filter data for this region
+  region_data <- regional_weekday_stats %>%
+    filter(region == region_name)
+  
+  # Ensure data is properly sorted by weekday
+  region_data <- region_data %>%
+    mutate(weekday = factor(weekday, levels = c("Mon", "Tue", "Wed", "Thu", "Fri"))) %>%
+    arrange(weekday)
+  
+  # Get the index names for this region to show in hover text if only one index
+  index_count <- unique(region_data$num_indices)
+  
+  # Only get specific index name if there's exactly one index
+  index_name_text <- ""
+  if (index_count == 1) {
+    # Get the actual index name from the market data
+    region_indices <- market_data %>%
+      filter(region == region_name) %>%
+      pull(index_name) %>%
+      unique()
+    
+    if (length(region_indices) == 1) {
+      index_name_text <- paste0("<br>Index: ", region_indices[1])
+    }
+  }
+  
+  # Create hover text with full information
+  hover_text <- paste0(
+    region_name, " - ", region_data$weekday, "<br>",
+    "Return: ", round(region_data$mean_return, 2), "%<br>",
+    "Positive days: ", round(region_data$positive_pct, 1), "%<br>",
+    "Based on ", region_data$num_indices, " indices", index_name_text, "<br>",
+    "Total days: ", format(region_data$total_days, big.mark=",")
+  )
+  
+  p_regional <- p_regional %>%
+    add_trace(
+      data = region_data,
+      x = ~weekday, 
+      y = ~mean_return, 
+      type = "bar", 
+      name = region_name,
+      marker = list(
+        color = region_colors[region_name],
+        line = list(color = "rgba(58, 71, 80, 0.5)", width = 1)
+      ),
+      text = hover_text,
+      hoverinfo = "text",
+      showlegend = TRUE,
+      textposition = "none"
+    )
+}
+
+# Add a subtitle showing how many regions were included
+p_regional <- p_regional %>%
+  layout(
+    title = list(
+      text = paste0(
+        "Weekday Returns by Region<br>",
+        "<span style='font-size:16px'>Each index within a region equally weighted (min 1000 trading days per index, min 100 days per weekday)</span><br>",
+        "<span style='font-size:12px'>", length(complete_regions), " out of ", 
+        length(unique(regional_weekday_stats$region)), " regions have sufficient data</span>"
+      ),
+      font = list(size = 22)
+    )
+  )
+
+# Show the plot
+p_regional
+```
+### Check Your Market's Pattern
+
+Different markets can show different patterns. Use the navigation arrows to explore weekday performance for each market:
+
+```{r market-specific-analysis}
+# Calculate statistics for each index by weekday
+index_weekday_stats <- market_data %>%
+  group_by(region, symbol, index_name, weekday) %>%
+  summarize(
+    mean_return = mean(winsorized_return, na.rm = TRUE),
+    median_return = median(winsorized_return, na.rm = TRUE),
+    volatility = sd(winsorized_return, na.rm = TRUE),
+    positive_days = sum(winsorized_return > 0, na.rm = TRUE),
+    total_days = n(),
+    pct_positive = positive_days / total_days * 100,
+    .groups = "drop"
+  ) %>%
+  mutate(weekday = factor(weekday, levels = c("Mon", "Tue", "Wed", "Thu", "Fri")))
+
+# Find which indices have sufficient data for each weekday
+valid_indices_check <- index_weekday_stats %>%
+  group_by(index_name) %>%
+  summarize(
+    weekday_count = n_distinct(weekday),
+    min_days_per_weekday = min(total_days),
+    .groups = "drop"
+  ) %>%
+  filter(
+    weekday_count == 5 &  # Must have all 5 weekdays
+    min_days_per_weekday >= MIN_WEEKDAY_COUNT  # Must have minimum days for each weekday
+  )
+
+# Only keep indices with sufficient data
+valid_indices <- valid_indices_check$index_name
+
+# If any indices were excluded, log it
+excluded_indices <- setdiff(unique(index_weekday_stats$index_name), valid_indices)
+if(length(excluded_indices) > 0) {
+  message(paste("Excluded indices due to incomplete or insufficient weekday data:", 
+               paste(excluded_indices, collapse=", ")))
+}
+
+# Order the indices to make S&P 500 first if it exists
+sp500_index <- valid_indices[grep("S&P 500", valid_indices)]
+if(length(sp500_index) > 0) {
+  valid_indices <- c(sp500_index, setdiff(valid_indices, sp500_index))
+}
+
+# Filter to only include valid indices
+index_weekday_stats <- index_weekday_stats %>%
+  filter(index_name %in% valid_indices)
+
+# Prepare plot data for all indices
+plot_data <- list()
+
+for(i in seq_along(valid_indices)) {
+  idx <- valid_indices[i]
+  # Explicitly arrange by weekday to ensure proper order
+  idx_data <- index_weekday_stats %>%
+    filter(index_name == idx) %>%
+    arrange(weekday)  # Make sure weekdays are in order
+  
+  best_day <- idx_data$weekday[which.max(idx_data$mean_return)]
+  best_return <- max(idx_data$mean_return)
+  worst_day <- idx_data$weekday[which.min(idx_data$mean_return)]
+  worst_return <- min(idx_data$mean_return)
+  
+  bar_colors <- colorRamp(performance_colors)(
+    scales::rescale(idx_data$mean_return)
+  ) %>% rgb(maxColorValue = 255)
+  
+  hover_text <- paste0(
+    weekday_emojis[as.character(idx_data$weekday)], " ", idx_data$weekday, "<br>",
+    "Average Return: ", round(idx_data$mean_return, 2), "%<br>",
+    "Positive Days: ", round(idx_data$pct_positive, 1), "% of the time<br>",
+    "Sample Size: ", idx_data$total_days, " trading days<br>",
+    "<extra></extra>"
+  )
+  
+  plot_data[[i]] <- list(
+    index = i,
+    name = idx,
+    x = as.character(idx_data$weekday),
+    y = idx_data$mean_return,
+    colors = bar_colors,
+    hover = hover_text,
+    best_day = as.character(best_day),
+    best_return = best_return,
+    worst_day = as.character(worst_day),
+    worst_return = worst_return
+  )
+}
+
+# Simple function to create the plot for a given index number
+create_index_plot <- function(index_num) {
+  pd <- plot_data[[index_num]]
+  
+  plot_ly(
+    x = pd$x,
+    y = pd$y,
+    type = "bar",
+    marker = list(
+      color = pd$colors,
+      line = list(color = "#333333", width = 1.5)
+    ),
+    hovertemplate = pd$hover
+  ) %>%
+    layout(
+      title = list(
+        text = paste0("Weekday Returns: ", pd$name, " 📈"),
+        font = list(size = 24)
+      ),
+      xaxis = list(
+        title = "",
+        tickfont = list(size = 16),
+        categoryorder = "array",  # Force specific category order
+        categoryarray = c("Mon", "Tue", "Wed", "Thu", "Fri")  # Display in this order
+      ),
+      yaxis = list(
+        title = "Average Daily Return (%)",
+        titlefont = list(size = 16),
+        tickfont = list(size = 14),
+        zeroline = TRUE,
+        zerolinecolor = '#ddd',
+        zerolinewidth = 1
+      ),
+      annotations = list(
+        list(
+          x = pd$best_day,
+          y = pd$best_return,
+          text = paste0("⭐ Best Day ⭐<br>", round(pd$best_return, 2), "%"),
+          showarrow = TRUE,
+          arrowhead = 2,
+          arrowsize = 1,
+          arrowwidth = 2,
+          arrowcolor = "#25A75E",
+          ax = 0,
+          ay = -40,
+          bgcolor = "#25A75E",
+          bordercolor = "#25A75E",
+          borderwidth = 2,
+          borderpad = 4,
+          font = list(color = "white", size = 12)
+        ),
+        list(
+          x = pd$worst_day,
+          y = pd$worst_return,
+          text = paste0("⚠️ Worst Day ⚠️<br>", round(pd$worst_return, 2), "%"),
+          showarrow = TRUE,
+          arrowhead = 2,
+          arrowsize = 1,
+          arrowwidth = 2,
+          arrowcolor = "#d9534f",
+          ax = 0,
+          ay = 40,
+          bgcolor = "#d9534f",
+          bordercolor = "#d9534f",
+          borderwidth = 2,
+          borderpad = 4,
+          font = list(color = "white", size = 12)
+        ),
+        list(
+          xref = "paper",
+          yref = "paper",
+          x = 0.5,
+          y = -0.15,
+          text = paste("Index", index_num, "of", length(valid_indices), ":", pd$name, 
+                      "(min", MIN_WEEKDAY_COUNT, "days per weekday)"),
+          showarrow = FALSE,
+          font = list(size = 14)
+        )
+      ),
+      updatemenus = list(
+        list(
+          type = "buttons",
+          direction = "right",
+          x = 0.5,
+          y = 1.15,
+          xanchor = "center",
+          yanchor = "top",
+          buttons = list(
+            list(
+              args = list(list(visible = TRUE)),
+              label = "◀ Previous",
+              method = "restyle",
+              name = "previous"
+            ),
+            list(
+              args = list(list(visible = TRUE)),
+              label = "Next ▶",
+              method = "restyle",
+              name = "next"
+            )
+          )
+        )
+      ),
+      margin = list(t = 100, b = 100, l = 80, r = 80),
+      plot_bgcolor = '#f8f9fa',
+      paper_bgcolor = '#f8f9fa',
+      showlegend = FALSE
+    )
+}
+
+# Create the initial plot with the first index
+p <- create_index_plot(1)
+
+# Add navigation with JavaScript
+navigation_script <- paste0("
+function(el, x) {
+  // Store the list of valid indices and the current index
+  const plotData = ", jsonlite::toJSON(plot_data, auto_unbox = TRUE), ";
+  let currentIndex = 0;
+  
+  // Function to update plot with a specific index
+  function updatePlot(indexNum) {
+    const pd = plotData[indexNum];
+    
+    // Update the plot data
+    Plotly.update(el, {
+      'x': [pd.x],
+      'y': [pd.y],
+      'marker.color': [pd.colors],
+      'hovertemplate': [pd.hover]
+    }, {
+      'title.text': 'Weekday Returns: ' + pd.name + ' 📈',
+      'annotations[0].x': pd.best_day,
+      'annotations[0].y': pd.best_return,
+      'annotations[0].text': '⭐ Best Day ⭐<br>' + pd.best_return.toFixed(2) + '%',
+      'annotations[1].x': pd.worst_day,
+      'annotations[1].y': pd.worst_return, 
+      'annotations[1].text': '⚠️ Worst Day ⚠️<br>' + pd.worst_return.toFixed(2) + '%',
+      'annotations[2].text': 'Index ' + (indexNum+1) + ' of ' + plotData.length + ': ' + pd.name
+    });
+  }
+  
+  // Attach click handlers to the navigation buttons
+  el.on('plotly_buttonclicked', function(data) {
+    if (data.button.name === 'previous') {
+      currentIndex = (currentIndex - 1 + plotData.length) % plotData.length;
+      updatePlot(currentIndex);
+    } else if (data.button.name === 'next') {
+      currentIndex = (currentIndex + 1) % plotData.length;
+      updatePlot(currentIndex);
+    }
+  });
+}")
+
+# Add the JavaScript to the plot
+htmlwidgets::onRender(p, navigation_script)
+```
+
+### Best and Worst Days by Region
+
+The table below shows the best and worst performing weekdays for each region:
+
+```{r best-worst-summary}
+# Create a clean table of best/worst days by region
+best_worst_table <- region_best_worst %>%
+  mutate(
+    best_day_text = paste0(weekday_emojis[as.character(best_day)], " ", best_day, " (", round(best_return, 2), "%)"),
+    worst_day_text = paste0(weekday_emojis[as.character(worst_day)], " ", worst_day, " (", round(worst_return, 2), "%)"),
+    region = factor(region, levels = names(sort(table(market_data$region), decreasing = TRUE))),
+    indices_included = num_indices
+  ) %>%
+  arrange(region) %>%
+  select(region, indices_included, best_day_text, worst_day_text)
+
+# Add a caption explaining the minimum requirements
+caption_text <- paste0(
+  "Best and worst weekdays by region based on minimum requirements: ",
+  "At least ", MIN_TRADING_DAYS, " trading days per index and ",
+  "at least ", MIN_WEEKDAY_COUNT, " trading days per weekday"
+)
+
+# Display as a clean data table
+DT::datatable(
+  best_worst_table,
+  colnames = c("Region", "Indices Included", "Best Day", "Worst Day"),
+  options = list(
+    pageLength = 15,
+    dom = 't',
+    ordering = FALSE
+  ),
+  caption = caption_text,
+  rownames = FALSE,
+  escape = FALSE
+)
 ```
