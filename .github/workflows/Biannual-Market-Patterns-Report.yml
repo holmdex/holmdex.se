@@ -97,7 +97,7 @@ jobs:
           git push -f
       
       - name: Upload HTML report as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2
         with:
           name: market-patterns-report
           path: |
