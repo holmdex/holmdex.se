@@ -2,9 +2,8 @@ name: Biannual Market Patterns Report
 
 on:
   schedule:
-    # Run every 6 months (January 1st and July 1st at 00:00 UTC)
-    - cron: '0 0 1 1,7 *'
-  workflow_dispatch:  # Allow manual triggering as well
+    - cron: '0 0 1 1,7 *'  # Run on January 1st and July 1st
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
   generate-report:
@@ -12,26 +11,18 @@ jobs:
     
     env:
       R_LIBS_USER: ${{ github.workspace }}/r-libs
-      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 1
       
       - name: Clean previous reports
-        run: |
-          # Remove any old market pattern HTML files before generating new ones
-          rm -f weekday-market-patterns.html market-patterns-report-*.html
-          # Also remove any cached data files to ensure fresh data
-          rm -f global_market_data_cache_*.rds
+        run: rm -f weekday-market-patterns.html market-patterns-report-*.html global_market_data_cache_*.rds
       
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.2.0'
-          use-public-rspm: true
       
       - name: Setup Pandoc
         uses: r-lib/actions/setup-pandoc@v2
@@ -41,65 +32,45 @@ jobs:
         with:
           version: 1.3.450
       
-      - name: Get Date
-        id: get-date
-        run: |
-          echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
-      
       - name: Cache R packages
         uses: actions/cache@v3
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-4.2.0-${{ steps.get-date.outputs.date }}-1
-          restore-keys: ${{ runner.os }}-r-4.2.0-
+          key: ${{ runner.os }}-r-${{ hashFiles('**/weekday-market-patterns.qmd') }}
       
-      - name: Install system dependencies
+      - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libfreetype6-dev pkg-config libudunits2-dev
-      
-      - name: Install R packages
-        run: |
+          sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libfreetype6-dev pkg-config libudunits2-dev
           Rscript -e 'if (!dir.exists(Sys.getenv("R_LIBS_USER"))) dir.create(Sys.getenv("R_LIBS_USER"), recursive = TRUE)'
-          Rscript -e 'install.packages(c("rmarkdown", "tidyverse", "lubridate", "plotly", "DT", "knitr", "jsonlite", "httr", "rvest", "xml2", "curl", "scales", "htmlwidgets", "htmltools"), repos = "https://cloud.r-project.org")'
-          Rscript -e 'install.packages(c("quantmod", "TTR", "tidyquant"), repos = "https://cloud.r-project.org")'
+          Rscript -e 'install.packages(c("rmarkdown", "tidyverse", "lubridate", "plotly", "DT", "knitr", "jsonlite", "httr", "rvest", "xml2", "curl", "scales", "htmlwidgets", "htmltools", "quantmod", "TTR", "tidyquant"), repos = "https://cloud.r-project.org")'
       
       - name: Render market patterns report
         run: |
           quarto render weekday-market-patterns.qmd --to html
-          # Create a more reader-friendly filename with date
           cp weekday-market-patterns.html "market-patterns-report-$(date +'%Y-%m-%d').html"
       
-      - name: Optimize HTML file size
+      - name: Optimize HTML file
         run: |
-          # Install html-minifier if needed
           sudo npm install -g html-minifier
-          # Minify HTML to reduce file size
           html-minifier --collapse-whitespace --remove-comments --remove-optional-tags --remove-redundant-attributes --remove-script-type-attributes --remove-tag-whitespace --use-short-doctype weekday-market-patterns.html -o weekday-market-patterns.min.html
-          # Replace original file with minified version if successful
-          if [ -f weekday-market-patterns.min.html ]; then
-            mv weekday-market-patterns.min.html weekday-market-patterns.html
-          fi
+          [ -f weekday-market-patterns.min.html ] && mv weekday-market-patterns.min.html weekday-market-patterns.html
       
-      - name: Force push updated files
+      - name: Commit and push updated files
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          
-          # Delete old report files from git
-          git ls-files market-patterns-report-*.html | grep -v "$(date +'%Y-%m-%d')" | xargs -r git rm -f
-          
-          # Add new files
           git add -f weekday-market-patterns.html "market-patterns-report-$(date +'%Y-%m-%d').html"
-          
-          # Commit and force push
           git commit -m "Update market patterns report [automated] $(date +'%Y-%m-%d')" || echo "No changes to commit"
           git push -f
       
-      - name: Upload HTML report as artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: market-patterns-report
-          path: |
-            weekday-market-patterns.html
-          retention-days: 90
+      # Final verification step
+      - name: Verify report generation
+        run: |
+          echo "Report generation workflow completed"
+          if [ -f "weekday-market-patterns.html" ]; then
+            echo "✅ HTML report successfully generated and committed"
+            ls -la weekday-market-patterns.html
+          else
+            echo "❌ Error: The HTML report file does not exist!"
+            exit 1
+          fi
