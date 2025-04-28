@@ -32,22 +32,35 @@ jobs:
         with:
           version: 1.3.450
       
+      - name: Get Date
+        id: get-date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+      
       - name: Cache R packages
         uses: actions/cache@v3
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-${{ hashFiles('**/weekday-market-patterns.qmd') }}
+          key: ${{ runner.os }}-r-4.2.0-${{ steps.get-date.outputs.date }}
+          restore-keys: ${{ runner.os }}-r-4.2.0-
       
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libfreetype6-dev pkg-config libudunits2-dev
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libfreetype6-dev pkg-config libudunits2-dev libharfbuzz-dev libfribidi-dev
+      
+      - name: Install R packages
+        run: |
           Rscript -e 'if (!dir.exists(Sys.getenv("R_LIBS_USER"))) dir.create(Sys.getenv("R_LIBS_USER"), recursive = TRUE)'
-          Rscript -e 'install.packages(c("rmarkdown", "tidyverse", "lubridate", "plotly", "DT", "knitr", "jsonlite", "httr", "rvest", "xml2", "curl", "scales", "htmlwidgets", "htmltools", "quantmod", "TTR", "tidyquant"), repos = "https://cloud.r-project.org")'
+          Rscript -e 'install.packages(c("rmarkdown", "knitr", "jsonlite", "httr", "rvest", "xml2", "curl", "scales", "htmlwidgets", "htmltools"), repos = "https://cloud.r-project.org")'
+          Rscript -e 'install.packages("tidyverse", dependencies = TRUE, repos = "https://cloud.r-project.org")'
+          Rscript -e 'install.packages(c("lubridate", "plotly", "DT"), repos = "https://cloud.r-project.org")'
+          Rscript -e 'install.packages(c("quantmod", "TTR", "tidyquant"), repos = "https://cloud.r-project.org")'
       
       - name: Render market patterns report
-        run: |
-          quarto render weekday-market-patterns.qmd --to html
-          cp weekday-market-patterns.html "market-patterns-report-$(date +'%Y-%m-%d').html"
+        run: quarto render weekday-market-patterns.qmd --to html
+      
+      - name: Create dated report copy
+        run: cp weekday-market-patterns.html "market-patterns-report-$(date +'%Y-%m-%d').html"
       
       - name: Optimize HTML file
         run: |
@@ -61,16 +74,4 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add -f weekday-market-patterns.html "market-patterns-report-$(date +'%Y-%m-%d').html"
           git commit -m "Update market patterns report [automated] $(date +'%Y-%m-%d')" || echo "No changes to commit"
-          git push -f
-      
-      # Final verification step
-      - name: Verify report generation
-        run: |
-          echo "Report generation workflow completed"
-          if [ -f "weekday-market-patterns.html" ]; then
-            echo "✅ HTML report successfully generated and committed"
-            ls -la weekday-market-patterns.html
-          else
-            echo "❌ Error: The HTML report file does not exist!"
-            exit 1
-          fi
+          git push
