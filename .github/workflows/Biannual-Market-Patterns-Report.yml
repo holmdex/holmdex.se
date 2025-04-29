@@ -5,6 +5,9 @@ on:
     - cron: '0 0 1 1,7 *'  # Run on January 1st and July 1st
   workflow_dispatch:  # Allow manual triggering
 
+permissions:
+  contents: write  # Explicitly grant write permission to repository contents
+
 jobs:
   generate-report:
     runs-on: ubuntu-latest
@@ -12,10 +15,19 @@ jobs:
     env:
       R_LIBS_USER: ${{ github.workspace }}/r-libs
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      TZ: UTC
+      R_CHECK_SYSTEM_CLOCK_: FALSE
+      NOT_CRAN: true
+      _R_CHECK_LENGTH_1_CONDITION_: FALSE
+      _R_CHECK_LENGTH_1_LOGIC2_: FALSE
+      R_REPOS: https://cloud.r-project.org
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0  # Fetch all history for proper git operations
       
       - name: Clean previous reports
         run: rm -f weekday-market-patterns.html market-patterns-report-*.html global_market_data_cache_*.rds
@@ -42,62 +54,76 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-4.2.0-${{ hashFiles('**/renv.lock') }}-${{ steps.get-date.outputs.date }}
+          key: ${{ runner.os }}-r-${{ hashFiles('**/renv.lock', '**/DESCRIPTION', '**/weekday-market-patterns.qmd') }}-${{ steps.get-date.outputs.date }}
           restore-keys: |
-            ${{ runner.os }}-r-4.2.0-${{ hashFiles('**/renv.lock') }}-
-            ${{ runner.os }}-r-4.2.0-
+            ${{ runner.os }}-r-${{ hashFiles('**/renv.lock', '**/DESCRIPTION') }}-
+            ${{ runner.os }}-r-
       
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libfreetype6-dev libharfbuzz-dev libfribidi-dev libudunits2-dev libgdal-dev libgeos-dev libproj-dev pkg-config
+          sudo apt-get install -y --no-install-recommends \
+            libcurl4-openssl-dev libssl-dev libxml2-dev \
+            libfontconfig1-dev libfreetype6-dev \
+            libharfbuzz-dev libfribidi-dev \
+            libudunits2-dev libgdal-dev libgeos-dev libproj-dev \
+            pkg-config
       
       - name: Setup R package directories
-        run: |
-          mkdir -p ${{ env.R_LIBS_USER }}
+        run: mkdir -p ${{ env.R_LIBS_USER }}
       
-      - name: Install tidyverse and dependencies
+      - name: Install core packages
         run: |
-          Rscript -e 'install.packages("tidyverse", dependencies = TRUE, repos = "https://cloud.r-project.org")'
+          Rscript -e 'install.packages(c("tidyverse", "remotes"), repos = Sys.getenv("R_REPOS"), Ncpus = parallel::detectCores())'
       
-      - name: Install required R packages
+      - name: Install all required packages
         run: |
           Rscript -e '
-          packages <- c(
-            "lubridate", "plotly", "knitr", "rmarkdown", "jsonlite", 
-            "httr", "rvest", "xml2", "curl", "DT", "quantmod",
-            "TTR", "tidyquant", "htmlwidgets", "htmltools",
-            "scales"
+          required_packages <- c(
+            "tidyverse", "lubridate", "plotly", "knitr", "rmarkdown",
+            "jsonlite", "httr", "rvest", "xml2", "curl", "DT",
+            "quantmod", "TTR", "tidyquant", "htmlwidgets", "htmltools",
+            "scales", "dplyr", "purrr", "stringr", "ggplot2"
           )
           
-          install_status <- sapply(packages, function(pkg) {
-            if (!requireNamespace(pkg, quietly = TRUE)) {
-              cat("Installing package:", pkg, "\n")
-              install.packages(pkg, dependencies = TRUE, repos = "https://cloud.r-project.org")
-              return(TRUE)
-            } else {
-              cat("Package already installed:", pkg, "\n")
-              return(FALSE)
-            }
-          })
+          # Install missing packages in parallel
+          missing_packages <- setdiff(required_packages, rownames(installed.packages()))
+          if(length(missing_packages) > 0) {
+            install.packages(missing_packages, repos = Sys.getenv("R_REPOS"), Ncpus = parallel::detectCores())
+          }
           
-          # Verify all packages can be loaded
-          lapply(packages, library, character.only = TRUE)
-          
-          cat("\nPackage installation summary:\n")
-          cat("Packages installed:", sum(install_status), "\n")
-          cat("Packages already installed:", sum(!install_status), "\n")
+          # Print package versions for debugging
+          installed <- data.frame(
+            Package = required_packages,
+            Installed = required_packages %in% rownames(installed.packages()),
+            Version = sapply(required_packages, function(pkg) {
+              if(pkg %in% rownames(installed.packages())) {
+                packageVersion(pkg)
+              } else {
+                NA
+              }
+            })
+          )
+          print(installed)
           '
       
-      - name: Check R package installation
-        run: |
-          Rscript -e 'installed.packages()[, "Package"]'
-          Rscript -e 'if (!require("tidyverse")) stop("tidyverse not installed")'
-          Rscript -e 'if (!require("plotly")) stop("plotly not installed")'
-          Rscript -e 'if (!require("lubridate")) stop("lubridate not installed")'
-      
       - name: Render market patterns report
-        run: quarto render weekday-market-patterns.qmd --to html
+        run: |
+          R_PROFILE_USER=$PWD/.Rprofile
+          echo "options(tidyverse.quiet = TRUE)" > $R_PROFILE_USER
+          echo "suppressPackageStartupMessages(library(tidyverse))" >> $R_PROFILE_USER
+          echo "filter <- dplyr::filter" >> $R_PROFILE_USER
+          echo "select <- dplyr::select" >> $R_PROFILE_USER
+          echo "group_by <- dplyr::group_by" >> $R_PROFILE_USER
+          echo "summarize <- dplyr::summarize" >> $R_PROFILE_USER
+          echo "mutate <- dplyr::mutate" >> $R_PROFILE_USER
+          echo "arrange <- dplyr::arrange" >> $R_PROFILE_USER
+          
+          # Set additional Quarto options for performance
+          QUARTO_RENDER_ARGS="--execute-timeout=600 --execute-daemon --no-clean"
+          
+          # Render the report
+          quarto render weekday-market-patterns.qmd --to html $QUARTO_RENDER_ARGS
       
       - name: Create dated report copy
         run: cp weekday-market-patterns.html "market-patterns-report-$(date +'%Y-%m-%d').html"
@@ -105,13 +131,33 @@ jobs:
       - name: Optimize HTML file
         run: |
           sudo npm install -g html-minifier
-          html-minifier --collapse-whitespace --remove-comments --remove-optional-tags --remove-redundant-attributes --remove-script-type-attributes --remove-tag-whitespace --use-short-doctype weekday-market-patterns.html -o weekday-market-patterns.min.html
-          [ -f weekday-market-patterns.min.html ] && mv weekday-market-patterns.min.html weekday-market-patterns.html
+          html-minifier --collapse-whitespace --remove-comments --remove-optional-tags \
+            --remove-redundant-attributes --remove-script-type-attributes \
+            --remove-tag-whitespace --use-short-doctype \
+            --minify-css true --minify-js true \
+            weekday-market-patterns.html -o weekday-market-patterns.min.html
+          
+          if [ -f weekday-market-patterns.min.html ]; then
+            mv weekday-market-patterns.min.html weekday-market-patterns.html
+          fi
       
-      - name: Commit and push updated files
+      - name: Check file for committing
+        id: check_files
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add -f weekday-market-patterns.html "market-patterns-report-$(date +'%Y-%m-%d').html"
-          git commit -m "Update market patterns report [automated] $(date +'%Y-%m-%d')" || echo "No changes to commit"
-          git push
+          if [ -f weekday-market-patterns.html ] && [ -f "market-patterns-report-$(date +'%Y-%m-%d').html" ]; then
+            echo "files_exist=true" >> $GITHUB_OUTPUT
+          else
+            echo "files_exist=false" >> $GITHUB_OUTPUT
+            echo "Warning: Generated HTML files not found!"
+          fi
+      
+      - name: Deploy report files
+        if: steps.check_files.outputs.files_exist == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "Update market patterns report [automated] ${{ steps.get-date.outputs.date }}"
+          file_pattern: "weekday-market-patterns.html market-patterns-report-*.html"
+          commit_user_name: GitHub Actions
+          commit_user_email: actions@github.com
+          commit_author: GitHub Actions <actions@github.com>
+          push_options: '--force'
