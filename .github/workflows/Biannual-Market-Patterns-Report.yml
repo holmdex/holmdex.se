@@ -18,17 +18,13 @@ jobs:
       TZ: UTC
       R_CHECK_SYSTEM_CLOCK_: FALSE
       NOT_CRAN: true
-      _R_CHECK_LENGTH_1_CONDITION_: FALSE
-      _R_CHECK_LENGTH_1_LOGIC2_: FALSE
-      R_REPOS: https://packagemanager.posit.co/cran/__linux__/jammy/latest
-      RSPM: https://packagemanager.posit.co/cran/__linux__/jammy/latest
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0  # Fetch all history for proper git operations
+          fetch-depth: 0
       
       - name: Clean previous reports
         run: rm -f weekday-market-patterns.html market-patterns-report-*.html global_market_data_cache_*.rds
@@ -51,32 +47,6 @@ jobs:
         id: get-date
         run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
       
-      - name: Create package manifest
-        run: |
-          echo "Creating package manifest from QMD file"
-          grep -o "library([^)]*)" weekday-market-patterns.qmd | tr -d 'library(' | tr -d ')' | sort | uniq > r-packages.txt
-          echo "Adding essential packages"
-          for pkg in tidyverse lubridate plotly knitr rmarkdown jsonlite httr rvest xml2 curl DT quantmod TTR tidyquant htmlwidgets htmltools scales dplyr; do
-            echo $pkg >> r-packages.txt
-          done
-          sort r-packages.txt | uniq > r-packages-unique.txt
-          echo "Package manifest created with $(wc -l < r-packages-unique.txt) packages"
-          cat r-packages-unique.txt
-          
-          # Create a binary packages-only manifest to create precise cache key
-          packages_hash=$(cat r-packages-unique.txt | sort | uniq | md5sum | cut -d' ' -f1)
-          echo "packages_hash=$packages_hash" >> $GITHUB_OUTPUT
-      
-      - name: Cache R packages
-        uses: actions/cache@v3
-        id: r-pkg-cache
-        with:
-          path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-pkg-bin-${{ steps.get-date.outputs.packages_hash }}-${{ hashFiles('r-packages-unique.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-r-pkg-bin-${{ steps.get-date.outputs.packages_hash }}-
-            ${{ runner.os }}-r-pkg-bin-
-      
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -90,146 +60,78 @@ jobs:
       - name: Setup R package directories
         run: mkdir -p ${{ env.R_LIBS_USER }}
       
-      - name: Install binary packages 
-        if: steps.r-pkg-cache.outputs.cache-hit != 'true'
-        run: |
-          # Create a script to install packages in chunks to avoid memory issues
-          cat > install-packages.R << 'EOF'
-          packages <- readLines("r-packages-unique.txt")
-          
-          # Install in chunks of 5 to avoid memory issues
-          chunk_size <- 5
-          num_chunks <- ceiling(length(packages) / chunk_size)
-          
-          for (i in 1:num_chunks) {
-            start_idx <- (i - 1) * chunk_size + 1
-            end_idx <- min(i * chunk_size, length(packages))
-            
-            pkg_chunk <- packages[start_idx:end_idx]
-            cat("Installing packages chunk", i, "of", num_chunks, ":", paste(pkg_chunk, collapse=", "), "\n")
-            
-            # Try to install packages with proper error handling
-            for (pkg in pkg_chunk) {
-              tryCatch({
-                if (!pkg %in% rownames(installed.packages())) {
-                  cat("Installing", pkg, "...\n")
-                  install.packages(pkg, dependencies = TRUE, repos = Sys.getenv("R_REPOS"))
-                } else {
-                  cat(pkg, "already installed\n")
-                }
-              }, error = function(e) {
-                cat("Error installing", pkg, ":", e$message, "\n")
-              })
-            }
-          }
-          
-          # Print summary of installed packages
-          installed <- installed.packages()
-          missing <- setdiff(packages, rownames(installed))
-          
-          cat("\nPackage Installation Summary:\n")
-          cat("Total packages required:", length(packages), "\n")
-          cat("Packages successfully installed:", length(packages) - length(missing), "\n")
-          
-          if (length(missing) > 0) {
-            cat("Missing packages:", paste(missing, collapse=", "), "\n")
-          } else {
-            cat("All required packages installed successfully!\n")
-          }
-          EOF
-          
-          # Run the installation script
-          Rscript install-packages.R
+      - name: Cache R packages
+        uses: actions/cache@v3
+        id: r-pkg-cache
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: ${{ runner.os }}-r-pkg-${{ hashFiles('weekday-market-patterns.qmd') }}-${{ steps.get-date.outputs.date }}
+          restore-keys: |
+            ${{ runner.os }}-r-pkg-${{ hashFiles('weekday-market-patterns.qmd') }}-
+            ${{ runner.os }}-r-pkg-
       
-      - name: Verify package installation
+      - name: Install core R packages
         run: |
-          Rscript -e '
-          required <- readLines("r-packages-unique.txt")
-          installed <- rownames(installed.packages())
-          missing <- setdiff(required, installed)
+          # Install tidyverse first
+          Rscript -e 'install.packages("tidyverse", repos = "https://cloud.r-project.org")'
           
-          # Try to install any missing packages one last time
-          if (length(missing) > 0) {
-            cat("Attempting to install", length(missing), "missing packages...\n")
-            for (pkg in missing) {
-              tryCatch({
-                install.packages(pkg, dependencies = TRUE, repos = Sys.getenv("R_REPOS"))
-                cat("Successfully installed", pkg, "\n")
-              }, error = function(e) {
-                cat("Failed to install", pkg, ":", e$message, "\n")
-              })
-            }
-            
-            # Check again
-            installed <- rownames(installed.packages())
-            still_missing <- setdiff(required, installed)
-            
-            if (length(still_missing) > 0) {
-              cat("WARNING: Still missing packages:", paste(still_missing, collapse=", "), "\n")
-              cat("Will attempt to continue without these packages.\n")
-            }
-          } else {
-            cat("All required packages are installed!\n")
-          }
-          
-          # Print tidyverse version information
-          if ("tidyverse" %in% installed) {
-            cat("\nTidyverse information:\n")
-            print(packageVersion("tidyverse"))
-            tidyverse_pkgs <- c("dplyr", "ggplot2", "tidyr", "readr", "purrr", "tibble", "stringr", "forcats")
-            for (pkg in tidyverse_pkgs) {
-              if (pkg %in% installed) {
-                cat(pkg, "version:", packageVersion(pkg), "\n")
-              }
-            }
-          }
-          '
+          # Install explicitly defined essential packages
+          Rscript -e 'install.packages(c(
+            "lubridate", 
+            "plotly", 
+            "knitr", 
+            "rmarkdown", 
+            "jsonlite", 
+            "httr", 
+            "rvest", 
+            "xml2", 
+            "curl", 
+            "DT", 
+            "quantmod", 
+            "TTR", 
+            "tidyquant", 
+            "htmlwidgets", 
+            "htmltools", 
+            "scales"
+          ), repos = "https://cloud.r-project.org")'
       
-      - name: Create R namespace handler
+      - name: Create .Rprofile for namespace handling
         run: |
           cat > .Rprofile << 'EOF'
           # Suppress startup messages
           options(tidyverse.quiet = TRUE)
           
-          # Handle namespace conflicts
-          .First <- function() {
-            # Load essential packages silently
-            suppressPackageStartupMessages({
-              library(tidyverse)
-            })
-            
-            # Set function preferences
-            filter <- dplyr::filter
-            select <- dplyr::select
-            group_by <- dplyr::group_by
-            summarize <- dplyr::summarize
-            mutate <- dplyr::mutate
-            arrange <- dplyr::arrange
-            
-            # Set other options
-            options(
-              width = 120,
-              scipen = 999,
-              max.print = 1000,
-              warn = 1,
-              repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/jammy/latest")
-            )
-          }
+          # Set explicit function preferences to avoid namespace conflicts
+          assign("filter", dplyr::filter, envir = .GlobalEnv)
+          assign("select", dplyr::select, envir = .GlobalEnv)
+          assign("group_by", dplyr::group_by, envir = .GlobalEnv)
+          assign("summarize", dplyr::summarize, envir = .GlobalEnv)
+          assign("mutate", dplyr::mutate, envir = .GlobalEnv)
+          assign("arrange", dplyr::arrange, envir = .GlobalEnv)
+          
+          # Set additional options
+          options(
+            width = 120,
+            scipen = 999,
+            max.print = 1000,
+            warn = 1,
+            repos = c(CRAN = "https://cloud.r-project.org")
+          )
           EOF
       
       - name: Render market patterns report
         run: |
-          # Set additional Quarto options for performance
-          QUARTO_RENDER_ARGS="--execute-timeout=1200 --execute-daemon --no-clean"
-          
-          # Extra environment variables for R memory management
+          # Set environment variables for R
           export R_MAX_VSIZE=16Gb
           export R_MAX_NUM_THREADS=4
           
-          # Render the report with extended timeout and memory
-          timeout 30m quarto render weekday-market-patterns.qmd --to html $QUARTO_RENDER_ARGS || (echo "Quarto render timed out or failed, but continuing...")
+          # Set Quarto options
+          QUARTO_RENDER_ARGS="--execute-timeout=1200"
           
-          # Check if the file was created despite any errors
+          # Run with a timeout
+          timeout 30m quarto render weekday-market-patterns.qmd --to html $QUARTO_RENDER_ARGS || (echo "Quarto render had issues, checking for output...")
+          
+          # Check if the output was generated despite errors
           if [ -f weekday-market-patterns.html ]; then
             echo "Successfully generated weekday-market-patterns.html"
           else
@@ -252,23 +154,17 @@ jobs:
           if [ -f weekday-market-patterns.html ]; then
             sudo npm install -g html-minifier
             
-            # Try to minify, but don't fail if minification fails
             html-minifier --collapse-whitespace --remove-comments --remove-optional-tags \
               --remove-redundant-attributes --remove-script-type-attributes \
               --remove-tag-whitespace --use-short-doctype \
-              --minify-css true --minify-js true \
-              --timeout 30 \
               weekday-market-patterns.html -o weekday-market-patterns.min.html || echo "Minification failed, using original file"
             
-            # If minified version exists and is not empty, use it
             if [ -f weekday-market-patterns.min.html ] && [ -s weekday-market-patterns.min.html ]; then
               mv weekday-market-patterns.min.html weekday-market-patterns.html
               echo "Successfully minified HTML file"
             else
               echo "Warning: Could not minify HTML file, using original"
             fi
-          else
-            echo "Warning: No HTML file found to minify"
           fi
       
       - name: Deploy report files
@@ -280,6 +176,4 @@ jobs:
           commit_user_email: actions@github.com
           commit_author: GitHub Actions <actions@github.com>
           push_options: '--force'
-          status_options: '--untracked-files=no'
-          add_options: '-f'
-          skip_dirty_check: true  # Continue even if no changes detected
+          skip_dirty_check: true
