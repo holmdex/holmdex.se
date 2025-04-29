@@ -11,6 +11,7 @@ jobs:
     
     env:
       R_LIBS_USER: ${{ github.workspace }}/r-libs
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     
     steps:
       - name: Checkout repository
@@ -23,6 +24,7 @@ jobs:
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.2.0'
+          use-public-rspm: true
       
       - name: Setup Pandoc
         uses: r-lib/actions/setup-pandoc@v2
@@ -40,21 +42,59 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-4.2.0-${{ steps.get-date.outputs.date }}
-          restore-keys: ${{ runner.os }}-r-4.2.0-
+          key: ${{ runner.os }}-r-4.2.0-${{ hashFiles('**/renv.lock') }}-${{ steps.get-date.outputs.date }}
+          restore-keys: |
+            ${{ runner.os }}-r-4.2.0-${{ hashFiles('**/renv.lock') }}-
+            ${{ runner.os }}-r-4.2.0-
       
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libfreetype6-dev pkg-config libudunits2-dev libharfbuzz-dev libfribidi-dev
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libfreetype6-dev libharfbuzz-dev libfribidi-dev libudunits2-dev libgdal-dev libgeos-dev libproj-dev pkg-config
       
-      - name: Install R packages
+      - name: Setup R package directories
         run: |
-          Rscript -e 'if (!dir.exists(Sys.getenv("R_LIBS_USER"))) dir.create(Sys.getenv("R_LIBS_USER"), recursive = TRUE)'
-          Rscript -e 'install.packages(c("rmarkdown", "knitr", "jsonlite", "httr", "rvest", "xml2", "curl", "scales", "htmlwidgets", "htmltools"), repos = "https://cloud.r-project.org")'
+          mkdir -p ${{ env.R_LIBS_USER }}
+      
+      - name: Install tidyverse and dependencies
+        run: |
           Rscript -e 'install.packages("tidyverse", dependencies = TRUE, repos = "https://cloud.r-project.org")'
-          Rscript -e 'install.packages(c("lubridate", "plotly", "DT"), repos = "https://cloud.r-project.org")'
-          Rscript -e 'install.packages(c("quantmod", "TTR", "tidyquant"), repos = "https://cloud.r-project.org")'
+      
+      - name: Install required R packages
+        run: |
+          Rscript -e '
+          packages <- c(
+            "lubridate", "plotly", "knitr", "rmarkdown", "jsonlite", 
+            "httr", "rvest", "xml2", "curl", "DT", "quantmod",
+            "TTR", "tidyquant", "htmlwidgets", "htmltools",
+            "scales"
+          )
+          
+          install_status <- sapply(packages, function(pkg) {
+            if (!requireNamespace(pkg, quietly = TRUE)) {
+              cat("Installing package:", pkg, "\n")
+              install.packages(pkg, dependencies = TRUE, repos = "https://cloud.r-project.org")
+              return(TRUE)
+            } else {
+              cat("Package already installed:", pkg, "\n")
+              return(FALSE)
+            }
+          })
+          
+          # Verify all packages can be loaded
+          lapply(packages, library, character.only = TRUE)
+          
+          cat("\nPackage installation summary:\n")
+          cat("Packages installed:", sum(install_status), "\n")
+          cat("Packages already installed:", sum(!install_status), "\n")
+          '
+      
+      - name: Check R package installation
+        run: |
+          Rscript -e 'installed.packages()[, "Package"]'
+          Rscript -e 'if (!require("tidyverse")) stop("tidyverse not installed")'
+          Rscript -e 'if (!require("plotly")) stop("plotly not installed")'
+          Rscript -e 'if (!require("lubridate")) stop("lubridate not installed")'
       
       - name: Render market patterns report
         run: quarto render weekday-market-patterns.qmd --to html
