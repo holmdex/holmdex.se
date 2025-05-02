@@ -19,10 +19,12 @@ jobs:
       R_CHECK_SYSTEM_CLOCK_: FALSE
       NOT_CRAN: true
       # Increase memory limits for R
-      R_MAX_VSIZE: 16Gb
+      R_MAX_VSIZE: 32Gb
       R_MAX_NUM_THREADS: 4
       # Prevent R from stopping on warnings
       R_KEEP_PKG_SOURCE: yes
+      # Set a longer timeout for downloads
+      DOWNLOAD_TIMEOUT: 600
     
     steps:
       - name: Checkout repository
@@ -31,12 +33,14 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
       
-      - name: Clean previous reports
+      - name: Create data directory
         run: |
-          rm -f weekday-market-patterns.html market-patterns-report-*.html 
-          rm -f global_market_data_cache_*.rds
-          rm -f .Rhistory .RData
+          # Create data directory if it doesn't exist
           mkdir -p data
+          # Create timestamp variables for cache keys
+          echo "CACHE_DATE=$(date +'%Y_%m_%d')" >> $GITHUB_ENV
+          echo "CACHE_WEEK=$(date +'%Y_%W')" >> $GITHUB_ENV
+          echo "CACHE_MONTH=$(date +'%Y_%m')" >> $GITHUB_ENV
       
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
@@ -64,14 +68,13 @@ jobs:
             libfontconfig1-dev libfreetype6-dev \
             libharfbuzz-dev libfribidi-dev \
             libudunits2-dev libgdal-dev libgeos-dev libproj-dev \
-            pkg-config libv8-dev
+            pkg-config libv8-dev libsodium-dev
           
           # Install Chrome dependencies for plotly HTML export
-          # Fixed: using libasound2t64 which is available instead of libasound2
           sudo apt-get install -y --no-install-recommends \
             libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
             libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 \
-            libxrandr2 libgbm1 libasound2t64
+            libxrandr2 libgbm1 libpulse0 libasound2
       
       - name: Setup R package directories
         run: mkdir -p ${{ env.R_LIBS_USER }}
@@ -85,6 +88,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-r-pkg-${{ hashFiles('weekday-market-patterns.qmd') }}-
             ${{ runner.os }}-r-pkg-
+      
+      - name: Cache market data
+        uses: actions/cache@v3
+        id: market-data-cache
+        with:
+          path: data/
+          key: market-data-${{ env.CACHE_WEEK }}
+          restore-keys: |
+            market-data-${{ env.CACHE_MONTH }}
+            market-data-
       
       - name: Install core R packages
         run: |
@@ -113,7 +126,7 @@ jobs:
           packages <- c(
             "lubridate", "plotly", "knitr", "rmarkdown", "jsonlite", 
             "httr", "rvest", "xml2", "curl", "DT", "quantmod", 
-            "tidyquant", "htmlwidgets", "htmltools", "scales"
+            "tidyquant", "htmlwidgets", "htmltools", "scales", "RCurl"
           )
           
           # Install each package separately to avoid dependency issues
@@ -172,31 +185,12 @@ jobs:
             scipen = 999,
             max.print = 1000,
             warn = 1,
-            repos = c(CRAN = "https://cloud.r-project.org")
+            # Increase download timeout
+            timeout = 600,
+            # Set repos with mirror that has binary packages
+            repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/jammy/latest")
           )
           EOF
-      
-      - name: Patch QMD file if needed
-        run: |
-          # Check if QMD file needs patching for common issues
-          if grep -q "filter <- dplyr::filter" weekday-market-patterns.qmd; then
-            echo "QMD file already contains function assignments, no need to patch"
-          else
-            # Make a backup
-            cp weekday-market-patterns.qmd weekday-market-patterns.qmd.bak
-            
-            # Add function assignments to setup chunk if needed
-            sed -i '/```{r setup, include=FALSE}/a \
-            # Explicitly set dplyr functions to avoid namespace conflicts\
-            filter <- dplyr::filter\
-            select <- dplyr::select\
-            group_by <- dplyr::group_by\
-            summarize <- dplyr::summarize\
-            mutate <- dplyr::mutate\
-            arrange <- dplyr::arrange' weekday-market-patterns.qmd
-            
-            echo "Patched QMD file with function assignments"
-          fi
       
       - name: Create fallback HTML template
         run: |
@@ -230,28 +224,111 @@ jobs:
           # Make sure any directories needed by the qmd exist
           mkdir -p figures
           mkdir -p data
-          ls -la
+          ls -la data/
       
-      - name: Try Quarto render with max compatibility
+      - name: Generate seed cache data if needed
+        if: steps.market-data-cache.outputs.cache-hit != 'true'
         run: |
-          # Try rendering with maximum compatibility settings
+          echo "No cache found. Creating seed data for key indices..."
+          cat > generate_seed_data.R << 'EOF'
+          library(tidyverse)
+          library(quantmod)
+          library(lubridate)
+          
+          # Create necessary directories
+          if (!dir.exists("data")) {
+            dir.create("data", showWarnings = FALSE)
+          }
+          
+          # Try to get data for S&P 500 (most reliable index)
+          symbols <- c("^GSPC", "SPY", "SP500", "ES=F")
+          sp500_data <- NULL
+          
+          for (symbol in symbols) {
+            tryCatch({
+              print(paste("Trying to fetch", symbol))
+              ticker <- getSymbols(symbol, src = "yahoo", 
+                                  from = Sys.Date() - years(5),
+                                  to = Sys.Date(),
+                                  auto.assign = FALSE)
+              
+              if (!is.null(ticker) && nrow(ticker) > 0) {
+                print(paste("Successfully fetched", symbol))
+                sp500_data <- data.frame(date = index(ticker), coredata(ticker))
+                colnames(sp500_data) <- c("date", "open", "high", "low", "close", "volume", "adjusted")
+                sp500_data$symbol <- symbol
+                sp500_data$region <- "North America"
+                sp500_data$index_name <- "🇺🇸 S&P 500"
+                sp500_data$canonical_index <- "S&P 500"
+                break
+              }
+            }, error = function(e) {
+              print(paste("Error fetching", symbol, ":", e$message))
+            })
+          }
+          
+          if (!is.null(sp500_data)) {
+            print(paste("Successfully fetched basic data with", nrow(sp500_data), "rows"))
+            
+            # Save to cache files
+            saveRDS(sp500_data, "data/global_market_data_cache_5yr.rds")
+            saveRDS(sp500_data, paste0("data/global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%m"), ".rds"))
+            saveRDS(sp500_data, paste0("data/global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%W"), ".rds"))
+            saveRDS(sp500_data, paste0("data/global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%m_%d"), ".rds"))
+            
+            print("Successfully saved seed data to cache files")
+          } else {
+            print("Failed to fetch seed data for cache")
+          }
+          EOF
+          
+          # Run the script
+          Rscript generate_seed_data.R
+      
+      - name: Try Quarto render with retry mechanism
+        run: |
+          # Try rendering with multiple approaches and retries
           echo "Attempting to render with Quarto..."
           
-          # Try full render first
-          quarto render weekday-market-patterns.qmd --to html || echo "Full render failed, will try fallback approaches"
+          # Function to retry commands with increasing backoff
+          retry_with_backoff() {
+            local max_attempts="$1"; shift
+            local cmd="$*"
+            local attempt=1
+            
+            until $cmd; do
+              if (( attempt == max_attempts )); then
+                echo "Command failed after $max_attempts attempts: $cmd"
+                return 1
+              fi
+              
+              echo "Attempt $attempt failed! Retrying in $((attempt * 5)) seconds..."
+              sleep $((attempt * 5))
+              
+              (( attempt++ ))
+            done
+            
+            return 0
+          }
           
-          # Check if output was generated
-          if [ ! -f weekday-market-patterns.html ]; then
-            echo "First attempt failed, trying fallback approaches..."
+          # Try full render first with retries
+          if retry_with_backoff 3 quarto render weekday-market-patterns.qmd --to html; then
+            echo "Full render succeeded"
+          else
+            echo "Full render failed, trying minimal render..."
             
             # Try minimal render with disabled caching
-            echo "Trying minimal render..."
-            quarto render weekday-market-patterns.qmd --to html --no-cache || echo "Minimal render failed"
-            
-            # If still no luck, try running R directly
-            if [ ! -f weekday-market-patterns.html ]; then
-              echo "Trying direct R rendering..."
-              Rscript -e 'rmarkdown::render("weekday-market-patterns.qmd", output_format = "html_document")' || echo "Direct rendering failed"
+            if retry_with_backoff 2 quarto render weekday-market-patterns.qmd --to html --no-cache; then
+              echo "Minimal render succeeded"
+            else
+              echo "Minimal render failed, trying direct R rendering..."
+              
+              # Try direct R rendering
+              if retry_with_backoff 2 Rscript -e 'rmarkdown::render("weekday-market-patterns.qmd", output_format = "html_document")'; then
+                echo "Direct R rendering succeeded"
+              else
+                echo "All rendering attempts failed"
+              fi
             fi
           fi
       
@@ -290,7 +367,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "Update market patterns report [automated] ${{ steps.get-date.outputs.date }}"
-          file_pattern: "weekday-market-patterns.html market-patterns-report-*.html"
+          file_pattern: "weekday-market-patterns.html market-patterns-report-*.html data/*.rds"
           commit_user_name: GitHub Actions
           commit_user_email: actions@github.com
           commit_author: GitHub Actions <actions@github.com>
