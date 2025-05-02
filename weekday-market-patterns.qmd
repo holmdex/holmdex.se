@@ -69,11 +69,61 @@ MIN_WEEKDAY_COUNT <- 100  # At least 10 occurrences of each weekday needed
 # Enhanced function to attempt many different methods to get market data
 get_market_data <- function(symbol, start_date, end_date, retries = 5, timeout = 60) {
   price_data <- NULL
+  temp_file <- NULL
   
-  # Retry mechanism to handle transient network issues
+  # Define an extensive list of realistic user agents
+  user_agents <- c(
+    # Chrome
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
+    # Firefox
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/109.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:108.0) Gecko/20100101 Firefox/108.0",
+    "Mozilla/5.0 (X11; Linux i686; rv:108.0) Gecko/20100101 Firefox/108.0",
+    # Safari
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15",
+    # Edge
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36 Edg/108.0.1462.76",
+    # Mobile
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.5359.128 Mobile Safari/537.36"
+  )
+  
+  # Define different accept headers
+  accept_headers <- c(
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+  )
+  
+  # Define referer headers
+  referer_headers <- c(
+    "https://finance.yahoo.com/",
+    "https://www.google.com/search?q=finance",
+    "https://www.bing.com/search?q=stock+market",
+    "https://www.investing.com/"
+  )
+  
+  # Function to get random headers
+  get_random_headers <- function() {
+    list(
+      "User-Agent" = sample(user_agents, 1),
+      "Accept" = sample(accept_headers, 1),
+      "Accept-Language" = "en-US,en;q=0.9",
+      "Referer" = sample(referer_headers, 1),
+      "Connection" = "keep-alive",
+      "Upgrade-Insecure-Requests" = "1",
+      "Sec-Fetch-Dest" = "document", 
+      "Sec-Fetch-Mode" = "navigate",
+      "Sec-Fetch-Site" = "cross-site"
+    )
+  }
+  
+  # Retry mechanism with multiple methods
   for(retry in 1:retries) {
     if(!is.null(price_data)) break
-
+    
     # Method 1: Try quantmod with Yahoo Finance
     if(is.null(price_data) && exists("getSymbols")) {
       tryCatch({
@@ -85,6 +135,7 @@ get_market_data <- function(symbol, start_date, end_date, retries = 5, timeout =
           price_data <- data.frame(date = index(ticker), coredata(ticker))
           colnames(price_data) <- c("date", "open", "high", "low", "close", "volume", "adjusted")
           price_data$symbol <- symbol
+          message(paste("Method 1 successful for", symbol))
           return(price_data)
         }
       }, error = function(e) {
@@ -100,6 +151,7 @@ get_market_data <- function(symbol, start_date, end_date, retries = 5, timeout =
         ticker_data <- tq_get(symbol, from = start_date, to = end_date, get = "stock.prices")
         
         if(!is.null(ticker_data) && nrow(ticker_data) > 0) {
+          message(paste("Method 2 successful for", symbol))
           return(ticker_data)
         }
       }, error = function(e) {
@@ -125,21 +177,9 @@ get_market_data <- function(symbol, start_date, end_date, retries = 5, timeout =
         )
         
         # Use randomized browser-like headers to avoid getting blocked
-        user_agents <- c(
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15",
-          "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
-          "Mozilla/5.0 (iPad; CPU OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
-        )
+        headers <- get_random_headers()
         
-        headers <- c(
-          "User-Agent" = user_agents[sample(1:length(user_agents), 1)],
-          "Accept" = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-          "Accept-Language" = "en-US,en;q=0.5",
-          "Connection" = "keep-alive"
-        )
-        
-        response <- httr::GET(url, httr::add_headers(.headers = headers), httr::timeout(timeout))
+        response <- httr::GET(url, httr::add_headers(.headers = unlist(headers)), httr::timeout(timeout))
         
         if(httr::status_code(response) == 200) {
           # Save to temp file
@@ -163,19 +203,21 @@ get_market_data <- function(symbol, start_date, end_date, retries = 5, timeout =
                 price_data <- price_data %>% rename(adjusted = adjclose)
               }
               
+              message(paste("Method 3 successful for", symbol))
               return(price_data)
             }
           }
-          unlink(temp_file)
+          if(file.exists(temp_file)) unlink(temp_file)
         }
       }, error = function(e) {
         if(retry == retries) message(paste("Method 3 failed for", symbol, ":", e$message))
+        if(file.exists(temp_file)) unlink(temp_file)
         NULL
       })
     }
     
-    # Method 4: Try Yahoo Finance API with different URL format
-    if(is.null(price_data)) {
+    # Method 4: Try Yahoo Finance API with different URL format and query parameters
+    if(is.null(price_data) && requireNamespace("httr", quietly = TRUE)) {
       tryCatch({
         # Format dates for Yahoo
         start_unix <- as.numeric(as.POSIXct(start_date))
@@ -191,13 +233,10 @@ get_market_data <- function(symbol, start_date, end_date, retries = 5, timeout =
         )
         
         # Different user agent for this attempt
-        headers <- c(
-          "User-Agent" = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0",
-          "Accept" = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-          "Accept-Language" = "en-US,en;q=0.5"
-        )
+        headers <- get_random_headers()
+        headers[["User-Agent"]] <- "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0"
         
-        response <- httr::GET(url, httr::add_headers(.headers = headers), httr::timeout(timeout))
+        response <- httr::GET(url, httr::add_headers(.headers = unlist(headers)), httr::timeout(timeout))
         
         if(httr::status_code(response) == 200) {
           # Save to temp file
@@ -220,13 +259,15 @@ get_market_data <- function(symbol, start_date, end_date, retries = 5, timeout =
                 price_data <- price_data %>% rename(adjusted = adjclose)
               }
               
+              message(paste("Method 4 successful for", symbol))
               return(price_data)
             }
           }
-          unlink(temp_file)
+          if(file.exists(temp_file)) unlink(temp_file)
         }
       }, error = function(e) {
         if(retry == retries) message(paste("Method 4 failed for", symbol, ":", e$message))
+        if(file.exists(temp_file)) unlink(temp_file)
         NULL
       })
     }
@@ -250,8 +291,9 @@ get_market_data <- function(symbol, start_date, end_date, retries = 5, timeout =
         # Set up curl handle with headers and options
         handle <- curl::new_handle()
         curl::handle_setheaders(handle,
-          "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:84.0) Gecko/20100101 Firefox/84.0",
-          "Accept" = "text/html,application/xhtml+xml"
+          "User-Agent" = sample(user_agents, 1),
+          "Accept" = sample(accept_headers, 1),
+          "Referer" = sample(referer_headers, 1)
         )
         curl::handle_setopt(handle, timeout = timeout)
         
@@ -275,6 +317,7 @@ get_market_data <- function(symbol, start_date, end_date, retries = 5, timeout =
               price_data <- price_data %>% rename(adjusted = adjclose)
             }
             
+            message(paste("Method 5 successful for", symbol))
             return(price_data)
           }
         }
@@ -286,15 +329,122 @@ get_market_data <- function(symbol, start_date, end_date, retries = 5, timeout =
       })
     }
     
-    # Method 6: Try a fallback period if we're still having issues
-    # Sometimes we can't get 5 years of data but can get 3 years
+    # Method 6: Try Yahoo Finance JSON Chart API
+    if(is.null(price_data) && requireNamespace("httr", quietly = TRUE) && requireNamespace("jsonlite", quietly = TRUE)) {
+      tryCatch({
+        # Build URL for the chart API
+        url <- paste0(
+          "https://query1.finance.yahoo.com/v8/finance/chart/", 
+          URLencode(symbol),
+          "?interval=1d&range=5y"
+        )
+        
+        # Get random headers
+        headers <- get_random_headers()
+        
+        # Use httr with randomized headers
+        response <- httr::GET(url, httr::add_headers(.headers = unlist(headers)), httr::timeout(timeout))
+        
+        if(httr::status_code(response) == 200) {
+          # Parse JSON response
+          json_data <- jsonlite::fromJSON(httr::content(response, "text", encoding = "UTF-8"))
+          
+          # Extract price data
+          if(!is.null(json_data$chart$result) && length(json_data$chart$result) > 0) {
+            result <- json_data$chart$result[[1]]
+            
+            # Check if we have timestamp and close data
+            if(!is.null(result$timestamp) && !is.null(result$indicators$quote[[1]]$close)) {
+              dates <- as.Date(as.POSIXct(result$timestamp, origin = "1970-01-01"))
+              closes <- result$indicators$quote[[1]]$close
+              
+              # Extract other price data if available
+              opens <- result$indicators$quote[[1]]$open
+              highs <- result$indicators$quote[[1]]$high
+              lows <- result$indicators$quote[[1]]$low
+              volumes <- result$indicators$quote[[1]]$volume
+              
+              # Get adjusted closes if available
+              adjusted <- closes
+              if(!is.null(result$indicators$adjclose)) {
+                if(!is.null(result$indicators$adjclose[[1]]$adjclose)) {
+                  adjusted <- result$indicators$adjclose[[1]]$adjclose
+                }
+              }
+              
+              # Create data frame
+              price_data <- data.frame(
+                date = dates,
+                open = opens,
+                high = highs,
+                low = lows,
+                close = closes,
+                volume = volumes,
+                adjusted = adjusted,
+                symbol = symbol,
+                stringsAsFactors = FALSE
+              )
+              
+              # Filter to date range
+              price_data <- price_data %>%
+                filter(date >= start_date & date <= end_date)
+              
+              if(nrow(price_data) > 0) {
+                message(paste("Method 6 successful for", symbol))
+                return(price_data)
+              }
+            }
+          }
+        }
+      }, error = function(e) {
+        if(retry == retries) message(paste("Method 6 failed for", symbol, ":", e$message))
+        NULL
+      })
+    }
+    
+    # Method 7: Try with alternative symbol formats
+    if(is.null(price_data) && retry > 2) {
+      alt_symbols <- c(
+        gsub("\\^", "", symbol),                  # Remove caret
+        gsub("=F", "", symbol),                   # Remove futures marker
+        gsub("\\.", "-", symbol),                 # Replace dots with hyphens
+        gsub("-", ".", symbol),                   # Replace hyphens with dots
+        paste0(symbol, ".L"),                     # Add London suffix
+        paste0(symbol, ".NX"),                    # Add Nordic exchange suffix
+        paste0(symbol, ".DE"),                    # Add German exchange suffix
+        paste0(gsub("\\^", "", symbol), ".US")    # No caret with US suffix
+      )
+      
+      # Filter out the original symbol
+      alt_symbols <- setdiff(alt_symbols, symbol)
+      
+      # Try each alternative symbol
+      for(alt_symbol in alt_symbols) {
+        message(paste("Trying alternative symbol:", alt_symbol))
+        
+        tryCatch({
+          ticker <- getSymbols(alt_symbol, src = "yahoo", from = start_date, to = end_date, auto.assign = FALSE)
+          
+          if(!is.null(ticker) && nrow(ticker) > 0) {
+            # Format data (but keep original symbol reference)
+            price_data <- data.frame(date = index(ticker), coredata(ticker))
+            colnames(price_data) <- c("date", "open", "high", "low", "close", "volume", "adjusted")
+            price_data$symbol <- symbol  # Keep original symbol for consistency
+            message(paste("Alternative symbol", alt_symbol, "successful for", symbol))
+            return(price_data)
+          }
+        }, error = function(e) {
+          # Just continue to next alternative
+        })
+      }
+    }
+    
+    # Method 8: Try with a shorter time period (3 years)
     if(is.null(price_data) && retry > 3) {
-      # Try with a shorter time period (3 years instead of 5)
       fallback_start_date <- end_date - years(3)
-      message(paste("Trying fallback 3-year period for", symbol))
+      message(paste("Trying 3-year fallback period for", symbol))
       
       tryCatch({
-        options(timeout = timeout)
         ticker <- getSymbols(symbol, src = "yahoo", from = fallback_start_date, to = end_date, auto.assign = FALSE)
         
         if(!is.null(ticker) && nrow(ticker) > 0) {
@@ -302,17 +452,43 @@ get_market_data <- function(symbol, start_date, end_date, retries = 5, timeout =
           price_data <- data.frame(date = index(ticker), coredata(ticker))
           colnames(price_data) <- c("date", "open", "high", "low", "close", "volume", "adjusted")
           price_data$symbol <- symbol
+          message(paste("3-year fallback successful for", symbol))
           return(price_data)
         }
       }, error = function(e) {
-        message(paste("Fallback period also failed for", symbol, ":", e$message))
+        message(paste("3-year fallback failed for", symbol))
         NULL
       })
     }
     
-    # Wait between retries with exponential backoff
+    # Method 9: Try with an even shorter time period (3 year)
+    if(is.null(price_data) && retry > 4) {
+      fallback_start_date <- end_date - years(3)
+      message(paste("Trying 1-year fallback period for", symbol))
+      
+      tryCatch({
+        ticker <- getSymbols(symbol, src = "yahoo", from = fallback_start_date, to = end_date, auto.assign = FALSE)
+        
+        if(!is.null(ticker) && nrow(ticker) > 0) {
+          # Format data
+          price_data <- data.frame(date = index(ticker), coredata(ticker))
+          colnames(price_data) <- c("date", "open", "high", "low", "close", "volume", "adjusted")
+          price_data$symbol <- symbol
+          message(paste("3-year fallback successful for", symbol))
+          return(price_data)
+        }
+      }, error = function(e) {
+        message(paste("1-year fallback failed for", symbol))
+        NULL
+      })
+    }
+    
+    # Wait between retries with exponential backoff and jitter
     if(is.null(price_data) && retry < retries) {
-      Sys.sleep(retry * 2)  # Increase wait time with each retry
+      # Calculate backoff time with jitter
+      backoff_time <- retry * 2 * (1 + runif(1, min = 0, max = 0.5))
+      message(paste("Waiting", round(backoff_time, 1), "seconds before retry", retry + 1))
+      Sys.sleep(backoff_time)
     }
   }
   
@@ -515,6 +691,82 @@ for (region_name in names(market_indices_expanded)) {
   }
 }
 ```
+```
+# Add this to the beginning of your load-market-data chunk
+
+# Create a data directory if it doesn't exist
+if (!dir.exists("data")) {
+  dir.create("data", showWarnings = FALSE)
+}
+
+# Define constants for data processing
+MAX_RETURN_VALUE <- 20  # Cap at ±20% for daily returns as a reasonable bound
+MAX_REGIONAL_RETURN <- 5  # Cap at ±5% for regional averages
+WINSORIZE_PERCENTILE <- 0.005  # Winsorize at 0.5% on each tail
+
+# Create a robust cache file path system for storing data
+cache_file <- file.path("data", "global_market_data_cache_5yr.rds")
+cache_file_weekly <- file.path("data", paste0("global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%W"), ".rds"))
+cache_file_daily <- file.path("data", paste0("global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%m_%d"), ".rds"))
+
+# Function to safely read cache files
+safe_read_cache <- function(file_path) {
+  tryCatch({
+    if (file.exists(file_path)) {
+      message(paste("Attempting to load cache from:", file_path))
+      data <- readRDS(file_path)
+      
+      # Basic validation
+      if (is.data.frame(data) && nrow(data) > 0 && 
+          all(c("date", "symbol", "close") %in% colnames(data))) {
+        message(paste("Successfully loaded cache with", nrow(data), "rows from", file_path))
+        return(data)
+      } else {
+        message("Cache data structure is invalid or empty")
+      }
+    }
+    return(NULL)
+  }, error = function(e) {
+    message(paste("Error reading cache file:", e$message))
+    return(NULL)
+  })
+}
+
+# Function to safely save cache
+safe_save_cache <- function(data, file_path) {
+  tryCatch({
+    # Create directory if needed
+    dir.create(dirname(file_path), showWarnings = FALSE, recursive = TRUE)
+    
+    # Save data
+    saveRDS(data, file_path)
+    message(paste("Successfully saved cache to:", file_path))
+    return(TRUE)
+  }, error = function(e) {
+    message(paste("Failed to save cache to:", file_path, "-", e$message))
+    return(FALSE)
+  })
+}
+
+market_data <- NULL
+
+# Try to load from cache files in order of recency
+if(is.null(market_data)) {
+  market_data <- safe_read_cache(cache_file_daily)
+}
+
+if(is.null(market_data)) {
+  market_data <- safe_read_cache(cache_file_weekly)
+}
+
+if(is.null(market_data)) {
+  market_data <- safe_read_cache(cache_file)
+}
+
+# If no cache, new code for fetching data will run as defined in your existing logic
+```
+
+
 ```{r load-market-data}
 # Define constants for data processing
 MAX_RETURN_VALUE <- 20  # Cap at ±20% for daily returns as a reasonable bound
