@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   generate-report:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # Will use Ubuntu 24.04 as of January 2025
     
     env:
       R_LIBS_USER: ${{ github.workspace }}/r-libs
@@ -41,6 +41,9 @@ jobs:
           echo "CACHE_DATE=$(date +'%Y_%m_%d')" >> $GITHUB_ENV
           echo "CACHE_WEEK=$(date +'%Y_%W')" >> $GITHUB_ENV
           echo "CACHE_MONTH=$(date +'%Y_%m')" >> $GITHUB_ENV
+          
+          # Print Ubuntu version for debugging
+          lsb_release -a || cat /etc/os-release
       
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
@@ -62,7 +65,15 @@ jobs:
       
       - name: Install system dependencies
         run: |
+          # Print Ubuntu version for debugging
+          echo "Ubuntu version:"
+          lsb_release -a || cat /etc/os-release
+          
+          # Update package lists
           sudo apt-get update
+          
+          # Fix for Ubuntu 24.04 (Noble) system dependencies with t64 variants
+          # Install general development libraries
           sudo apt-get install -y --no-install-recommends \
             libcurl4-openssl-dev libssl-dev libxml2-dev \
             libfontconfig1-dev libfreetype6-dev \
@@ -70,11 +81,15 @@ jobs:
             libudunits2-dev libgdal-dev libgeos-dev libproj-dev \
             pkg-config libv8-dev libsodium-dev
           
-          # Install Chrome dependencies for plotly HTML export
+          # Install Chrome/plotting dependencies with proper t64 variants for Ubuntu 24.04
           sudo apt-get install -y --no-install-recommends \
-            libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+            libnss3 libnspr4 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 \
             libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 \
-            libxrandr2 libgbm1 libpulse0 libasound2
+            libxrandr2 libgbm1 libpulse0 libasound2t64
+          
+          # Print installed packages for debugging
+          echo "Installed packages:"
+          dpkg -l | grep -E 'libasound|libatk|libcups'
       
       - name: Setup R package directories
         run: mkdir -p ${{ env.R_LIBS_USER }}
@@ -84,10 +99,10 @@ jobs:
         id: r-pkg-cache
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-pkg-${{ hashFiles('weekday-market-patterns.qmd') }}-${{ steps.get-date.outputs.date }}
+          key: ${{ runner.os }}-r-pkg-noble-${{ hashFiles('weekday-market-patterns.qmd') }}-${{ steps.get-date.outputs.date }}
           restore-keys: |
-            ${{ runner.os }}-r-pkg-${{ hashFiles('weekday-market-patterns.qmd') }}-
-            ${{ runner.os }}-r-pkg-
+            ${{ runner.os }}-r-pkg-noble-${{ hashFiles('weekday-market-patterns.qmd') }}-
+            ${{ runner.os }}-r-pkg-noble-
       
       - name: Cache market data
         uses: actions/cache@v3
@@ -101,6 +116,9 @@ jobs:
       
       - name: Install core R packages
         run: |
+          # Set longer timeout for installations
+          Rscript -e 'options(timeout = 600)'
+          
           # Install basic packages needed for package installation
           Rscript -e 'install.packages(c("remotes", "pak"), repos = "https://cloud.r-project.org")'
           
@@ -123,6 +141,12 @@ jobs:
         run: |
           # Install plotting and other essential packages
           Rscript -e '
+          # Set longer timeout
+          options(timeout = 600)
+          
+          # Verify repository settings
+          cat("Using CRAN repositories:", getOption("repos"), "\n")
+          
           packages <- c(
             "lubridate", "plotly", "knitr", "rmarkdown", "jsonlite", 
             "httr", "rvest", "xml2", "curl", "DT", "quantmod", 
@@ -187,7 +211,7 @@ jobs:
             warn = 1,
             # Increase download timeout
             timeout = 600,
-            # Set repos with mirror that has binary packages
+            # Set repos with mirror that has binary packages - specifically for Noble
             repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/noble/latest")
           )
           EOF
