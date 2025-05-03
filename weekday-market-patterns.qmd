@@ -505,6 +505,80 @@ get_market_data <- function(symbol, start_date, end_date, retries = 5, timeout =
   
   return(price_data)
 }
+
+# Add this to the beginning of your load-market-data chunk
+
+# Create a data directory if it doesn't exist
+if (!dir.exists("data")) {
+  dir.create("data", showWarnings = FALSE)
+}
+
+# Define constants for data processing
+MAX_RETURN_VALUE <- 20  # Cap at ±20% for daily returns as a reasonable bound
+MAX_REGIONAL_RETURN <- 5  # Cap at ±5% for regional averages
+WINSORIZE_PERCENTILE <- 0.005  # Winsorize at 0.5% on each tail
+
+# Create a robust cache file path system for storing data
+cache_file <- file.path("data", "global_market_data_cache_5yr.rds")
+cache_file_weekly <- file.path("data", paste0("global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%W"), ".rds"))
+cache_file_daily <- file.path("data", paste0("global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%m_%d"), ".rds"))
+
+# Function to safely read cache files
+safe_read_cache <- function(file_path) {
+  tryCatch({
+    if (file.exists(file_path)) {
+      message(paste("Attempting to load cache from:", file_path))
+      data <- readRDS(file_path)
+      
+      # Basic validation
+      if (is.data.frame(data) && nrow(data) > 0 && 
+          all(c("date", "symbol", "close") %in% colnames(data))) {
+        message(paste("Successfully loaded cache with", nrow(data), "rows from", file_path))
+        return(data)
+      } else {
+        message("Cache data structure is invalid or empty")
+      }
+    }
+    return(NULL)
+  }, error = function(e) {
+    message(paste("Error reading cache file:", e$message))
+    return(NULL)
+  })
+}
+
+# Function to safely save cache
+safe_save_cache <- function(data, file_path) {
+  tryCatch({
+    # Create directory if needed
+    dir.create(dirname(file_path), showWarnings = FALSE, recursive = TRUE)
+    
+    # Save data
+    saveRDS(data, file_path)
+    message(paste("Successfully saved cache to:", file_path))
+    return(TRUE)
+  }, error = function(e) {
+    message(paste("Failed to save cache to:", file_path, "-", e$message))
+    return(FALSE)
+  })
+}
+
+market_data <- NULL
+
+# Try to load from cache files in order of recency
+if(is.null(market_data)) {
+  market_data <- safe_read_cache(cache_file_daily)
+}
+
+if(is.null(market_data)) {
+  market_data <- safe_read_cache(cache_file_weekly)
+}
+
+if(is.null(market_data)) {
+  market_data <- safe_read_cache(cache_file)
+}
+
+# If no cache, new code for fetching data will run as defined in your existing logic
+
 ```
 ```{r define-market-indices}
 # Define market indices by geographical region with multiple ticker options
@@ -691,264 +765,200 @@ for (region_name in names(market_indices_expanded)) {
   }
 }
 ```
-```
-# Add this to the beginning of your load-market-data chunk
-
-# Create a data directory if it doesn't exist
-if (!dir.exists("data")) {
-  dir.create("data", showWarnings = FALSE)
-}
-
-# Define constants for data processing
-MAX_RETURN_VALUE <- 20  # Cap at ±20% for daily returns as a reasonable bound
-MAX_REGIONAL_RETURN <- 5  # Cap at ±5% for regional averages
-WINSORIZE_PERCENTILE <- 0.005  # Winsorize at 0.5% on each tail
-
-# Create a robust cache file path system for storing data
-cache_file <- file.path("data", "global_market_data_cache_5yr.rds")
-cache_file_weekly <- file.path("data", paste0("global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%W"), ".rds"))
-cache_file_daily <- file.path("data", paste0("global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%m_%d"), ".rds"))
-
-# Function to safely read cache files
-safe_read_cache <- function(file_path) {
-  tryCatch({
-    if (file.exists(file_path)) {
-      message(paste("Attempting to load cache from:", file_path))
-      data <- readRDS(file_path)
-      
-      # Basic validation
-      if (is.data.frame(data) && nrow(data) > 0 && 
-          all(c("date", "symbol", "close") %in% colnames(data))) {
-        message(paste("Successfully loaded cache with", nrow(data), "rows from", file_path))
-        return(data)
-      } else {
-        message("Cache data structure is invalid or empty")
-      }
-    }
-    return(NULL)
-  }, error = function(e) {
-    message(paste("Error reading cache file:", e$message))
-    return(NULL)
-  })
-}
-
-# Function to safely save cache
-safe_save_cache <- function(data, file_path) {
-  tryCatch({
-    # Create directory if needed
-    dir.create(dirname(file_path), showWarnings = FALSE, recursive = TRUE)
-    
-    # Save data
-    saveRDS(data, file_path)
-    message(paste("Successfully saved cache to:", file_path))
-    return(TRUE)
-  }, error = function(e) {
-    message(paste("Failed to save cache to:", file_path, "-", e$message))
-    return(FALSE)
-  })
-}
-
-market_data <- NULL
-
-# Try to load from cache files in order of recency
-if(is.null(market_data)) {
-  market_data <- safe_read_cache(cache_file_daily)
-}
-
-if(is.null(market_data)) {
-  market_data <- safe_read_cache(cache_file_weekly)
-}
-
-if(is.null(market_data)) {
-  market_data <- safe_read_cache(cache_file)
-}
-
-# If no cache, new code for fetching data will run as defined in your existing logic
-```
-
-
 ```{r load-market-data}
-# Define constants for data processing
-MAX_RETURN_VALUE <- 20  # Cap at ±20% for daily returns as a reasonable bound
-MAX_REGIONAL_RETURN <- 5  # Cap at ±5% for regional averages
-WINSORIZE_PERCENTILE <- 0.005  # Winsorize at 0.5% on each tail
+# Define constants for data processing if not already defined
+if (!exists("MAX_RETURN_VALUE")) MAX_RETURN_VALUE <- 20  # Cap at ±20% for daily returns
+if (!exists("MAX_REGIONAL_RETURN")) MAX_REGIONAL_RETURN <- 5  # Cap at ±5% for regional averages
+if (!exists("WINSORIZE_PERCENTILE")) WINSORIZE_PERCENTILE <- 0.005  # Winsorize at 0.5% 
 
-# Create a cache file path for storing data
-cache_file <- "global_market_data_cache_5yr.rds"
-market_data <- NULL
-
-# Try to load from cache first (if it exists and is recent)
-if(file.exists(cache_file)) {
-  cache_age <- difftime(Sys.time(), file.info(cache_file)$mtime, units = "days")
-  if(cache_age < 7) {  # Only use cache if less than a week old
-    tryCatch({
-      market_data <- readRDS(cache_file)
-      successful_indices <- unique(market_data$index_name)
-      message("Loaded data from cache")
-    }, error = function(e) {
-      message(paste("Cache error:", e$message))
-      market_data <- NULL
-    })
-  }
-}
-
-# If no cache, fetch data fresh
+# Skip data fetching if we already loaded from cache
 if(is.null(market_data)) {
-  # Track successful indices by region
-  successful_indices <- character(0)
-  successful_by_region <- list()
+  # Create a cache file path for storing data
+  cache_file <- "global_market_data_cache_5yr.rds"
   
-  # Process indices safely
-  market_data <- tibble()
-  
-  # Create a set to track which index names we've already loaded
-  loaded_indices <- list()
-  
-  # Load data for each region and index - with more relaxed requirements
-  for(region_name in names(market_indices_expanded)) {
-    successful_by_region[[region_name]] <- character(0)
-    
-    # Prioritize certain regions to make sure they're included
-    region_priority <- switch(region_name,
-                            "North America" = 1,
-                            "Western Europe" = 2,
-                            "East Asia" = 3,
-                            "Oceania" = 4,
-                            99)  # Default low priority
-    
-    # Shuffle the indices to avoid always trying the same ones first
-    region_indices <- names(market_indices_expanded[[region_name]])
-    if(length(region_indices) > 3) {
-      indices_to_try <- sample(region_indices, length(region_indices))
-      
-      # For North America, always try S&P 500 first
-      if(region_name == "North America" && "S&P 500" %in% indices_to_try) {
-        indices_to_try <- c("S&P 500", setdiff(indices_to_try, "S&P 500"))
-      }
-    } else {
-      indices_to_try <- region_indices
+  # Try to load from cache first (if it exists and is recent)
+  if(file.exists(cache_file)) {
+    cache_age <- difftime(Sys.time(), file.info(cache_file)$mtime, units = "days")
+    if(cache_age < 7) {  # Only use cache if less than a week old
+      tryCatch({
+        market_data <- readRDS(cache_file)
+        successful_indices <- unique(market_data$index_name)
+        message("Loaded data from cache")
+      }, error = function(e) {
+        message(paste("Cache error:", e$message))
+        market_data <- NULL
+      })
     }
+  }
+
+  # If no cache, fetch data fresh
+  if(is.null(market_data)) {
+    # Track successful indices by region
+    successful_indices <- character(0)
+    successful_by_region <- list()
     
-    # Try each index in this region
-    for(index_name in indices_to_try) {
-      # Skip if we already have data for this index
-      if(index_name %in% names(loaded_indices) && loaded_indices[[index_name]]) {
-        next
-      }
+    # Process indices safely
+    market_data <- tibble()
+    
+    # Create a set to track which index names we've already loaded
+    loaded_indices <- list()
+    
+    # Load data for each region and index - with more relaxed requirements
+    for(region_name in names(market_indices_expanded)) {
+      successful_by_region[[region_name]] <- character(0)
       
-      # Get the friendly name with emoji
-      friendly_index_name <- index_names[index_name]
-      if(is.na(friendly_index_name)) {
-        friendly_index_name <- index_name
-      }
+      # Prioritize certain regions to make sure they're included
+      region_priority <- switch(region_name,
+                              "North America" = 1,
+                              "Western Europe" = 2,
+                              "East Asia" = 3,
+                              "Oceania" = 4,
+                              99)  # Default low priority
       
-      # Get all ticker options for this index
-      ticker_options <- market_indices_expanded[[region_name]][[index_name]]
-      
-      # Try each ticker option until one works
-      index_data <- NULL
-      used_ticker <- NULL
-      
-      for(ticker in ticker_options) {
-        # Try to get data for this ticker
-        ticker_data <- tryCatch({
-          get_market_data(ticker, start_date, end_date)
-        }, error = function(e) {
-          message(paste("Error loading", ticker, ":", e$message))
-          NULL
-        })
+      # Shuffle the indices to avoid always trying the same ones first
+      region_indices <- names(market_indices_expanded[[region_name]])
+      if(length(region_indices) > 3) {
+        indices_to_try <- sample(region_indices, length(region_indices))
         
-        # If we got data, check if it meets the minimum trading days requirement
-        if(!is.null(ticker_data) && nrow(ticker_data) > 0 && 
-           "close" %in% colnames(ticker_data) && "date" %in% colnames(ticker_data)) {
+        # For North America, always try S&P 500 first
+        if(region_name == "North America" && "S&P 500" %in% indices_to_try) {
+          indices_to_try <- c("S&P 500", setdiff(indices_to_try, "S&P 500"))
+        }
+      } else {
+        indices_to_try <- region_indices
+      }
+      
+      # Try each index in this region
+      for(index_name in indices_to_try) {
+        # Skip if we already have data for this index
+        if(index_name %in% names(loaded_indices) && loaded_indices[[index_name]]) {
+          next
+        }
+        
+        # Get the friendly name with emoji
+        friendly_index_name <- index_names[index_name]
+        if(is.na(friendly_index_name)) {
+          friendly_index_name <- index_name
+        }
+        
+        # Get all ticker options for this index
+        ticker_options <- market_indices_expanded[[region_name]][[index_name]]
+        
+        # Try each ticker option until one works
+        index_data <- NULL
+        used_ticker <- NULL
+        
+        for(ticker in ticker_options) {
+          # Try to get data for this ticker
+          ticker_data <- tryCatch({
+            get_market_data(ticker, start_date, end_date)
+          }, error = function(e) {
+            message(paste("Error loading", ticker, ":", e$message))
+            NULL
+          })
           
-          # Extract weekdays and check for coverage of all weekdays
-          weekdays_present <- weekdays(as.Date(ticker_data$date))
-          has_monday <- "Monday" %in% weekdays_present
-          has_tuesday <- "Tuesday" %in% weekdays_present
-          has_wednesday <- "Wednesday" %in% weekdays_present
-          has_thursday <- "Thursday" %in% weekdays_present
-          has_friday <- "Friday" %in% weekdays_present
-          
-          # Count distinct trading days
-          trading_days <- length(unique(ticker_data$date))
-          
-          # Lower threshold for important indices like S&P 500
-          min_days_threshold <- MIN_TRADING_DAYS
-          if(region_priority <= 2 && index_name %in% c("S&P 500", "Dow Jones", "Nasdaq", "FTSE 100", "DAX 40")) {
-            min_days_threshold <- min(min_days_threshold, 250)  # Even lower threshold for key indices
-          }
-          
-          # More relaxed weekday requirement: need at least 4 out of 5 weekdays
-          relaxed_weekday_requirement <- sum(c(has_monday, has_tuesday, has_wednesday, has_thursday, has_friday)) >= 4
-          
-          # Extra relaxed for key indices - just need 3 weekdays
-          if(region_priority <= 2 && index_name %in% c("S&P 500", "Dow Jones", "Nasdaq", "FTSE 100", "DAX 40")) {
-            relaxed_weekday_requirement <- sum(c(has_monday, has_tuesday, has_wednesday, has_thursday, has_friday)) >= 3
-          }
-          
-          if(trading_days >= min_days_threshold && relaxed_weekday_requirement) {
-            index_data <- ticker_data
-            used_ticker <- ticker
-            message(paste("Successfully loaded", friendly_index_name, "using ticker:", ticker, 
-                        "with", trading_days, "trading days and", 
-                        sum(c(has_monday, has_tuesday, has_wednesday, has_thursday, has_friday)),
-                        "out of 5 weekdays present"))
-            break
-          } else {
-            if(trading_days < min_days_threshold) {
-              message(paste("Skipping", friendly_index_name, "with ticker", ticker, 
-                          "- insufficient trading days:", trading_days, "<", min_days_threshold))
+          # If we got data, check if it meets the minimum trading days requirement
+          if(!is.null(ticker_data) && nrow(ticker_data) > 0 && 
+             "close" %in% colnames(ticker_data) && "date" %in% colnames(ticker_data)) {
+            
+            # Extract weekdays and check for coverage of all weekdays
+            weekdays_present <- weekdays(as.Date(ticker_data$date))
+            has_monday <- "Monday" %in% weekdays_present
+            has_tuesday <- "Tuesday" %in% weekdays_present
+            has_wednesday <- "Wednesday" %in% weekdays_present
+            has_thursday <- "Thursday" %in% weekdays_present
+            has_friday <- "Friday" %in% weekdays_present
+            
+            # Count distinct trading days
+            trading_days <- length(unique(ticker_data$date))
+            
+            # Lower threshold for important indices like S&P 500
+            min_days_threshold <- MIN_TRADING_DAYS
+            if(region_priority <= 2 && index_name %in% c("S&P 500", "Dow Jones", "Nasdaq", "FTSE 100", "DAX 40")) {
+              min_days_threshold <- min(min_days_threshold, 250)  # Even lower threshold for key indices
+            }
+            
+            # More relaxed weekday requirement: need at least 4 out of 5 weekdays
+            relaxed_weekday_requirement <- sum(c(has_monday, has_tuesday, has_wednesday, has_thursday, has_friday)) >= 4
+            
+            # Extra relaxed for key indices - just need 3 weekdays
+            if(region_priority <= 2 && index_name %in% c("S&P 500", "Dow Jones", "Nasdaq", "FTSE 100", "DAX 40")) {
+              relaxed_weekday_requirement <- sum(c(has_monday, has_tuesday, has_wednesday, has_thursday, has_friday)) >= 3
+            }
+            
+            if(trading_days >= min_days_threshold && relaxed_weekday_requirement) {
+              index_data <- ticker_data
+              used_ticker <- ticker
+              message(paste("Successfully loaded", friendly_index_name, "using ticker:", ticker, 
+                          "with", trading_days, "trading days and", 
+                          sum(c(has_monday, has_tuesday, has_wednesday, has_thursday, has_friday)),
+                          "out of 5 weekdays present"))
+              break
             } else {
-              message(paste("Skipping", friendly_index_name, "with ticker", ticker, 
-                          "- not enough weekdays present. Mon:", has_monday, "Tue:", has_tuesday, 
-                          "Wed:", has_wednesday, "Thu:", has_thursday, "Fri:", has_friday))
+              if(trading_days < min_days_threshold) {
+                message(paste("Skipping", friendly_index_name, "with ticker", ticker, 
+                            "- insufficient trading days:", trading_days, "<", min_days_threshold))
+              } else {
+                message(paste("Skipping", friendly_index_name, "with ticker", ticker, 
+                            "- not enough weekdays present. Mon:", has_monday, "Tue:", has_tuesday, 
+                            "Wed:", has_wednesday, "Thu:", has_thursday, "Fri:", has_friday))
+              }
             }
           }
         }
+        
+        # Add to dataset if successful
+        if(!is.null(index_data) && !is.null(used_ticker)) {
+          index_data <- index_data %>%
+            mutate(
+              region = region_name,
+              index_name = friendly_index_name,
+              canonical_index = index_name  # Store the canonical index name
+            )
+          
+          market_data <- bind_rows(market_data, index_data)
+          
+          # Track successful indices
+          successful_indices <- c(successful_indices, friendly_index_name)
+          successful_by_region[[region_name]] <- c(successful_by_region[[region_name]], friendly_index_name)
+          loaded_indices[[index_name]] <- TRUE
+        } else {
+          message(paste("Failed to load any ticker for", friendly_index_name, 
+                      "or data did not meet requirements for completeness"))
+        }
       }
       
-      # Add to dataset if successful
-      if(!is.null(index_data) && !is.null(used_ticker)) {
-        index_data <- index_data %>%
-          mutate(
-            region = region_name,
-            index_name = friendly_index_name,
-            canonical_index = index_name  # Store the canonical index name
-          )
-        
-        market_data <- bind_rows(market_data, index_data)
-        
-        # Track successful indices
-        successful_indices <- c(successful_indices, friendly_index_name)
-        successful_by_region[[region_name]] <- c(successful_by_region[[region_name]], friendly_index_name)
-        loaded_indices[[index_name]] <- TRUE
+      # If we couldn't load any indices for this region, add a notice
+      if(length(successful_by_region[[region_name]]) == 0) {
+        message(paste("WARNING: Could not load any indices for region:", region_name))
       } else {
-        message(paste("Failed to load any ticker for", friendly_index_name, 
-                    "or data did not meet requirements for completeness"))
+        message(paste("Successfully loaded", length(successful_by_region[[region_name]]), 
+                     "indices for region:", region_name))
       }
     }
     
-    # If we couldn't load any indices for this region, add a notice
-    if(length(successful_by_region[[region_name]]) == 0) {
-      message(paste("WARNING: Could not load any indices for region:", region_name))
-    } else {
-      message(paste("Successfully loaded", length(successful_by_region[[region_name]]), 
-                   "indices for region:", region_name))
+    # Check if we have data - if not, fail gracefully
+    if(nrow(market_data) == 0) {
+      stop("Failed to load any market data. Please check your network connection or data sources.")
     }
+    
+    # Save to cache for future use
+    tryCatch({
+      saveRDS(market_data, cache_file)
+      
+      # Also save to dated cache files
+      if (!dir.exists("data")) {
+        dir.create("data", showWarnings = FALSE)
+      }
+      
+      # Save to weekly and daily cache files for GitHub Actions
+      saveRDS(market_data, file.path("data", paste0("global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%W"), ".rds")))
+      saveRDS(market_data, file.path("data", paste0("global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%m_%d"), ".rds")))
+      
+    }, error = function(e) {
+      message(paste("Failed to save cache:", e$message))
+    })
   }
-  
-  # Check if we have data - if not, fail gracefully
-  if(nrow(market_data) == 0) {
-    stop("Failed to load any market data. Please check your network connection or data sources.")
-  }
-  
-  # Save to cache for future use
-  tryCatch({
-    saveRDS(market_data, cache_file)
-  }, error = function(e) {
-    message(paste("Failed to save cache:", e$message))
-  })
 }
 
 # Count how many indices per region
@@ -964,6 +974,28 @@ print(indices_per_region)
 ```
 
 ```{r process-market-data, include=FALSE}
+# Define a robust weekday calculation function that works across different locales
+get_standardized_weekday <- function(date) {
+  # First try the standard lubridate/base R approach
+  weekday_num <- as.integer(format(date, "%u"))  # 1=Monday, 7=Sunday
+  
+  # Handle potential errors with locale or NA values
+  if (is.na(weekday_num) || weekday_num < 1 || weekday_num > 7) {
+    # Fallback to manual calculation using the day of the week
+    weekday_num <- lubridate::wday(date, week_start = 1)  # Ensure Monday = 1
+  }
+  
+  # Map to standard 3-letter abbreviations
+  weekday_abbr <- c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")[weekday_num]
+  
+  # For trading data, we only want weekdays 1-5 (Mon-Fri)
+  if (weekday_num <= 5) {
+    return(weekday_abbr)
+  } else {
+    return(NA)  # Weekend days
+  }
+}
+
 # Process data for weekday analysis using robust statistical methods
 if(nrow(market_data) > 0) {
   # For debugging, print the structure of the market_data
@@ -1179,12 +1211,123 @@ indices_by_region <- market_data %>%
   group_by(region) %>%
   summarize(indices = list(index_name), .groups = "drop")
 
+# Add a fallback mechanism when all data fetching methods fail
+if (nrow(market_data) == 0 || !exists("market_data") || is.null(market_data)) {
+  warning("Unable to fetch market data through normal methods. Checking for fallback data...")
+  
+  # Look for any cache files in the data directory
+  cache_files <- list.files("data", pattern = "global_market_data_cache", full.names = TRUE)
+  
+  for (file in cache_files) {
+    tryCatch({
+      message(paste("Trying to load fallback data from", file))
+      fallback_data <- readRDS(file)
+      
+      if (!is.null(fallback_data) && nrow(fallback_data) > 0 && 
+          all(c("date", "symbol", "close") %in% colnames(fallback_data))) {
+        message(paste("Successfully loaded fallback data with", nrow(fallback_data), "rows from", file))
+        market_data <- fallback_data
+        break
+      }
+    }, error = function(e) {
+      message(paste("Error loading fallback data from", file, ":", e$message))
+    })
+  }
+  
+  # If we still don't have data, show a clear error message
+  if (nrow(market_data) == 0 || !exists("market_data") || is.null(market_data)) {
+    stop("
+    CRITICAL ERROR: Unable to fetch or load any market data.
+    Please check the following:
+    1. Network connectivity and access to financial APIs
+    2. Existence of cache files in the data directory
+    3. System resources (memory, CPU)
+    4. Permissions for reading/writing to the data directory
+    
+    Try running the report locally first to establish a cache file that can be committed to the repository.
+    ")
+  }
+}
+
 # For diagnostics, print summary information
 message(paste("Total indices loaded:", num_indices))
 message(paste("Date range:", paste(date_range, collapse=" to ")))
 message(paste("Total trading days:", num_days))
 message("Indices by region:")
 print(region_counts)
+
+# Validate the market data structure before analysis
+validate_market_data <- function(data) {
+  # Check for required columns
+  required_cols <- c("date", "symbol", "close", "region", "index_name", "weekday", "winsorized_return")
+  missing_cols <- setdiff(required_cols, colnames(data))
+  
+  if (length(missing_cols) > 0) {
+    stop(paste("Market data is missing required columns:", paste(missing_cols, collapse=", ")))
+  }
+  
+  # Check for sufficient data volume
+  if (nrow(data) < 1000) {
+    warning(paste("Market data has only", nrow(data), "rows, which may be insufficient for analysis"))
+  }
+  
+  # Check for date ranges
+  date_range <- range(data$date)
+  date_span <- as.numeric(difftime(date_range[2], date_range[1], units="days"))
+  
+  if (date_span < 365) {
+    warning(paste("Market data spans only", date_span, "days, which may be too short for reliable analysis"))
+  }
+  
+  # Check for weekday distribution
+  weekday_counts <- table(data$weekday)
+  min_weekday_count <- min(weekday_counts)
+  
+  if (min_weekday_count < 50) {
+    warning(paste("Some weekdays have very few observations. Minimum count:", min_weekday_count))
+  }
+  
+  # Validate numeric columns
+  numeric_cols <- c("close", "winsorized_return")
+  for (col in numeric_cols) {
+    if (sum(is.na(data[[col]])) > nrow(data) * 0.1) {
+      warning(paste("Column", col, "has", sum(is.na(data[[col]])), "NA values (", 
+                   round(sum(is.na(data[[col]])) / nrow(data) * 100, 1), "%)"))
+    }
+  }
+  
+  # Validate factor columns
+  if (!"weekday" %in% names(data) || !is.factor(data$weekday)) {
+    warning("Column 'weekday' should be a factor but isn't")
+    # Try to fix it
+    data$weekday <- factor(data$weekday, levels = c("Mon", "Tue", "Wed", "Thu", "Fri"))
+  }
+  
+  # Check weekday levels
+  if (is.factor(data$weekday)) {
+    expected_levels <- c("Mon", "Tue", "Wed", "Thu", "Fri")
+    missing_levels <- setdiff(expected_levels, levels(data$weekday))
+    
+    if (length(missing_levels) > 0) {
+      warning(paste("Weekday factor is missing levels:", paste(missing_levels, collapse=", ")))
+      # Try to fix it
+      data$weekday <- factor(data$weekday, levels = expected_levels)
+    }
+  }
+  
+  # Return potentially fixed data
+  return(data)
+}
+
+# Run validation on the market data
+market_data <- validate_market_data(market_data)
+
+# Print validation success message
+message("Market data successfully validated with ", nrow(market_data), " rows spanning ", 
+       length(unique(market_data$date)), " trading days")
+message("Date range: ", paste(range(market_data$date), collapse=" to "))
+message("Regions: ", paste(unique(market_data$region), collapse=", "))
+message("Indices: ", paste(unique(market_data$index_name), collapse=", "))
 ```
 ```{r regional-weekday-stats}
 # Calculate regional weekday statistics with proper equal weighting for indices within each region
