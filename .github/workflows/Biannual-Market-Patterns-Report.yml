@@ -24,7 +24,9 @@ jobs:
       # Prevent R from stopping on warnings
       R_KEEP_PKG_SOURCE: yes
       # Set a longer timeout for downloads
-      DOWNLOAD_TIMEOUT: 600
+      DOWNLOAD_TIMEOUT: 1200
+      # Set retries for URL fetching
+      R_MAX_RETRIES: 10
     
     steps:
       - name: Checkout repository
@@ -33,12 +35,12 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
       
-      - name: Create data directory
+      - name: Create data directory and set cache keys
         run: |
           # Create data directory if it doesn't exist
           mkdir -p data
           # Create timestamp variables for cache keys
-          echo "CACHE_DATE=$(date +'%Y_%m_%d')" >> $GITHUB_ENV
+          echo "CACHE_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
           echo "CACHE_WEEK=$(date +'%Y_%W')" >> $GITHUB_ENV
           echo "CACHE_MONTH=$(date +'%Y_%m')" >> $GITHUB_ENV
           
@@ -65,14 +67,9 @@ jobs:
       
       - name: Install system dependencies
         run: |
-          # Print Ubuntu version for debugging
-          echo "Ubuntu version:"
-          lsb_release -a || cat /etc/os-release
-          
           # Update package lists
           sudo apt-get update
           
-          # Fix for Ubuntu 24.04 (Noble) system dependencies with t64 variants
           # Install general development libraries
           sudo apt-get install -y --no-install-recommends \
             libcurl4-openssl-dev libssl-dev libxml2-dev \
@@ -81,15 +78,18 @@ jobs:
             libudunits2-dev libgdal-dev libgeos-dev libproj-dev \
             pkg-config libv8-dev libsodium-dev
           
-          # Install Chrome/plotting dependencies with proper t64 variants for Ubuntu 24.04
+          # Install Chrome/plotting dependencies
           sudo apt-get install -y --no-install-recommends \
-            libnss3 libnspr4 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 \
+            libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
             libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 \
-            libxrandr2 libgbm1 libpulse0 libasound2t64
+            libxrandr2 libgbm1 libpulse0 libasound2
           
-          # Print installed packages for debugging
-          echo "Installed packages:"
-          dpkg -l | grep -E 'libasound|libatk|libcups'
+          # Handle t64 variants if on Ubuntu 24.04
+          if grep -q "Noble" /etc/os-release; then
+            echo "Installing t64 variants for Ubuntu 24.04"
+            sudo apt-get install -y --no-install-recommends \
+              libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libasound2t64 || true
+          fi
       
       - name: Setup R package directories
         run: mkdir -p ${{ env.R_LIBS_USER }}
@@ -99,31 +99,56 @@ jobs:
         id: r-pkg-cache
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-pkg-noble-${{ hashFiles('weekday-market-patterns.qmd') }}-${{ steps.get-date.outputs.date }}
+          key: ${{ runner.os }}-r-pkg-${{ hashFiles('weekday-market-patterns.qmd') }}-${{ steps.get-date.outputs.date }}
           restore-keys: |
-            ${{ runner.os }}-r-pkg-noble-${{ hashFiles('weekday-market-patterns.qmd') }}-
-            ${{ runner.os }}-r-pkg-noble-
+            ${{ runner.os }}-r-pkg-${{ hashFiles('weekday-market-patterns.qmd') }}-
+            ${{ runner.os }}-r-pkg-
       
       - name: Cache market data
         uses: actions/cache@v3
         id: market-data-cache
         with:
           path: data/
-          key: market-data-${{ env.CACHE_WEEK }}
+          key: market-data-${{ env.CACHE_DATE }}
           restore-keys: |
-            market-data-${{ env.CACHE_MONTH }}
+            market-data-${{ env.CACHE_WEEK }}-
+            market-data-${{ env.CACHE_MONTH }}-
             market-data-
       
       - name: Install core R packages
         run: |
           # Set longer timeout for installations
-          Rscript -e 'options(timeout = 600)'
+          Rscript -e 'options(timeout = 1200)'
           
           # Install basic packages needed for package installation
           Rscript -e 'install.packages(c("remotes", "pak"), repos = "https://cloud.r-project.org")'
           
           # Set repository mirror with binary packages
-          Rscript -e 'options(repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/noble/latest"))'
+          Rscript -e '
+          os_name <- if(file.exists("/etc/os-release")) {
+            system("grep -oP \'(?<=^ID=).+\' /etc/os-release", intern=TRUE)
+          } else {
+            "ubuntu"
+          }
+          
+          ubuntu_version <- if(file.exists("/etc/os-release")) {
+            system("grep -oP \'(?<=^VERSION_CODENAME=).+\' /etc/os-release", intern=TRUE)
+          } else {
+            "jammy"
+          }
+          
+          # Default to jammy if we couldn\'t detect
+          if(length(ubuntu_version) == 0 || ubuntu_version == "") {
+            ubuntu_version <- "jammy"
+          }
+          
+          # Use the correct repository URL based on Ubuntu version
+          repos_url <- paste0("https://packagemanager.posit.co/cran/__linux__/", 
+                              ubuntu_version, "/latest")
+          
+          print(paste0("Setting repository to: ", repos_url))
+          options(repos = c(CRAN = repos_url))
+          '
           
           # Install tidyverse with proper error handling
           Rscript -e '
@@ -142,7 +167,7 @@ jobs:
           # Install plotting and other essential packages
           Rscript -e '
           # Set longer timeout
-          options(timeout = 600)
+          options(timeout = 1200)
           
           # Verify repository settings
           cat("Using CRAN repositories:", getOption("repos"), "\n")
@@ -192,7 +217,6 @@ jobs:
           cat > .Rprofile << 'EOF'
           # Suppress startup messages
           options(tidyverse.quiet = TRUE)
-          suppressMessages(library(dplyr))
           
           # Set explicit function preferences to avoid namespace conflicts
           assign("filter", dplyr::filter, envir = .GlobalEnv)
@@ -210,163 +234,312 @@ jobs:
             max.print = 1000,
             warn = 1,
             # Increase download timeout
-            timeout = 600,
-            # Set repos with mirror that has binary packages - specifically for Noble
-            repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/noble/latest")
+            timeout = 1200,
+            # Set max retries for URL fetching
+            HTTPUserAgent = paste0(
+              "R/", getRversion(), 
+              " R (", R.version$platform, ")",
+              " Biannual-Market-Patterns-Report"
+            )
           )
+          
+          # Configure quantmod/Yahoo requests for reliability
+          if(requireNamespace("quantmod", quietly = TRUE)) {
+            quantmod::setDefaults(getSymbols.yahoo, verbose = TRUE)
+          }
+          
+          # Make sure we have httr
+          if(requireNamespace("httr", quietly = TRUE)) {
+            # Set large config for retries
+            httr::set_config(httr::config(
+              connecttimeout = 60,
+              timeout = 300,
+              ssl_verifypeer = FALSE
+            ))
+          }
           EOF
       
-      - name: Create fallback HTML template
+      - name: Create cache initializer script
         run: |
-          # Create a simple HTML fallback in case Quarto fails
-          cat > fallback.html << 'EOF'
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <title>Market Patterns Report</title>
-            <style>
-              body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-              h1 { color: #0A2540; }
-              p { line-height: 1.6; }
-              .message { background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 5px; }
-            </style>
-          </head>
-          <body>
-            <h1>Weekday Market Patterns Report</h1>
-            <div class="message">
-              <p>The automated report generation encountered issues. Please check the GitHub Actions workflow for details.</p>
-              <p>This is a placeholder file until the report can be properly generated. Please try running the workflow again manually.</p>
-            </div>
-            <p>Generated on: $(date)</p>
-          </body>
-          </html>
-          EOF
-      
-      - name: Verify directory structure
-        run: |
-          # Make sure any directories needed by the qmd exist
-          mkdir -p figures
-          mkdir -p data
-          ls -la data/
-      
-      - name: Generate seed cache data if needed
-        if: steps.market-data-cache.outputs.cache-hit != 'true'
-        run: |
-          echo "No cache found. Creating seed data for key indices..."
-          cat > generate_seed_data.R << 'EOF'
+          cat > initialize_cache.R << 'EOF'
+          # Enhanced market data cache handler
           library(tidyverse)
           library(quantmod)
           library(lubridate)
           
-          # Create necessary directories
+          # Create data directory if it doesn't exist
           if (!dir.exists("data")) {
             dir.create("data", showWarnings = FALSE)
           }
           
-          # Try to get data for S&P 500 (most reliable index)
-          symbols <- c("^GSPC", "SPY", "SP500", "ES=F")
-          sp500_data <- NULL
+          # Define cache file paths
+          cache_file <- file.path("data", "global_market_data_cache_5yr.rds")
+          cache_file_weekly <- file.path("data", paste0("global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%W"), ".rds"))
+          cache_file_daily <- file.path("data", paste0("global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%m_%d"), ".rds"))
           
-          for (symbol in symbols) {
+          # Function to safely read cache files
+          safe_read_cache <- function(file_path) {
             tryCatch({
-              print(paste("Trying to fetch", symbol))
-              ticker <- getSymbols(symbol, src = "yahoo", 
-                                  from = Sys.Date() - years(5),
-                                  to = Sys.Date(),
-                                  auto.assign = FALSE)
-              
-              if (!is.null(ticker) && nrow(ticker) > 0) {
-                print(paste("Successfully fetched", symbol))
-                sp500_data <- data.frame(date = index(ticker), coredata(ticker))
-                colnames(sp500_data) <- c("date", "open", "high", "low", "close", "volume", "adjusted")
-                sp500_data$symbol <- symbol
-                sp500_data$region <- "North America"
-                sp500_data$index_name <- "🇺🇸 S&P 500"
-                sp500_data$canonical_index <- "S&P 500"
-                break
+              if (file.exists(file_path)) {
+                message(paste("Attempting to load cache from:", file_path))
+                data <- readRDS(file_path)
+                
+                # Basic validation
+                if (is.data.frame(data) && nrow(data) > 0 && 
+                    all(c("date", "symbol", "close") %in% colnames(data))) {
+                  message(paste("Successfully loaded cache with", nrow(data), "rows from", file_path))
+                  return(data)
+                } else {
+                  message("Cache data structure is invalid or empty")
+                }
               }
+              return(NULL)
             }, error = function(e) {
-              print(paste("Error fetching", symbol, ":", e$message))
+              message(paste("Error reading cache file:", e$message))
+              return(NULL)
             })
           }
           
-          if (!is.null(sp500_data)) {
-            print(paste("Successfully fetched basic data with", nrow(sp500_data), "rows"))
+          # Function to safely save cache
+          safe_save_cache <- function(data, file_path) {
+            tryCatch({
+              # Create directory if needed
+              dir.create(dirname(file_path), showWarnings = FALSE, recursive = TRUE)
+              
+              # Save data
+              saveRDS(data, file_path)
+              message(paste("Successfully saved cache to:", file_path))
+              return(TRUE)
+            }, error = function(e) {
+              message(paste("Failed to save cache to:", file_path, "-", e$message))
+              return(FALSE)
+            })
+          }
+          
+          # Try to load existing cache
+          market_data <- NULL
+          
+          # Try to load from cache files in order of recency
+          if(is.null(market_data)) {
+            market_data <- safe_read_cache(cache_file_daily)
+          }
+          
+          if(is.null(market_data)) {
+            market_data <- safe_read_cache(cache_file_weekly)
+          }
+          
+          if(is.null(market_data)) {
+            market_data <- safe_read_cache(cache_file)
+          }
+          
+          # If no cache, try to initialize with S&P 500 data
+          if(is.null(market_data)) {
+            message("No cache found. Initializing with S&P 500 data...")
             
-            # Save to cache files
-            saveRDS(sp500_data, "data/global_market_data_cache_5yr.rds")
-            saveRDS(sp500_data, paste0("data/global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%m"), ".rds"))
-            saveRDS(sp500_data, paste0("data/global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%W"), ".rds"))
-            saveRDS(sp500_data, paste0("data/global_market_data_cache_5yr_", format(Sys.Date(), "%Y_%m_%d"), ".rds"))
+            # Try each of these symbols for S&P 500
+            symbols <- c("^GSPC", "SPY", "SP500.US", "ES=F", "INX")
+            sp500_data <- NULL
             
-            print("Successfully saved seed data to cache files")
+            # Try with multiple methods to maximize chance of success
+            for(method in c("yahoo", "av", "tiingo", "alphavantager")) {
+              if (!is.null(sp500_data)) break
+              
+              for(symbol in symbols) {
+                tryCatch({
+                  message(paste("Trying to fetch", symbol, "with method", method))
+                  
+                  # Custom user agent and timeout
+                  options(
+                    HTTPUserAgent = paste0(
+                      "R/", getRversion(), 
+                      " R (", R.version$platform, ")",
+                      " Market-Patterns-Report/1.0"
+                    ),
+                    timeout = 300
+                  )
+                  
+                  if (method == "yahoo") {
+                    # Use quantmod
+                    ticker <- getSymbols(symbol, src = "yahoo", 
+                                      from = Sys.Date() - years(5),
+                                      to = Sys.Date(),
+                                      auto.assign = FALSE)
+                    
+                    if (!is.null(ticker) && nrow(ticker) > 0) {
+                      message(paste("Successfully fetched", symbol, "with Yahoo"))
+                      sp500_data <- data.frame(date = index(ticker), coredata(ticker))
+                      colnames(sp500_data) <- c("date", "open", "high", "low", "close", "volume", "adjusted")
+                      sp500_data$symbol <- symbol
+                      sp500_data$region <- "North America"
+                      sp500_data$index_name <- "🇺🇸 S&P 500"
+                      sp500_data$canonical_index <- "S&P 500"
+                      break
+                    }
+                  } else if (method == "av" && requireNamespace("tidyquant", quietly = TRUE)) {
+                    # Try with Alpha Vantage
+                    ticker_data <- tidyquant::tq_get(symbol, get = "alphavantager", 
+                                                 from = Sys.Date() - years(5),
+                                                 to = Sys.Date())
+                    
+                    if (!is.null(ticker_data) && nrow(ticker_data) > 0) {
+                      message(paste("Successfully fetched", symbol, "with Alpha Vantage"))
+                      # Rename columns to match expected format
+                      sp500_data <- ticker_data %>%
+                        rename(date = timestamp, adjusted = adjusted_close) %>%
+                        mutate(
+                          symbol = symbol,
+                          region = "North America",
+                          index_name = "🇺🇸 S&P 500",
+                          canonical_index = "S&P 500"
+                        )
+                      break
+                    }
+                  } else if (method == "tiingo" && requireNamespace("tidyquant", quietly = TRUE)) {
+                    # Try with Tiingo
+                    ticker_data <- tidyquant::tq_get(symbol, get = "tiingo", 
+                                                 from = Sys.Date() - years(5),
+                                                 to = Sys.Date())
+                    
+                    if (!is.null(ticker_data) && nrow(ticker_data) > 0) {
+                      message(paste("Successfully fetched", symbol, "with Tiingo"))
+                      # Rename columns to match expected format
+                      sp500_data <- ticker_data %>%
+                        rename(date = date, adjusted = adjClose, close = close, open = open, high = high, low = low) %>%
+                        mutate(
+                          symbol = symbol,
+                          region = "North America",
+                          index_name = "🇺🇸 S&P 500",
+                          canonical_index = "S&P 500"
+                        )
+                      break
+                    }
+                  }
+                }, error = function(e) {
+                  message(paste("Error fetching", symbol, "with method", method, ":", e$message))
+                })
+                
+                # If we got data, break out of the symbol loop
+                if (!is.null(sp500_data)) break
+              }
+              
+              # If we got data, break out of the method loop
+              if (!is.null(sp500_data)) break
+            }
+            
+            # If we got data, save it to cache
+            if (!is.null(sp500_data) && nrow(sp500_data) > 0) {
+              message(paste("Successfully fetched basic S&P 500 data with", nrow(sp500_data), "rows"))
+              
+              # Prepare the data with basic calculations needed for the qmd
+              if (all(c("date", "close") %in% colnames(sp500_data))) {
+                sp500_data <- sp500_data %>%
+                  arrange(date) %>%
+                  mutate(
+                    weekday_full = weekdays(date),
+                    weekday = factor(weekdays(date, TRUE), levels = c("Mon", "Tue", "Wed", "Thu", "Fri")),
+                    year = year(date),
+                    month = month(date)
+                  ) %>%
+                  group_by(symbol) %>%
+                  mutate(
+                    daily_return = (close / lag(close) - 1) * 100,
+                    winsorized_return = daily_return  # Simple version for initial data
+                  ) %>%
+                  ungroup() %>%
+                  filter(!is.na(daily_return))
+                
+                # Save to cache files
+                safe_save_cache(sp500_data, cache_file)
+                safe_save_cache(sp500_data, cache_file_weekly)
+                safe_save_cache(sp500_data, cache_file_daily)
+                
+                # Set to market_data for use in the RMD
+                market_data <- sp500_data
+                
+                message("Successfully saved S&P 500 data to cache files")
+              } else {
+                message("SP500 data is missing required columns")
+              }
+            } else {
+              message("Failed to fetch S&P 500 data")
+            }
+          }
+          
+          # Check if we have market data
+          if (!is.null(market_data)) {
+            message("Market data is available with", nrow(market_data), "rows")
+            message("Column names:", paste(colnames(market_data), collapse=", "))
+            message("Date range:", paste(range(market_data$date), collapse=" to "))
+            message("Unique symbols:", paste(unique(market_data$symbol), collapse=", "))
           } else {
-            print("Failed to fetch seed data for cache")
+            message("WARNING: No market data available after all attempts")
           }
           EOF
-          
-          # Run the script
-          Rscript generate_seed_data.R
       
-      - name: Try Quarto render with retry mechanism
+      - name: Initialize market data cache
         run: |
-          # Try rendering with multiple approaches and retries
+          echo "Initializing market data cache..."
+          Rscript initialize_cache.R
+          
+          # Print cache files
+          echo "Cache files:"
+          find data/ -name "*.rds" -ls || echo "No RDS files found"
+      
+      - name: Check for required data
+        run: |
+          # Check if cache files exist
+          if ls data/*.rds 2>/dev/null; then
+            echo "Cache files exist"
+            # Check the content of the cache files
+            Rscript -e '
+            cache_files <- list.files("data", pattern = "\\.rds$", full.names = TRUE)
+            for (file in cache_files) {
+              tryCatch({
+                data <- readRDS(file)
+                cat("File", file, "contains", nrow(data), "rows\n")
+                cat("Column names:", paste(colnames(data), collapse=", "), "\n")
+                cat("Date range:", paste(range(data$date), collapse=" to "), "\n")
+                cat("Regions:", paste(unique(data$region), collapse=", "), "\n")
+              }, error = function(e) {
+                cat("Error reading", file, ":", e$message, "\n")
+              })
+            }
+            '
+          else
+            echo "WARNING: No cache files found, rendering may fail"
+          fi
+      
+      - name: Render with Quarto
+        run: |
+          # Try with different approaches to maximize chance of success
           echo "Attempting to render with Quarto..."
           
-          # Function to retry commands with increasing backoff
-          retry_with_backoff() {
-            local max_attempts="$1"; shift
-            local cmd="$*"
-            local attempt=1
-            
-            until $cmd; do
-              if (( attempt == max_attempts )); then
-                echo "Command failed after $max_attempts attempts: $cmd"
-                return 1
-              fi
-              
-              echo "Attempt $attempt failed! Retrying in $((attempt * 5)) seconds..."
-              sleep $((attempt * 5))
-              
-              (( attempt++ ))
-            done
-            
-            return 0
-          }
-          
-          # Try full render first with retries
-          if retry_with_backoff 3 quarto render weekday-market-patterns.qmd --to html; then
-            echo "Full render succeeded"
+          # Try full render first
+          if quarto render weekday-market-patterns.qmd --to html; then
+            echo "Successfully rendered with Quarto"
           else
-            echo "Full render failed, trying minimal render..."
+            echo "Failed to render with Quarto, trying with different parameters..."
             
             # Try minimal render with disabled caching
-            if retry_with_backoff 2 quarto render weekday-market-patterns.qmd --to html --no-cache; then
-              echo "Minimal render succeeded"
+            if quarto render weekday-market-patterns.qmd --to html --no-cache; then
+              echo "Successfully rendered with Quarto (no cache)"
             else
-              echo "Minimal render failed, trying direct R rendering..."
+              echo "Failed with Quarto, trying direct R rendering..."
               
-              # Try direct R rendering
-              if retry_with_backoff 2 Rscript -e 'rmarkdown::render("weekday-market-patterns.qmd", output_format = "html_document")'; then
-                echo "Direct R rendering succeeded"
-              else
-                echo "All rendering attempts failed"
-              fi
+              # Try direct R rendering as fallback
+              Rscript -e 'rmarkdown::render("weekday-market-patterns.qmd", output_format = "html_document")'
             fi
           fi
       
-      - name: Check for output and use fallback if needed
+      - name: Create dated report copy
         run: |
           if [ -f weekday-market-patterns.html ]; then
-            echo "Successfully generated HTML output"
+            cp weekday-market-patterns.html "market-patterns-report-$(date +'%Y-%m-%d').html"
+            echo "Created dated copy of the report"
           else
-            echo "WARNING: Failed to generate report, using fallback template"
-            cp fallback.html weekday-market-patterns.html
+            echo "ERROR: No HTML file was generated"
+            exit 1
           fi
-      
-      - name: Create dated report copy
-        run: cp weekday-market-patterns.html "market-patterns-report-$(date +'%Y-%m-%d').html"
       
       - name: Optimize HTML file
         run: |
