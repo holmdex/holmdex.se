@@ -6,12 +6,12 @@ on:
   workflow_dispatch:  # Allow manual triggering
 
 permissions:
-  contents: write  # Explicitly grant write permission to repository contents
+  contents: write
 
 jobs:
   generate-report:
     runs-on: ubuntu-latest
-    
+
     env:
       R_LIBS_USER: ${{ github.workspace }}/r-libs
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -20,167 +20,64 @@ jobs:
       LC_ALL: en_US.UTF-8
       R_CHECK_SYSTEM_CLOCK_: FALSE
       NOT_CRAN: true
-      # Increase memory limits for R
       R_MAX_VSIZE: 32Gb
       R_MAX_NUM_THREADS: 4
-      # Prevent R from stopping on warnings
       R_KEEP_PKG_SOURCE: yes
-      # Set a longer timeout for downloads
       DOWNLOAD_TIMEOUT: 1200
-      # Set retries for URL fetching
       R_MAX_RETRIES: 10
-    
+
     steps:
-      - name: Debug Environment
-        run: |
-          echo "Runner OS: $(uname -a)"
-          echo "GitHub Runner Image: $ImageOS $ImageVersion"
-          echo "GitHub Actions Runner Version: $RUNNER_VERSION"
-          echo "GitHub Workspace: $GITHUB_WORKSPACE"
-          echo "Job ID: $GITHUB_JOB"
-          echo "Run ID: $GITHUB_RUN_ID"
-      
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
-      
-      - name: Create data directory and set cache keys
-        shell: bash
+
+      - name: Set up environment variables
         run: |
-          # Create data directory if it doesn't exist
           mkdir -p data
-          # Create timestamp variables for cache keys
           echo "CACHE_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
           echo "CACHE_WEEK=$(date +'%Y_%W')" >> $GITHUB_ENV
           echo "CACHE_MONTH=$(date +'%Y_%m')" >> $GITHUB_ENV
-          # Print environment info
-          echo "---------- ENVIRONMENT INFO ----------"
-          lsb_release -a || cat /etc/os-release
-          echo "--------------------------------------"
-      
-      - name: Install system dependencies (base)
-        shell: bash
+
+      - name: Install system dependencies
         run: |
-          # Update package lists
           sudo apt-get update
-          echo "Installing core build dependencies..."
-          # Core build dependencies - Works on all Ubuntu versions
           sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            libcurl4-openssl-dev \
-            libssl-dev \
-            libxml2-dev
-      
-      - name: Install system dependencies (libraries)
-        shell: bash
-        run: |
-          echo "Installing additional libraries..."
-          # Libraries needed for visualization and data processing
-          sudo apt-get install -y --no-install-recommends \
-            libfontconfig1-dev \
-            libfreetype6-dev \
-            libharfbuzz-dev \
-            libfribidi-dev \
-            libpng-dev \
-            libtiff5-dev \
-            libjpeg-dev
-      
-      - name: Install system dependencies (GIS)
-        shell: bash
-        continue-on-error: true
-        run: |
-          echo "Installing GIS dependencies..."
-          # GIS libraries
-          sudo apt-get install -y --no-install-recommends \
-            libudunits2-dev \
-            libgdal-dev \
-            libgeos-dev \
-            libproj-dev
-      
-      - name: Install system dependencies (additional)
-        shell: bash
-        continue-on-error: true
-        run: |
-          echo "Installing additional dependencies..."
-          # Additional libraries
-          sudo apt-get install -y --no-install-recommends \
-            pkg-config \
-            libv8-dev \
-            libsodium-dev \
-            libcairo2-dev \
-            libnss3 \
-            libnspr4 \
-            libatk1.0-0 \
-            libatk-bridge2.0-0 \
-            libcups2 \
-            libdrm2 \
-            libxkbcommon0 \
-            libxcomposite1 \
-            libxdamage1 \
-            libxfixes3 \
-            libxrandr2 \
-            libgbm1 \
-            libpulse0 \
-            libasound2
-      
-      - name: Setup R
+            build-essential libcurl4-openssl-dev libssl-dev libxml2-dev \
+            libfontconfig1-dev libfreetype6-dev libharfbuzz-dev libfribidi-dev \
+            libpng-dev libtiff5-dev libjpeg-dev libudunits2-dev libgdal-dev \
+            libgeos-dev libproj-dev pkg-config libv8-dev libsodium-dev \
+            libcairo2-dev libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
+            libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
+            libxfixes3 libxrandr2 libgbm1 libpulse0 libasound2
+
+      - name: Set up R
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: 'release'
           use-public-rspm: true
-      
-      - name: Debug R installation
-        shell: bash
-        run: |
-          echo "---------- R INFORMATION ----------"
-          R --version
-          R -e "capabilities()"
-          R -e "sessionInfo()"
-          echo "------------------------------------"
-      
-      - name: Setup Pandoc
-        uses: r-lib/actions/setup-pandoc@v2
-      
-      - name: Setup Quarto
+
+      - name: Set up Pandoc and Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: 1.3.450
-      
-      - name: Debug Quarto installation
-        shell: bash
-        run: |
-          echo "---------- QUARTO INFORMATION ----------"
-          quarto --version
-          quarto check
-          echo "-----------------------------------------"
-      
-      - name: Get Date
-        id: get-date
-        shell: bash
-        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
-      
-      - name: Setup R package directories
-        shell: bash
+
+      - name: Set up R package directories
         run: |
           mkdir -p ${{ env.R_LIBS_USER }}
-          # Set correct permissions
           chmod -R 755 ${{ env.R_LIBS_USER }}
-      
+
       - name: Cache R packages
         uses: actions/cache@v3
-        id: r-pkg-cache
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-pkg-${{ hashFiles('weekday-market-patterns.qmd') }}-${{ steps.get-date.outputs.date }}
+          key: ${{ runner.os }}-r-pkg-${{ hashFiles('weekday-market-patterns.qmd') }}-${{ env.CACHE_DATE }}
           restore-keys: |
             ${{ runner.os }}-r-pkg-${{ hashFiles('weekday-market-patterns.qmd') }}-
             ${{ runner.os }}-r-pkg-
-      
+
       - name: Cache market data
         uses: actions/cache@v3
-        id: market-data-cache
         with:
           path: data/
           key: market-data-${{ env.CACHE_DATE }}
@@ -188,12 +85,10 @@ jobs:
             market-data-${{ env.CACHE_WEEK }}-
             market-data-${{ env.CACHE_MONTH }}-
             market-data-
-      
+
       - name: Create .Rprofile
-        shell: bash
         run: |
-          cat > .Rprofile << EOF
-          # Set options for better performance and stability
+          cat > .Rprofile << 'EOF'
           options(
             repos = c(CRAN = "https://cloud.r-project.org"),
             timeout = 1200,
@@ -201,325 +96,100 @@ jobs:
             width = 120,
             scipen = 999,
             max.print = 1000,
-            stringsAsFactors = FALSE,
-            warnPartialMatchArgs = FALSE,
-            warnPartialMatchDollar = FALSE,
-            warnPartialMatchAttr = FALSE
+            stringsAsFactors = FALSE
           )
-          
-          # Avoid startup messages
           suppressPackageStartupMessages({
             if (requireNamespace("tidyverse", quietly = TRUE)) library(tidyverse)
           })
           EOF
-      
-      - name: Install core R packages
-        shell: bash
+
+      - name: Install R packages
         run: |
-          echo "Installing core R packages..."
-          
-          # Set R repository configuration
-          Rscript -e 'options(timeout = 1200, repos = c(CRAN = "https://cloud.r-project.org"))'
-          
-          # Install package management tools
-          Rscript -e 'install.packages(c("remotes", "pak"))'
-          
-          # Install core packages one by one to avoid dependency issues
-          for pkg in remotes pak tidyverse ggplot2 dplyr tidyr readr purrr tibble stringr forcats; do
+          pkgs=(remotes pak tidyverse ggplot2 dplyr tidyr readr purrr tibble stringr forcats \
+                lubridate DT knitr rmarkdown jsonlite httr rvest xml2 curl \
+                plotly htmlwidgets htmltools scales \
+                quantmod TTR tidyquant RCurl)
+          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org"))'
+          for pkg in "${pkgs[@]}"; do
             echo "Installing $pkg"
-            Rscript -e "tryCatch(install.packages('$pkg'), error = function(e) { message('Error installing $pkg: ', e$message) })"
+            Rscript -e "tryCatch(install.packages('$pkg'), error=function(e) message(e))"
           done
-      
-      - name: Install data packages
-        shell: bash
-        continue-on-error: true
-        run: |
-          echo "Installing data manipulation packages..."
-          
-          for pkg in lubridate DT knitr rmarkdown jsonlite httr rvest xml2 curl; do
-            echo "Installing $pkg"
-            Rscript -e "tryCatch(install.packages('$pkg'), error = function(e) { message('Error installing $pkg: ', e$message) })"
-          done
-      
-      - name: Install visualization packages
-        shell: bash
-        continue-on-error: true
-        run: |
-          echo "Installing visualization packages..."
-          
-          for pkg in plotly htmlwidgets htmltools scales; do
-            echo "Installing $pkg"
-            Rscript -e "tryCatch(install.packages('$pkg'), error = function(e) { message('Error installing $pkg: ', e$message) })"
-          done
-      
-      - name: Install financial packages
-        shell: bash
-        continue-on-error: true
-        run: |
-          echo "Installing financial packages..."
-          
-          for pkg in quantmod TTR tidyquant RCurl; do
-            echo "Installing $pkg"
-            Rscript -e "tryCatch(install.packages('$pkg'), error = function(e) { message('Error installing $pkg: ', e$message) })"
-          done
-      
+
       - name: Verify package installation
-        shell: bash
         run: |
-          echo "Checking installed packages..."
-          Rscript -e 'installed.packages()[, c("Package", "Version")]'
-          
-          # Check specific required packages
-          echo "Verifying critical packages..."
           Rscript -e '
-          critical_pkgs <- c("tidyverse", "knitr", "rmarkdown", "plotly", "lubridate", "DT")
-          missing <- critical_pkgs[!critical_pkgs %in% installed.packages()[,"Package"]]
-          if(length(missing) > 0) {
-            message("WARNING: Missing critical packages: ", paste(missing, collapse=", "))
-            message("Attempting emergency installation...")
-            install.packages(missing)
-          } else {
-            message("All critical packages installed!")
-          }'
-      
-      - name: Set git config
-        shell: bash
-        run: |
-          git config --global user.email "actions@github.com"
-          git config --global user.name "GitHub Actions"
-      
-      - name: Check QMD file
-        shell: bash
-        run: |
-          echo "Checking QMD file size and content..."
-          if [ -f "weekday-market-patterns.qmd" ]; then
-            ls -la weekday-market-patterns.qmd
-            head -n 20 weekday-market-patterns.qmd
-            echo "..."
-            # Count R chunks
-            echo "Number of R chunks: $(grep -c '```{r' weekday-market-patterns.qmd)"
-          else
-            echo "ERROR: weekday-market-patterns.qmd file not found!"
-            exit 1
-          fi
-      
-      - name: Try render with basic Quarto
-        shell: bash
-        id: render-basic
-        continue-on-error: true
-        run: |
-          echo "Attempting basic Quarto render..."
-          quarto render weekday-market-patterns.qmd --to html
-          
-          if [ -f "weekday-market-patterns.html" ] && [ -s "weekday-market-patterns.html" ]; then
-            echo "Successfully rendered with basic Quarto command"
-            echo "render_success=true" >> $GITHUB_OUTPUT
-          else
-            echo "Basic render failed or produced empty file"
-            echo "render_success=false" >> $GITHUB_OUTPUT
-          fi
-      
-      - name: Try render with no cache
-        shell: bash
-        id: render-no-cache
-        if: steps.render-basic.outputs.render_success != 'true'
-        continue-on-error: true
-        run: |
-          echo "Attempting Quarto render with no cache..."
-          quarto render weekday-market-patterns.qmd --to html --no-cache
-          
-          if [ -f "weekday-market-patterns.html" ] && [ -s "weekday-market-patterns.html" ]; then
-            echo "Successfully rendered with no-cache option"
-            echo "render_success=true" >> $GITHUB_OUTPUT
-          else
-            echo "No-cache render failed or produced empty file"
-            echo "render_success=false" >> $GITHUB_OUTPUT
-          fi
-      
-      - name: Try render with Rmarkdown
-        shell: bash
-        id: render-rmd
-        if: steps.render-basic.outputs.render_success != 'true' && steps.render-no-cache.outputs.render_success != 'true'
-        continue-on-error: true
-        run: |
-          echo "Attempting render with Rmarkdown..."
-          Rscript -e 'rmarkdown::render("weekday-market-patterns.qmd", output_format = "html_document")'
-          
-          if [ -f "weekday-market-patterns.html" ] && [ -s "weekday-market-patterns.html" ]; then
-            echo "Successfully rendered with Rmarkdown"
-            echo "render_success=true" >> $GITHUB_OUTPUT
-          else
-            echo "Rmarkdown render failed or produced empty file"
-            echo "render_success=false" >> $GITHUB_OUTPUT
-          fi
-      
-      - name: Manual R execution
-        shell: bash
-        id: manual-r-exec
-        if: steps.render-basic.outputs.render_success != 'true' && steps.render-no-cache.outputs.render_success != 'true' && steps.render-rmd.outputs.render_success != 'true'
-        run: |
-          echo "Attempting manual execution of R code..."
-          
-          # Extract R code from QMD
-          mkdir -p extracted_code
-          
-          # Extract each R chunk to a separate file
-          Rscript -e '
-          qmd_content <- readLines("weekday-market-patterns.qmd")
-          in_chunk <- FALSE
-          chunk_num <- 1
-          chunk_name <- ""
-          current_chunk <- character()
-          
-          for (line in qmd_content) {
-            if (grepl("^```\\{r", line)) {
-              in_chunk <- TRUE
-              # Extract chunk name if available
-              chunk_name <- gsub("^```\\{r\\s+([^,}]+).*$", "\\1", line)
-              if (chunk_name == line) chunk_name <- as.character(chunk_num)
-              current_chunk <- character()
-            } else if (in_chunk && grepl("^```$", line)) {
-              in_chunk <- FALSE
-              # Save the chunk to a file
-              writeLines(current_chunk, paste0("extracted_code/chunk_", chunk_num, "_", chunk_name, ".R"))
-              chunk_num <- chunk_num + 1
-            } else if (in_chunk) {
-              current_chunk <- c(current_chunk, line)
+            pkgs <- c("tidyverse", "knitr", "rmarkdown", "plotly", "lubridate", "DT")
+            missing <- pkgs[!pkgs %in% installed.packages()[,"Package"]]
+            if(length(missing) > 0) {
+              install.packages(missing)
+              stop("Missing packages: ", paste(missing, collapse=", "))
             }
-          }
-          
-          # Create a master script that sources all chunks
-          cat("cat(\"Running all chunks sequentially...\\n\")\n", file = "extracted_code/run_all.R")
-          for (i in 1:(chunk_num-1)) {
-            filename <- list.files("extracted_code", pattern = paste0("chunk_", i, "_"), full.names = TRUE)
-            if (length(filename) > 0) {
-              cat(sprintf("cat(\"\\n\\nRunning chunk %d...\\n\")
-                tryCatch({
-                  source(\"%s\")
-                  cat(\"Successfully completed chunk %d\\n\")
-                }, error = function(e) {
-                  cat(\"Error in chunk %d: \", e$message, \"\\n\")
-                })\n", 
-                i, filename, i, i), 
-                file = "extracted_code/run_all.R", append = TRUE)
-            }
-          }
           '
-          
-          # Run the master script and capture output
-          echo "Executing extracted R code..."
-          Rscript extracted_code/run_all.R > r_execution_log.txt 2>&1
-          
-          # Check if we need to create a basic HTML file
-          if [ ! -f "weekday-market-patterns.html" ] || [ ! -s "weekday-market-patterns.html" ]; then
-            echo "Creating basic HTML result file..."
-            
-            # Create a basic HTML result file
-            cat << EOF > weekday-market-patterns.html
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <title>Weekday Market Patterns</title>
-              <style>
-                body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
-                h1 { color: #2C3E50; }
-                pre { background-color: #f8f8f8; padding: 10px; border-radius: 5px; overflow-x: auto; }
-                .note { background-color: #FFF3CD; padding: 15px; border-radius: 5px; margin: 20px 0; }
-              </style>
-            </head>
-            <body>
-              <h1>Weekday Market Patterns</h1>
-              <p class="note">This is a fallback report generated after the automatic rendering process encountered issues. Please see the logs for more details.</p>
-              <h2>R Execution Log</h2>
-              <pre>$(cat r_execution_log.txt)</pre>
-            </body>
-            </html>
-            EOF
-            
-            echo "Created fallback HTML report"
-            echo "render_success=emergency" >> $GITHUB_OUTPUT
+
+      - name: Check QMD file
+        run: |
+          test -f weekday-market-patterns.qmd || { echo "QMD file missing"; exit 1; }
+          echo "Number of R chunks: $(grep -c '```{r' weekday-market-patterns.qmd)"
+
+      - name: Render with Quarto
+        id: render
+        continue-on-error: true
+        run: |
+          quarto render weekday-market-patterns.qmd --to html
+          if [ ! -s weekday-market-patterns.html ]; then
+            echo "render_success=false" >> $GITHUB_OUTPUT
           else
             echo "render_success=true" >> $GITHUB_OUTPUT
           fi
-      
-      - name: Create dated report copy
-        shell: bash
+
+      - name: Manual R execution fallback
+        if: steps.render.outputs.render_success != 'true'
         run: |
-          if [ -f weekday-market-patterns.html ]; then
-            cp weekday-market-patterns.html "market-patterns-report-$(date +'%Y-%m-%d').html"
-            echo "Created dated copy of the report"
-          else
-            echo "WARNING: No HTML file was generated"
-            
-            # Create an emergency report
-            cat << EOF > "market-patterns-report-$(date +'%Y-%m-%d').html"
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <title>Market Patterns Report - ERROR</title>
-              <style>
-                body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
-                h1 { color: #721c24; }
-                .error-box { background-color: #f8d7da; color: #721c24; padding: 20px; border-radius: 5px; }
-              </style>
-            </head>
-            <body>
-              <h1>Market Patterns Report - Generation Failed</h1>
-              <div class="error-box">
-                <p>The automated report generation process encountered an error. Please check the GitHub Actions logs for details.</p>
-                <p>Run ID: $GITHUB_RUN_ID</p>
-                <p>Date: $(date +'%Y-%m-%d')</p>
-              </div>
-            </body>
-            </html>
-            EOF
-            
-            echo "Created emergency error report"
-          fi
-      
-      - name: Optimize HTML file
-        shell: bash
-        continue-on-error: true
+          mkdir -p extracted_code
+          Rscript -e '
+            qmd <- readLines("weekday-market-patterns.qmd")
+            in_chunk <- FALSE; chunk_num <- 1; current_chunk <- character()
+            for (line in qmd) {
+              if (grepl("^```\\{r", line)) { in_chunk <- TRUE; current_chunk <- character() }
+              else if (grepl("^```$", line)) {
+                writeLines(current_chunk, sprintf("extracted_code/chunk_%02d.R", chunk_num))
+                chunk_num <- chunk_num + 1; in_chunk <- FALSE
+              } else if (in_chunk) current_chunk <- c(current_chunk, line)
+            }
+          '
+          echo "source_dir <- 'extracted_code'; files <- list.files(source_dir, full.names = TRUE); for (f in files) { tryCatch(source(f), error=function(e) cat(sprintf(\"Error in %s: %s\n\", f, e$message))) }" > run_chunks.R
+          Rscript run_chunks.R > r_execution_log.txt 2>&1
+
+          cat << EOF > weekday-market-patterns.html
+          <!DOCTYPE html>
+          <html><head><title>Fallback Report</title></head>
+          <body><h1>Report Render Failed</h1><pre>$(cat r_execution_log.txt)</pre></body></html>
+          EOF
+
+      - name: Save final report copy
         run: |
-          # Try to install html-minifier
-          echo "Attempting to install html-minifier..."
-          npm install -g html-minifier || echo "Failed to install html-minifier, skipping optimization"
-          
-          # Try to optimize if minifier was installed
-          if command -v html-minifier > /dev/null; then
-            echo "Optimizing HTML file..."
+          cp weekday-market-patterns.html "market-patterns-report-$(date +'%Y-%m-%d').html"
+
+      - name: Minify HTML (if possible)
+        run: |
+          npm install -g html-minifier || true
+          if command -v html-minifier >/dev/null; then
             html-minifier --collapse-whitespace --remove-comments \
               --remove-optional-tags --remove-redundant-attributes \
               --remove-script-type-attributes --use-short-doctype \
-              weekday-market-patterns.html -o weekday-market-patterns.min.html || echo "Minification failed"
-            
-            if [ -f weekday-market-patterns.min.html ] && [ -s weekday-market-patterns.min.html ]; then
-              mv weekday-market-patterns.min.html weekday-market-patterns.html
-              echo "Successfully optimized HTML file"
-            else
-              echo "Optimization failed or produced empty file, keeping original"
-            fi
-          else
-            echo "Skipping HTML optimization"
+              weekday-market-patterns.html -o weekday-market-patterns.html
           fi
-      
-      - name: Save logs as artifacts
+
+      - name: Commit and push report
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "Update biannual market patterns report: $(date +'%Y-%m-%d')"
+
+      - name: Upload logs
         uses: actions/upload-artifact@v3
         with:
-          name: execution-logs
+          name: logs
           path: |
             r_execution_log.txt
             extracted_code/
-            .Rhistory
-            *_log.txt
-            *.log
-      
-      - name: Deploy report files
-        uses: stefanzweifel/git-auto-commit-action@v4
-        with:
-          commit_message: "Update market patterns report [automated] ${{ steps.get-date.outputs.date }}"
-          file_pattern: "weekday-market-patterns.html market-patterns-report-*.html data/*.rds"
-          commit_user_name: GitHub Actions
-          commit_user_email: actions@github.com
-          commit_author: GitHub Actions <actions@github.com>
-          push_options: '--force'
+            *.html
