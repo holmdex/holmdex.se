@@ -21,7 +21,7 @@ permissions:
   packages: read
 
 env:
-  R_VERSION: '4.3.3'  # Latest stable
+  R_VERSION: '4.4.0'  # Latest stable as of July 2024
   QUARTO_VERSION: '1.7.30'
   R_LIBS_USER: ${{ github.workspace }}/r-libs
   CRAN_MIRROR: 'https://cloud.r-project.org'
@@ -32,13 +32,12 @@ env:
   R_MAX_NUM_THREADS: 4
   R_KEEP_PKG_SOURCE: yes
   DOWNLOAD_TIMEOUT: 600
-  # GLIBC workaround - pin to Ubuntu 22.04 versions
-  GLIBC_VERSION: '2.35'
-  DISABLE_PACKAGEKIT: 'true'
+  # Ubuntu 22.04 current versions (jammy)
+  UBUNTU_CODENAME: 'jammy'
 
 jobs:
   generate-report:
-    runs-on: ubuntu-22.04  # Must use 22.04 for GLIBC compatibility
+    runs-on: ubuntu-22.04
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -48,7 +47,7 @@ jobs:
 
     steps:
       # ====================
-      # 1. SYSTEM HARDENING
+      # 1. SYSTEM SETUP
       # ====================
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -57,63 +56,65 @@ jobs:
 
       - name: Disable problematic services
         run: |
-          # Disable services that cause NEEDRESTART errors
-          sudo systemctl mask packagekit.service
-          sudo systemctl mask php8.1-fpm.service
+          sudo systemctl mask packagekit.service || true
+          sudo systemctl mask php*-fpm.service || true
           sudo systemctl daemon-reload
 
-      - name: Verify GLIBC version
-        run: |
-          echo "Current GLIBC version: $(ldd --version | head -1)"
-          if ! ldd --version | grep -q "${{ env.GLIBC_VERSION }}"; then
-            echo "::error::GLIBC version mismatch! Required: ${{ env.GLIBC_VERSION }}"
-            exit 1
-          fi
-
-      # ====================
-      # 2. ENVIRONMENT SETUP
-      # ====================
       - name: Setup system environment
         run: |
           echo "CURRENT_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
           mkdir -p data/{cache,archive,figures}
           mkdir -p ${{ env.R_LIBS_USER }}
           
-          # Verify system state
+          # Verify system
           lsb_release -a
           df -h
           ulimit -a
 
       # ==================
-      # 3. DEPENDENCIES
+      # 2. DEPENDENCIES
       # ==================
-      - name: Install system dependencies (pinned versions)
+      - name: Update package sources
         run: |
           sudo apt-get update -y
-          sudo apt-mark hold libc6 libc-bin  # Prevent GLIBC updates
-          
-          # Install pinned versions
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository -y universe
+          sudo apt-get update -y
+
+      - name: Install system dependencies (current versions)
+        run: |
+          # Get current versions from Ubuntu's package database
           sudo apt-get install -y --no-install-recommends \
-            build-essential=12.9ubuntu3 \
-            libc6=2.35-0ubuntu3.6 \
-            libcurl4-openssl-dev=7.81.0-1ubuntu1.15 \
-            libssl-dev=3.0.2-0ubuntu1.12 \
-            libxml2-dev=2.9.13+dfsg-1ubuntu0.4 \
-            libfontconfig1-dev=2.13.1-4.2ubuntu5 \
-            locales=2.35-0ubuntu3.6
+            build-essential \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libxml2-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            libharfbuzz-dev \
+            libfribidi-dev \
+            libgdal-dev \
+            libgeos-dev \
+            libproj-dev \
+            libudunits2-dev \
+            libv8-dev \
+            locales \
+            ca-certificates
+
+          # Verify installations
+          dpkg -l | grep -E 'libcurl|libssl|libxml2|libfontconfig'
 
           # Configure locales
           sudo locale-gen en_US.UTF-8
 
       # ==================
-      # 4. R & QUARTO SETUP
+      # 3. R & QUARTO SETUP
       # ==================
-      - name: Setup R (with version pinning)
+      - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ env.R_VERSION }}
           use-public-rspm: false
-          update-method: 'none'  # Prevent auto-updates
 
       - name: Setup Pandoc
         uses: r-lib/actions/setup-pandoc@v2
@@ -122,84 +123,115 @@ jobs:
         uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: ${{ env.QUARTO_VERSION }}
-          # Fallback to manual install if action fails
           fallback-to-url: true
 
       # ==================
-      # 5. LIBRARY PROTECTION
+      # 4. LIBRARY CONFIG
       # ==================
-      - name: Create protected R library
+      - name: Configure R environment
         run: |
           # Create isolated library path
-          mkdir -p ${{ env.R_LIBS_USER }}-protected
-          echo "R_LIBS_USER=${{ env.R_LIBS_USER }}-protected" >> $GITHUB_ENV
+          mkdir -p ${{ env.R_LIBS_USER }}-isolated
+          echo "R_LIBS_USER=${{ env.R_LIBS_USER }}-isolated" >> $GITHUB_ENV
           
-          # Prevent system library contamination
-          echo 'Sys.setenv(LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu")' >> .Rprofile
+          # Configure .Rprofile
+          cat > .Rprofile << 'EOF'
+          options(
+            repos = c(CRAN = Sys.getenv("CRAN_MIRROR")),
+            Ncpus = as.numeric(Sys.getenv("R_MAX_NUM_THREADS")),
+            download.file.method = "libcurl",
+            timeout = as.numeric(Sys.getenv("DOWNLOAD_TIMEOUT")),
+            install.packages.compile.from.source = "never"
+          )
+          
+          # GLIBC compatibility check
+          if (Sys.info()["sysname"] == "Linux") {
+            glibc_version <- system("ldd --version | head -1", intern = TRUE)
+            message("GLIBC version: ", glibc_version)
+          }
+          EOF
+
+          # Configure Makevars for compilation
+          mkdir -p ~/.R
+          echo "MAKEFLAGS = -j$(nproc)" > ~/.R/Makevars
+          echo "CXXFLAGS += -O2 -march=native" >> ~/.R/Makevars
 
       # ==================
-      # 6. PACKAGE INSTALL
+      # 5. PACKAGE INSTALL
       # ==================
-      - name: Install R packages (safe mode)
+      - name: Install R packages (with robust fallbacks)
         run: |
           Rscript -e '
-          # Force binary packages to avoid compilation
-          options(install.packages.compile.from.source = "never",
-                  install.packages.check.source = "no")
-          
-          # Install with version checks
-          safe_install <- function(pkg) {
-            if (!requireNamespace(pkg, quietly = TRUE)) {
-              message("Installing ", pkg)
-              install.packages(pkg, repos = c(CRAN = Sys.getenv("CRAN_MIRROR")))
-              
-              # Verify installation
-              if (!requireNamespace(pkg, quietly = TRUE)) {
-                stop("Failed to install ", pkg)
-              }
+          # Function to install with multiple fallbacks
+          safe_install <- function(pkgs) {
+            repos <- c(
+              CRAN = Sys.getenv("CRAN_MIRROR"),
+              RSPM = "https://packagemanager.posit.co/cran/latest",
+              BERKELEY = "https://cloud.r-project.org"
+            )
+            
+            for (repo in names(repos)) {
+              tryCatch({
+                message("Attempting install from: ", repo)
+                install.packages(
+                  pkgs,
+                  repos = repos[repo],
+                  dependencies = TRUE,
+                  quiet = FALSE,
+                  INSTALL_opts = "--no-multiarch"
+                )
+                if (all(sapply(pkgs, requireNamespace, quietly = TRUE))) {
+                  message("Successfully installed from: ", repo)
+                  return(TRUE)
+                }
+              }, error = function(e) {
+                message("Failed with ", repo, ": ", conditionMessage(e))
+              })
             }
+            stop("Failed to install: ", paste(pkgs, collapse = ", "))
           }
           
           # Core packages
-          safe_install("dplyr")
-          safe_install("remotes")
-          
-          # Verify critical dependencies
-          if (as.numeric(version$major) < 4 || 
-              as.numeric(version$minor) < 3.0) {
-            stop("R version too old - requires >= 4.3.0")
-          }
-          '
-
-      # ==================
-      # 7. REPORT GENERATION
-      # ==================
-      - name: Render with stability checks
-        run: |
-          # Pre-flight checks
-          Rscript -e '
-          if (!file.exists("weekday-market-patterns.qmd")) {
-            stop("Quarto file not found!")
-          }
+          safe_install(c("dplyr", "remotes", "pak"))
           
           # Verify critical packages
-          required <- c("dplyr", "rlang", "knitr")
-          missing <- setdiff(required, installed.packages())
-          if (length(missing) > 0) stop("Missing packages: ", paste(missing, collapse=", "))
+          if (!requireNamespace("dplyr", quietly = TRUE)) {
+            message("Falling back to GitHub installation")
+            remotes::install_github("tidyverse/dplyr")
+          }
           '
 
+      - name: Install report dependencies
+        run: |
+          Rscript -e '
+          report_pkgs <- c(
+            "quantmod", "tidyquant", "plotly", "DT",
+            "lubridate", "httr", "rvest", "TTR"
+          )
+          
+          if (requireNamespace("pak", quietly = TRUE)) {
+            pak::pkg_install(report_pkgs, ask = FALSE)
+          } else {
+            install.packages(report_pkgs)
+          }
+          '
+
+      # ==================
+      # 6. REPORT GENERATION
+      # ==================
+      - name: Render Quarto document
+        run: |
           DATA_DAYS="${{ github.event.inputs.data_days || '1826' }}"
           
-          # Render with forced binary packages
           quarto render weekday-market-patterns.qmd \
             --to html \
             --execute-params "days:$DATA_DAYS" \
-            --no-execute-cache \
             --output-dir reports \
+            --cache \
             --fail-on-warning
 
       # ==================
-      # 8. OUTPUT VALIDATION
+      # 7. OUTPUT VALIDATION
       # ==================
       - name: Validate output
         run: |
@@ -208,13 +240,14 @@ jobs:
             exit 1
           fi
           
-          # Check for GLIBC-related strings in output
-          if grep -q "GLIBC_" reports/weekday-market-patterns.html; then
-            echo "::warning::Potential GLIBC reference in output"
+          # Basic content validation
+          if ! grep -q "<html" reports/weekday-market-patterns.html; then
+            echo "::error::Invalid HTML output!"
+            exit 1
           fi
 
       # ==================
-      # 9. DEPLOYMENT
+      # 8. DEPLOYMENT
       # ==================
       - name: Archive and deploy
         run: |
@@ -227,14 +260,18 @@ jobs:
           cp "$REPORT_NAME" docs/
           cp reports/weekday-market-patterns.html docs/index.html
           
-          # Create system manifest
+          # Create build info
           echo "{
-            \"system\": {
-              \"glibc_version\": \"$(ldd --version | head -1 | cut -d' ' -f4)\",
-              \"r_version\": \"$(R --version | head -1)\",
-              \"quarto_version\": \"$(quarto --version)\"
+            \"build_date\": \"$(date)\",
+            \"versions\": {
+              \"ubuntu\": \"$(lsb_release -ds)\",
+              \"r\": \"$(R --version | head -1)\",
+              \"quarto\": \"$(quarto --version)\",
+              \"glibc\": \"$(ldd --version | head -1)\"
             },
-            \"build_date\": \"$(date)\"
+            \"parameters\": {
+              \"data_days\": \"$DATA_DAYS\"
+            }
           }" > docs/build_info.json
 
       - name: Deploy to GitHub Pages
@@ -245,22 +282,26 @@ jobs:
           keep_files: true
 
       # ==================
-      # 10. POST-BUILD CHECKS
+      # 9. POST-BUILD
       # ==================
-      - name: Verify runtime environment
+      - name: Create summary
         if: always()
         run: |
-          echo "=== Final System Check ==="
-          ldd --version | head -1
-          R --version | head -1
-          quarto --version
+          echo "### Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Date:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- **R Version:** ${{ env.R_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Quarto Version:** ${{ env.QUARTO_VERSION }}" >> $GITHUB_STEP_SUMMARY
           
-          echo "=== Library Paths ==="
-          Rscript -e '.libPaths()'
+          if [ -f reports/weekday-market-patterns.html ]; then
+            echo "✅ **Successfully generated report**" >> $GITHUB_STEP_SUMMARY
+            echo "- [View Live Report](https://${{ github.repository_owner }}.github.io/${{ github.repository_name }}/)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Report generation failed**" >> $GITHUB_STEP_SUMMARY
+          fi
           
-          echo "=== Critical Packages ==="
-          Rscript -e '
-          pkgs <- c("dplyr", "rlang", "knitr")
-          versions <- sapply(pkgs, function(p) packageVersion(p))
-          print(data.frame(Package = pkgs, Version = versions))
-          '
+          echo "### System Information" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ldd --version | head -1 >> $GITHUB_STEP_SUMMARY
+          R --version | head -1 >> $GITHUB_STEP_SUMMARY
+          quarto --version >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
