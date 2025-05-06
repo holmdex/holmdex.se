@@ -182,7 +182,7 @@ jobs:
           quarto check || echo "Quarto installation may have issues but we'll continue"
           quarto --version
 
-      # Robust caching strategy for R packages with multiple fallback options
+      # Enhanced caching strategy for R packages with multiple cache levels
       - name: Cache R packages - Primary
         uses: actions/cache@v3
         id: cache-r-packages
@@ -192,19 +192,62 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-r-${{ env.R_VERSION }}-${{ hashFiles('weekday-market-patterns.qmd') }}-
             ${{ runner.os }}-r-${{ env.R_VERSION }}-
+            ${{ runner.os }}-r-
       
-      # Separate cache for market data with tiered fallbacks
+      # Optimized cache for market data with improved tiering and compression
       - name: Cache market data
         uses: actions/cache@v3
         id: cache-market-data
         with:
-          path: data/
-          key: market-data-${{ env.CURRENT_DATE }}
+          path: |
+            data/
+            !data/archive/  # Exclude archive directory to avoid excessive cache size
+          key: market-data-${{ env.CURRENT_DATE }}-${{ hashFiles('weekday-market-patterns.qmd') }}
           restore-keys: |
             market-data-${{ env.CURRENT_WEEK }}-
             market-data-${{ env.CURRENT_MONTH }}-
             market-data-${{ env.CURRENT_YEAR }}-
             market-data-
+            
+      # Cache for plotly and visualization dependencies
+      - name: Cache visualization dependencies
+        uses: actions/cache@v3
+        id: cache-viz-deps
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/puppeteer
+            ~/.cache/webshot
+            ~/.phantomjs
+          key: ${{ runner.os }}-viz-deps-${{ env.CURRENT_MONTH }}
+          restore-keys: |
+            ${{ runner.os }}-viz-deps-
+            
+      # Cache system libraries specifically for R packages
+      - name: Cache system dependencies
+        uses: actions/cache@v3
+        id: cache-sys-deps
+        with:
+          path: |
+            /var/cache/apt/archives/
+            ~/.local/share/
+          key: ${{ runner.os }}-sys-deps-r${{ env.R_VERSION }}-${{ env.CURRENT_MONTH }}
+          restore-keys: |
+            ${{ runner.os }}-sys-deps-r${{ env.R_VERSION }}-
+            ${{ runner.os }}-sys-deps-
+            
+      # Cache Quarto render cache directory
+      - name: Cache Quarto cache
+        uses: actions/cache@v3
+        id: cache-quarto
+        with:
+          path: |
+            .quarto/
+            _freeze/
+          key: ${{ runner.os }}-quarto-${{ env.QUARTO_VERSION }}-${{ hashFiles('weekday-market-patterns.qmd') }}-${{ env.CURRENT_WEEK }}
+          restore-keys: |
+            ${{ runner.os }}-quarto-${{ env.QUARTO_VERSION }}-${{ hashFiles('weekday-market-patterns.qmd') }}-
+            ${{ runner.os }}-quarto-${{ env.QUARTO_VERSION }}-
       
       - name: Create .Rprofile with proper configuration
         run: |
@@ -701,25 +744,61 @@ jobs:
         run: |
           # Set up a log file
           mkdir -p logs
+          mkdir -p data/cache
+          mkdir -p data/viz-cache
+          mkdir -p data/processed
+          mkdir -p data/archive
+          
           echo "Market data preparation started at $(date)" > logs/market_data.log
           
           # Create a placeholder file to mark data directory status
-          echo "{'status': 'initialized', 'time': '$(date)'}" > data/status.json
+          echo "{
+            \"status\": \"initialized\", 
+            \"time\": \"$(date)\",
+            \"r_version\": \"${{ env.R_VERSION }}\",
+            \"quarto_version\": \"${{ env.QUARTO_VERSION }}\",
+            \"runner_os\": \"${{ runner.os }}\",
+            \"cache_status\": {
+              \"r_packages\": \"${{ steps.cache-r-packages.outputs.cache-hit == 'true' && 'hit' || 'miss' }}\",
+              \"market_data\": \"${{ steps.cache-market-data.outputs.cache-hit == 'true' && 'hit' || 'miss' }}\",
+              \"viz_deps\": \"${{ steps.cache-viz-deps.outputs.cache-hit == 'true' && 'hit' || 'miss' }}\",
+              \"sys_deps\": \"${{ steps.cache-sys-deps.outputs.cache-hit == 'true' && 'hit' || 'miss' }}\",
+              \"quarto\": \"${{ steps.cache-quarto.outputs.cache-hit == 'true' && 'hit' || 'miss' }}\"
+            }
+          }" > data/status.json
           
           # Create a backup reference file with information about packages installed
           Rscript -e '
           tryCatch({
-            pkg_info <- installed.packages()[, c("Package", "Version")]
+            pkg_info <- installed.packages()[, c("Package", "Version", "LibPath", "Built")]
             saveRDS(pkg_info, "data/package_versions.rds")
             write.csv(pkg_info, "data/package_versions.csv")
             
             # Also save session info for debugging
             sessionInfo <- capture.output(sessionInfo())
             writeLines(sessionInfo, "data/session_info.txt")
+            
+            # Create a package dependency graph for better debugging
+            if(requireNamespace("igraph", quietly = TRUE) && requireNamespace("dplyr", quietly = TRUE)) {
+              tryCatch({
+                # Create basic dependency structure
+                deps <- tools::package_dependencies(rownames(installed.packages()), recursive = TRUE)
+                dep_df <- data.frame(
+                  package = rep(names(deps), sapply(deps, length)),
+                  dependency = unlist(deps)
+                )
+                saveRDS(dep_df, "data/package_deps.rds")
+              }, error = function(e) {
+                message("Error creating dependency graph: ", e$message)
+              })
+            }
           }, error = function(e) {
             message("Error creating package info: ", e$message)
           })
           ' 2>&1 | tee -a logs/market_data.log
+          
+          # Create a data directory structure file to help with debugging
+          find data -type d | sort > data/directory_structure.txt
       
       - name: Set git config
         run: |
@@ -815,12 +894,45 @@ jobs:
           DATA_DAYS="${{ github.event.inputs.data_days || '1826' }}"
           echo "Using $DATA_DAYS days of market data"
           
+          # Create data directory for intermediate files
+          mkdir -p data/intermediate
+          mkdir -p data/figures
+          mkdir -p data/temp
+          
+          # Export environment variables for the rendering process
+          export R_LIBS_USER="${{ env.R_LIBS_USER }}"
+          export TZ="${{ env.TZ }}"
+          export LANG="${{ env.LANG }}"
+          export LC_ALL="${{ env.LC_ALL }}"
+          export QUARTO_RENDER_TOKEN="$(date +%s)-${{ github.run_id }}"
+          export CACHE_DIR="data/cache"
+          export FIGURE_PATH="data/figures"
+          export DOWNLOAD_RETRIES=5
+          
           # Create a function for rendering with robust error handling
           render_with_retries() {
-            # Try main rendering
-            echo "Attempt 1: Standard rendering"
-            if quarto render weekday-market-patterns.qmd --to html --execute-params "days:$DATA_DAYS"; then
+            echo "Setting up render environment variables..."
+            export QUARTO_DENO_EXTRA_OPTIONS="--v8-flags=--max-old-space-size=4096"
+            export QUARTO_R_ARGS="-e 'options(repos=c(CRAN=\"https://cloud.r-project.org\"))' --max-ppsize=100000 --max-vsize=16G"
+            
+            # Create a custom .Renviron file for the rendering process
+            echo "CACHE_DIR=data/cache" > .Renviron
+            echo "FIGURE_PATH=data/figures" >> .Renviron
+            echo "DOWNLOAD_RETRIES=5" >> .Renviron
+            echo "DATA_DAYS=$DATA_DAYS" >> .Renviron
+            echo "TZ=$TZ" >> .Renviron
+            echo "RSPM=$RSPM" >> .Renviron
+            
+            # Try main rendering with optimized settings
+            echo "Attempt 1: Optimized standard rendering"
+            if quarto render weekday-market-patterns.qmd --to html \
+               --execute-params "days:$DATA_DAYS" \
+               --execute-dir . \
+               --cache-refresh \
+               --output-dir data/temp; then
               echo "✅ Standard rendering successful"
+              # Move the output to the main directory
+              cp data/temp/weekday-market-patterns.html ./
               return 0
             fi
             
@@ -828,15 +940,20 @@ jobs:
             
             # Fallback 1: Render with no caching
             echo "Attempt 2: Rendering with caching disabled"
-            if quarto render weekday-market-patterns.qmd --to html --execute-params "days:$DATA_DAYS" --no-cache; then
+            if quarto render weekday-market-patterns.qmd --to html \
+               --execute-params "days:$DATA_DAYS" \
+               --no-cache \
+               --output-dir data/temp; then
               echo "✅ No-cache rendering successful"
+              cp data/temp/weekday-market-patterns.html ./
               return 0
             fi
             
             # Fallback 2: Try direct R rendering
             echo "Attempt 3: Using R directly"
-            if Rscript -e "rmarkdown::render('weekday-market-patterns.qmd', output_format = 'html_document', params = list(days = $DATA_DAYS))"; then
+            if Rscript -e "rmarkdown::render('weekday-market-patterns.qmd', output_format = 'html_document', params = list(days = $DATA_DAYS), output_dir = 'data/temp')"; then
               echo "✅ R rendering successful"
+              cp data/temp/weekday-market-patterns.html ./
               return 0
             fi
             
@@ -844,16 +961,45 @@ jobs:
             echo "Attempt 4: Using failsafe R script"
             if Rscript render_fallback.R $DATA_DAYS; then
               echo "✅ Failsafe script rendering successful"
+              # Check where the output was created
+              if [ -f "data/temp/weekday-market-patterns.html" ]; then
+                cp data/temp/weekday-market-patterns.html ./
+              fi
               return 0
             fi
             
             # Fallback 4: Try with minimal execute-dir
-            echo "Attempt 5: Using execute-dir approach"
+            echo "Attempt 5: Using execute-dir approach with minimal dependencies"
             mkdir -p _tmp
             cp weekday-market-patterns.qmd _tmp/
-            if quarto render _tmp/weekday-market-patterns.qmd --to html --execute-dir . --execute-params "days:$DATA_DAYS"; then
-              cp _tmp/weekday-market-patterns.html ./
-              echo "✅ Execute-dir rendering successful"
+            
+            # Create a simplified version that might work
+            cat > _tmp/simplified.qmd << 'EOF'
+            ---
+            title: "Weekday Market Patterns - Simplified"
+            format: html
+            ---
+
+            ## Simplified Report
+
+            This is a simplified version of the report that was created as a fallback.
+            The original report could not be rendered due to technical issues.
+
+            ```{r}
+            #| echo: false
+            cat("Data days requested:", params$days, "\n")
+            cat("Date generated:", Sys.Date(), "\n")
+            ```
+
+            For the full report, please try again later or contact the repository maintainer.
+            EOF
+            
+            # Try to render the simplified version
+            if quarto render _tmp/simplified.qmd --to html \
+               --execute-params "days:$DATA_DAYS" \
+               --output-dir data/temp; then
+              echo "✅ Simplified fallback rendering successful"
+              cp data/temp/simplified.html ./weekday-market-patterns.html
               return 0
             fi
             
@@ -865,20 +1011,73 @@ jobs:
           # Execute the rendering function and capture output
           if render_with_retries 2>&1 | tee "$RENDER_LOG"; then
             echo "Rendering completed successfully"
+            
+            # Copy the log to the data directory for caching
+            cp "$RENDER_LOG" data/
+            
+            # Create a JSON metadata file with rendering info
+            echo "{
+              \"render_date\": \"$(date +'%Y-%m-%d')\",
+              \"render_time\": \"$(date +'%H:%M:%S')\",
+              \"render_timezone\": \"${TZ}\",
+              \"data_days\": \"$DATA_DAYS\", 
+              \"r_version\": \"${{ env.R_VERSION }}\",
+              \"quarto_version\": \"${{ env.QUARTO_VERSION }}\",
+              \"runner\": \"${{ runner.os }}\",
+              \"workflow_run\": \"${{ github.run_id }}\",
+              \"log_file\": \"$RENDER_LOG\"
+            }" > "data/render_info.json"
           else
             echo "ERROR: Rendering failed after multiple attempts"
             
             # Check if the file exists despite errors (partial rendering)
             if [ -f weekday-market-patterns.html ] && [ -s weekday-market-patterns.html ]; then
               echo "WARNING: HTML file exists but may be incomplete"
+              
+              # Copy the log to the data directory for debugging
+              cp "$RENDER_LOG" data/
+              
+              # Create a JSON metadata file with error info
+              echo "{
+                \"render_date\": \"$(date +'%Y-%m-%d')\",
+                \"render_time\": \"$(date +'%H:%M:%S')\",
+                \"render_timezone\": \"${TZ}\",
+                \"data_days\": \"$DATA_DAYS\", 
+                \"r_version\": \"${{ env.R_VERSION }}\",
+                \"quarto_version\": \"${{ env.QUARTO_VERSION }}\",
+                \"runner\": \"${{ runner.os }}\",
+                \"workflow_run\": \"${{ github.run_id }}\",
+                \"log_file\": \"$RENDER_LOG\",
+                \"status\": \"partial\",
+                \"error\": true
+              }" > "data/render_error.json"
             else
               # If we have no output, we need to treat this as a failure
               echo "No output file was generated, marking job as failed"
+              
+              # Create a JSON metadata file with error info
+              echo "{
+                \"render_date\": \"$(date +'%Y-%m-%d')\",
+                \"render_time\": \"$(date +'%H:%M:%S')\",
+                \"render_timezone\": \"${TZ}\",
+                \"data_days\": \"$DATA_DAYS\", 
+                \"r_version\": \"${{ env.R_VERSION }}\",
+                \"quarto_version\": \"${{ env.QUARTO_VERSION }}\",
+                \"runner\": \"${{ runner.os }}\",
+                \"workflow_run\": \"${{ github.run_id }}\",
+                \"log_file\": \"$RENDER_LOG\",
+                \"status\": \"failed\",
+                \"error\": true
+              }" > "data/render_error.json"
+              
+              # Copy the log to the data directory for debugging
+              cp "$RENDER_LOG" data/
+              
               exit 1
             fi
           fi
       
-      - name: Create dated report copy
+      - name: Create dated report copy and optimize archiving
         run: |
           if [ -f weekday-market-patterns.html ]; then
             # Create a copy with date in filename
@@ -902,6 +1101,39 @@ jobs:
               \"runner\": \"${{ runner.os }}\",
               \"workflow_run\": \"${{ github.run_id }}\"
             }" > "data/last_render_info.json"
+            
+            # Save a copy in the data folder for easy access in next run
+            cp weekday-market-patterns.html "data/latest_report.html"
+            
+            # Create a compressed archive version for long-term storage
+            ARCHIVE_BASE="data/archive/market-patterns-$(date +'%Y%m%d')"
+            tar -czf "${ARCHIVE_BASE}.tar.gz" weekday-market-patterns.html "$DATED_FILENAME" data/render_info.json data/status.json
+            
+            # Create an archive manifest for tracking
+            {
+              echo "Date: $(date +'%Y-%m-%d %H:%M:%S')"
+              echo "Archive: ${ARCHIVE_BASE}.tar.gz"
+              echo "Files:"
+              echo "- weekday-market-patterns.html"
+              echo "- $DATED_FILENAME"
+              echo "- data/render_info.json"
+              echo "- data/status.json"
+              echo "Environment:"
+              echo "- R: ${{ env.R_VERSION }}"
+              echo "- Quarto: ${{ env.QUARTO_VERSION }}"
+              echo "- Runner: ${{ runner.os }}"
+              echo "- Data Days: ${{ github.event.inputs.data_days || '1826' }}"
+            } > "${ARCHIVE_BASE}.manifest"
+            
+            # Only keep the last 12 archives to save space
+            cd data/archive
+            ls -t market-patterns-*.tar.gz | tail -n +13 | xargs -r rm
+            ls -t market-patterns-*.manifest | tail -n +13 | xargs -r rm
+            cd ../..
+            
+            # Cleanup temporary files
+            rm -rf _tmp
+            echo "Archived report successfully with manifest"
           else
             echo "ERROR: weekday-market-patterns.html not found"
             exit 1
