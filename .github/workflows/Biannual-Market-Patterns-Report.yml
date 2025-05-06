@@ -169,7 +169,8 @@ jobs:
             market-data-${{ env.CURRENT_MONTH }}-
             market-data-${{ env.CURRENT_YEAR }}-
             market-data-
-            - name: Create .Rprofile with proper configuration
+      
+      - name: Create .Rprofile with proper configuration
         run: |
           cat > .Rprofile << 'EOF'
           # Suppress startup messages
