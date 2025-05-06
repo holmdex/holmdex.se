@@ -25,7 +25,7 @@ permissions:
 # Define environment variables used across all jobs
 env:
   R_VERSION: '4.3.2'
-  QUARTO_VERSION: '1.4.549'
+  QUARTO_VERSION: '1.4.576'  # Updated version
   R_LIBS_USER: ${{ github.workspace }}/r-libs
   GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
   TZ: UTC
@@ -39,9 +39,11 @@ env:
   RSPM_URL: https://packagemanager.posit.co/cran/__linux__/jammy/latest
   R_STARTUP_DEBUG: TRUE
   HTTP_THREADS: 8
-  MINIMAL_PACKAGES: "tidyverse,lubridate,plotly,knitr,DT"
+  MINIMAL_PACKAGES: "tidyverse,lubridate,plotly,knitr,DT,curl,httr,jsonlite,xml2,rvest"
   # Environment variable to track if we're in retry mode
   RETRY_MODE: false
+  # Disable R system clock check which can cause failures
+  _R_CHECK_SYSTEM_CLOCK_: FALSE
 
 jobs:
   generate-report:
@@ -145,7 +147,7 @@ jobs:
         uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: ${{ env.QUARTO_VERSION }}
-          
+
       # Robust caching strategy for R packages with multiple fallback options
       - name: Cache R packages - Primary
         uses: actions/cache@v3
@@ -212,32 +214,44 @@ jobs:
           )
           
           # Configure package-specific options
-          if(requireNamespace("quantmod", quietly = TRUE)) {
-            message("Setting up quantmod defaults...")
-            quantmod::setDefaults(getSymbols.yahoo, 
-              verbose = TRUE,
-              auto.assign = FALSE,
-              warnings = TRUE,
-              destandardize = TRUE
-            )
-          }
+          tryCatch({
+            if(requireNamespace("quantmod", quietly = TRUE)) {
+              message("Setting up quantmod defaults...")
+              quantmod::setDefaults(getSymbols.yahoo, 
+                verbose = TRUE,
+                auto.assign = FALSE,
+                warnings = TRUE,
+                destandardize = TRUE
+              )
+            }
+          }, error = function(e) {
+            message("Failed to set up quantmod defaults: ", e$message)
+          })
           
-          if(requireNamespace("httr", quietly = TRUE)) {
-            message("Setting up httr config...")
-            httr::set_config(httr::config(
-              connecttimeout = 60,
-              timeout = 300,
-              ssl_verifypeer = FALSE,
-              followlocation = TRUE,
-              maxredirs = 10,
-              http_version = 2.0
-            ))
-          }
+          tryCatch({
+            if(requireNamespace("httr", quietly = TRUE)) {
+              message("Setting up httr config...")
+              httr::set_config(httr::config(
+                connecttimeout = 60,
+                timeout = 300,
+                ssl_verifypeer = FALSE,
+                followlocation = TRUE,
+                maxredirs = 10,
+                http_version = 2.0
+              ))
+            }
+          }, error = function(e) {
+            message("Failed to set up httr config: ", e$message)
+          })
           
-          if(requireNamespace("curl", quietly = TRUE)) {
-            message("Setting up curl options...")
-            curl::curl_options(timeout_ms = 300000, connecttimeout_ms = 60000)
-          }
+          tryCatch({
+            if(requireNamespace("curl", quietly = TRUE)) {
+              message("Setting up curl options...")
+              curl::curl_options(timeout_ms = 300000, connecttimeout_ms = 60000)
+            }
+          }, error = function(e) {
+            message("Failed to set up curl options: ", e$message)
+          })
           EOF
 
       - name: Set up R parallel processing
@@ -254,7 +268,17 @@ jobs:
             echo "Force rebuild mode activated"
           fi
 
-      - name: Install essential R packages
+      - name: Pre-install critical dependencies
+        run: |
+          set -e
+          
+          # Install core parts of R installation infrastructure
+          Rscript -e '
+          install.packages(c("remotes", "pak"), quiet = FALSE, repos = "https://cloud.r-project.org")
+          writeLines("Installed remotes and pak")
+          '
+
+      - name: Install essential R packages - Stage 1 (Core)
         run: |
           # Exit immediately if a command fails
           set -e
@@ -266,11 +290,8 @@ jobs:
           Rscript -e '
           message("Setting up essential packages")
           
-          # Try to install remotes and pak first
-          install.packages(c("remotes", "pak"), quiet = FALSE, verbose = TRUE)
-          
-          # Get minimal packages list from env var
-          min_pkgs <- strsplit(Sys.getenv("MINIMAL_PACKAGES"), ",")[[1]]
+          # Get minimal packages list from env var and add dplyr explicitly
+          min_pkgs <- unique(c("dplyr", strsplit(Sys.getenv("MINIMAL_PACKAGES"), ",")[[1]]))
           message("Installing minimal packages: ", paste(min_pkgs, collapse=", "))
           
           # Function to install with retries
@@ -287,8 +308,13 @@ jobs:
                 if (i == max_tries) {
                   # On last try, attempt with remotes
                   tryCatch({
-                    remotes::install_cran(pkgs, quiet = FALSE, upgrade = "never")
-                    return(TRUE)
+                    if(requireNamespace("remotes", quietly = TRUE)) {
+                      remotes::install_cran(pkgs, quiet = FALSE, upgrade = "never")
+                      return(TRUE)
+                    } else {
+                      message("Remotes package not available for fallback")
+                      return(FALSE)
+                    }
                   }, error = function(e2) {
                     message("Final attempt with remotes also failed: ", e2$message)
                     return(FALSE)
@@ -304,30 +330,57 @@ jobs:
             return(FALSE)
           }
           
-          # Install tidyverse first since it\'s most critical
-          if ("tidyverse" %in% min_pkgs) {
-            message("Installing tidyverse first...")
-            result <- install_with_retry("tidyverse")
+          # First install dplyr specifically since it\'s the most critical
+          message("Installing dplyr first...")
+          dplyr_result <- install_with_retry("dplyr")
+          if (!dplyr_result) {
+            message("Failed to install dplyr after multiple attempts. Trying alternative approach...")
             
-            # If tidyverse fails, install individual components
-            if (!result) {
-              message("Falling back to individual tidyverse components")
-              install_with_retry(c("ggplot2", "dplyr", "tidyr", "readr", "purrr", "tibble", "stringr", "forcats"))
-            }
-            
-            # Remove from list to avoid duplicating
-            min_pkgs <- setdiff(min_pkgs, "tidyverse")
+            # Try even more approaches
+            tryCatch({
+              message("Trying direct GitHub install of dplyr...")
+              if(!requireNamespace("remotes", quietly = TRUE)) {
+                install.packages("remotes", repos = "https://cloud.r-project.org")
+              }
+              remotes::install_github("tidyverse/dplyr", quiet = FALSE)
+              message("Successfully installed dplyr from GitHub")
+            }, error = function(e) {
+              message("GitHub install of dplyr failed: ", e$message)
+            })
           }
           
-          # Install remaining minimal packages one by one for better error handling
+          # Install tidyverse components individually
+          message("Installing core tidyverse components...")
+          core_pkgs <- c("ggplot2", "dplyr", "tidyr", "readr", "purrr", "tibble", "stringr", "forcats")
+          for (pkg in core_pkgs) {
+            install_with_retry(pkg)
+          }
+          
+          # Install other minimal packages one by one
+          min_pkgs <- setdiff(min_pkgs, c("dplyr", "tidyverse", core_pkgs))
           for (pkg in min_pkgs) {
             message("Installing ", pkg)
             install_with_retry(pkg)
           }
           
           message("Core packages installation completed")
+          
+          # Verify that dplyr is available
+          if(requireNamespace("dplyr", quietly = TRUE)) {
+            message("dplyr is successfully installed and available")
+            # Explicitly register dplyr functions in global environment
+            assign("filter", dplyr::filter, envir = .GlobalEnv)
+            assign("select", dplyr::select, envir = .GlobalEnv)
+            assign("group_by", dplyr::group_by, envir = .GlobalEnv)
+            assign("summarize", dplyr::summarize, envir = .GlobalEnv)
+            assign("mutate", dplyr::mutate, envir = .GlobalEnv)
+            assign("arrange", dplyr::arrange, envir = .GlobalEnv)
+            message("dplyr functions registered in global environment")
+          } else {
+            message("WARNING: dplyr is still not available after installation attempts")
+          }
           '
-      
+
       - name: Install additional packages
         run: |
           # Set timeout
@@ -339,10 +392,22 @@ jobs:
           # Get the list of all required packages from the Quarto document
           extract_pkg_list <- function(file) {
             # Read the file content
-            content <- readLines(file)
+            content <- tryCatch({
+              readLines(file)
+            }, error = function(e) {
+              message("Could not read file: ", file, " - ", e$message)
+              return(character())
+            })
+            
+            # If we could not read the file, return a predefined list
+            if(length(content) == 0) {
+              return(c("quantmod", "tidyquant", "httr", "jsonlite", "rvest", 
+                        "xml2", "TTR", "curl", "plotly", "DT", "htmlwidgets", 
+                        "htmltools", "scales", "lubridate", "RCurl"))
+            }
             
             # Look for library() and require() calls or package::function references
-            lib_pattern <- "\\b(library|require)\\s*\\(\\s*[\"\']?([A-Za-z0-9.]+)[\"\']?\\s*[\\),]"
+            lib_pattern <- "\\b(library|require)\\s*\\(\\s*[\\"\\']?([A-Za-z0-9.]+)[\\"\\']?\\s*[\\),]"
             pkg_matches <- regmatches(content, gregexpr(lib_pattern, content))
             
             # Extract package names from library() calls
@@ -361,16 +426,8 @@ jobs:
               gsub(pkg_pattern, "\\1", x)
             }))
             
-            # Look for explicit requireNamespace calls
-            req_pattern <- "requireNamespace\\s*\\(\\s*[\"\']([A-Za-z0-9.]+)[\"\']"
-            req_matches <- regmatches(content, gregexpr(req_pattern, content))
-            req_pkgs <- unlist(lapply(req_matches, function(x) {
-              if(length(x) == 0) return(character(0))
-              gsub(req_pattern, "\\1", x)
-            }))
-            
             # Combine all package references and get unique ones
-            all_pkgs <- unique(c(lib_pkgs, ref_pkgs, req_pkgs))
+            all_pkgs <- unique(c(lib_pkgs, ref_pkgs))
             return(all_pkgs[!all_pkgs %in% c("", "R")])
           }
           
@@ -389,73 +446,100 @@ jobs:
           
           # Add extra packages that might be needed based on common functions
           extra_pkgs <- c("htmlwidgets", "htmltools", "scales", "jsonlite", 
-                          "RCurl", "plotly", "TTR", "zoo", "xts")
+                          "RCurl", "plotly", "TTR", "zoo", "xts", "webshot")
           all_pkgs <- unique(c(qmd_pkgs, extra_pkgs))
           message("Final package list: ", paste(all_pkgs, collapse=", "))
           
-          # Install each package individually with error handling
-          for (pkg in all_pkgs) {
+          # Function for robust package installation
+          install_package_robust <- function(pkg, max_tries = 3) {
             if (requireNamespace(pkg, quietly = TRUE)) {
               message(pkg, " is already installed")
-              next
+              return(TRUE)
             }
             
-            # Try to install with error handling
-            tryCatch({
-              message("Installing ", pkg)
-              install.packages(pkg, quiet = FALSE, verbose = TRUE)
-              message("Successfully installed ", pkg)
-            }, error = function(e) {
-              message("Failed to install ", pkg, ": ", e$message)
-              # Try with remotes as fallback
-              tryCatch({
-                message("Trying with remotes::install_cran")
-                remotes::install_cran(pkg, quiet = FALSE, upgrade = "never")
-                message("Successfully installed ", pkg, " with remotes")
-              }, error = function(e2) {
-                message("Failed to install ", pkg, " with remotes: ", e2$message)
-                # Continue with other packages
-              })
-            })
-          }
-          '
-      
-      - name: Install TTR separately
-        if: ${{ !env.RETRY_MODE }}
-        run: |
-          # TTR sometimes needs special handling
-          Rscript -e '
-          if (!requireNamespace("TTR", quietly = TRUE)) {
-            message("Installing TTR package separately")
-            
-            # Try with error handling and different approaches
-            tryCatch({
-              install.packages("TTR", quiet = FALSE, verbose = TRUE)
-              message("Successfully installed TTR")
-            }, error = function(e) {
-              message("Standard TTR installation failed: ", e$message)
+            for (i in 1:max_tries) {
+              message("Attempt ", i, " to install ", pkg)
               
-              # Try with remotes
-              tryCatch({
-                remotes::install_cran("TTR", quiet = FALSE, upgrade = "never")
-                message("Successfully installed TTR with remotes")
-              }, error = function(e2) {
-                message("TTR installation with remotes failed: ", e2$message)
-                # Final attempt by installing dependencies first
-                tryCatch({
-                  install.packages(c("zoo", "xts"), quiet = FALSE)
-                  install.packages("TTR", quiet = FALSE, dependencies = TRUE)
-                  message("Successfully installed TTR with dependencies approach")
-                }, error = function(e3) {
-                  message("All TTR installation methods failed")
-                })
+              # Try standard install first
+              success <- tryCatch({
+                install.packages(pkg, quiet = FALSE, verbose = TRUE)
+                if(requireNamespace(pkg, quietly = TRUE)) {
+                  message("Successfully installed ", pkg)
+                  return(TRUE)
+                }
+                FALSE
+              }, error = function(e) {
+                message("Standard installation failed: ", e$message)
+                FALSE
               })
+              
+              if(success) return(TRUE)
+              
+              # If standard install failed, try remotes
+              if(i == max_tries) {
+                tryCatch({
+                  if(!requireNamespace("remotes", quietly = TRUE)) {
+                    install.packages("remotes", repos = "https://cloud.r-project.org")
+                  }
+                  message("Trying with remotes::install_cran")
+                  remotes::install_cran(pkg, quiet = FALSE, upgrade = "never")
+                  if(requireNamespace(pkg, quietly = TRUE)) {
+                    message("Successfully installed ", pkg, " with remotes")
+                    return(TRUE)
+                  }
+                  message("Remotes installation completed but package still not available")
+                  return(FALSE)
+                }, error = function(e2) {
+                  message("Remotes installation failed: ", e2$message)
+                  return(FALSE)
+                })
+              } else {
+                # Wait before next try
+                Sys.sleep(5 * i)  # Increasing delay for each retry
+              }
+            }
+            return(FALSE)
+          }
+          
+          # Try to install each package with robust error handling
+          install_results <- sapply(all_pkgs, install_package_robust)
+          
+          # Report on installation success
+          successful <- names(install_results)[install_results]
+          failed <- names(install_results)[!install_results]
+          
+          message("Successfully installed packages: ", paste(successful, collapse=", "))
+          if(length(failed) > 0) {
+            message("Failed to install packages: ", paste(failed, collapse=", "))
+          }
+          
+          # Extra handling for TTR which is sometimes problematic
+          if("TTR" %in% failed) {
+            message("Attempting special handling for TTR package")
+            tryCatch({
+              install.packages(c("zoo", "xts"), quiet = FALSE)
+              install.packages("TTR", quiet = FALSE, dependencies = TRUE)
+              if(requireNamespace("TTR", quietly = TRUE)) {
+                message("Successfully installed TTR with dependencies approach")
+              } else {
+                message("TTR still not available after special handling")
+              }
+            }, error = function(e) {
+              message("TTR special handling failed: ", e$message)
             })
-          } else {
-            message("TTR is already installed")
           }
           '
       
+      - name: Setup PhantomJS for webshot
+        run: |
+          # Install webshot and PhantomJS if needed
+          Rscript -e '
+          if(!requireNamespace("webshot", quietly = TRUE)) {
+            install.packages("webshot")
+          }
+          webshot::install_phantomjs()
+          '
+
       - name: Prepare market data directory
         run: |
           # Set up a log file
@@ -467,20 +551,24 @@ jobs:
           
           # Create a backup reference file with information about packages installed
           Rscript -e '
-          pkg_info <- installed.packages()[, c("Package", "Version")]
-          saveRDS(pkg_info, "data/package_versions.rds")
-          write.csv(pkg_info, "data/package_versions.csv")
-          
-          # Also save session info for debugging
-          sessionInfo <- capture.output(sessionInfo())
-          writeLines(sessionInfo, "data/session_info.txt")
+          tryCatch({
+            pkg_info <- installed.packages()[, c("Package", "Version")]
+            saveRDS(pkg_info, "data/package_versions.rds")
+            write.csv(pkg_info, "data/package_versions.csv")
+            
+            # Also save session info for debugging
+            sessionInfo <- capture.output(sessionInfo())
+            writeLines(sessionInfo, "data/session_info.txt")
+          }, error = function(e) {
+            message("Error creating package info: ", e$message)
+          })
           ' 2>&1 | tee -a logs/market_data.log
       
       - name: Set git config
         run: |
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
-      
+
       - name: Check Quarto document structure
         run: |
           echo "Checking Quarto document structure..."
@@ -498,6 +586,68 @@ jobs:
           file -i weekday-market-patterns.qmd
           
           echo "Document checks complete."
+
+      - name: Create fallback render script
+        run: |
+          # Create a failsafe render script that can be used if Quarto fails
+          cat > render_fallback.R << 'EOF'
+          # Simple render script to use if Quarto fails
+          
+          # Function to render the document with error handling
+          render_document <- function() {
+            # Attempt to load libraries
+            success <- tryCatch({
+              library(rmarkdown)
+              library(knitr)
+              TRUE
+            }, error = function(e) {
+              message("Error loading libraries: ", e$message)
+              # Try to install them
+              install.packages(c("rmarkdown", "knitr"))
+              library(rmarkdown)
+              library(knitr)
+              TRUE
+            })
+            
+            if (!success) {
+              message("Failed to load required libraries")
+              return(FALSE)
+            }
+            
+            # Get command line args if any
+            args <- commandArgs(trailingOnly = TRUE)
+            days <- 1826  # Default 5 years
+            if (length(args) > 0) {
+              days <- as.numeric(args[1])
+            }
+            
+            message("Rendering with ", days, " days of data")
+            
+            # Render the document
+            tryCatch({
+              rmarkdown::render(
+                "weekday-market-patterns.qmd",
+                output_format = "html_document",
+                params = list(days = days),
+                quiet = FALSE
+              )
+              return(TRUE)
+            }, error = function(e) {
+              message("Error rendering document: ", e$message)
+              return(FALSE)
+            })
+          }
+          
+          # Execute rendering
+          result <- render_document()
+          if (!result) {
+            message("Rendering failed")
+            quit(status = 1)
+          } else {
+            message("Rendering succeeded")
+            quit(status = 0)
+          }
+          EOF
       
       - name: Render Quarto document with error handling
         run: |
@@ -533,8 +683,15 @@ jobs:
               return 0
             fi
             
-            # Fallback 3: Try with minimal execute-dir
-            echo "Attempt 4: Using execute-dir approach"
+            # Fallback 3: Use our custom failsafe script
+            echo "Attempt 4: Using failsafe R script"
+            if Rscript render_fallback.R $DATA_DAYS; then
+              echo "✅ Failsafe script rendering successful"
+              return 0
+            fi
+            
+            # Fallback 4: Try with minimal execute-dir
+            echo "Attempt 5: Using execute-dir approach"
             mkdir -p _tmp
             cp weekday-market-patterns.qmd _tmp/
             if quarto render _tmp/weekday-market-patterns.qmd --to html --execute-dir . --execute-params "days:$DATA_DAYS"; then
@@ -665,8 +822,175 @@ jobs:
             exit 1
           fi
       
+      - name: Create GitHub Pages folder structure
+        run: |
+          # Create a docs folder for GitHub Pages
+          mkdir -p docs
+          
+          # Copy the report to docs folder
+          if [ -f weekday-market-patterns.html ]; then
+            cp weekday-market-patterns.html "docs/index.html"
+            cp "$DATED_FILENAME" "docs/"
+            
+            # Create a simple index page listing all reports
+            echo '<!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Holmdex Market Pattern Reports</title>
+                <style>
+                    body {
+                        font-family: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                        line-height: 1.6;
+                        color: #0A2540;
+                        max-width: 1200px;
+                        margin: 0 auto;
+                        padding: 20px;
+                    }
+                    h1 {
+                        color: #0A2540;
+                        border-bottom: 3px solid #25A75E;
+                        padding-bottom: 10px;
+                        margin-bottom: 30px;
+                    }
+                    .report-list {
+                        list-style: none;
+                        padding: 0;
+                    }
+                    .report-item {
+                        background: white;
+                        margin-bottom: 15px;
+                        padding: 15px;
+                        border-radius: 8px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                        transition: transform 0.2s ease;
+                    }
+                    .report-item:hover {
+                        transform: translateY(-3px);
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+                    }
+                    .report-link {
+                        display: flex;
+                        align-items: center;
+                        text-decoration: none;
+                        color: #25A75E;
+                        font-weight: 600;
+                    }
+                    .report-link i {
+                        margin-right: 10px;
+                    }
+                    .report-date {
+                        color: #6C7A89;
+                        font-size: 0.9rem;
+                        margin-top: 5px;
+                    }
+                    .current-badge {
+                        background: #25A75E;
+                        color: white;
+                        border-radius: 4px;
+                        padding: 3px 8px;
+                        font-size: 0.8rem;
+                        margin-left: 10px;
+                    }
+                    .wordpress-embed {
+                        background: #f5f5f5;
+                        border-left: 4px solid #25A75E;
+                        padding: 15px;
+                        margin: 30px 0;
+                    }
+                    code {
+                        background: #f1f1f1;
+                        padding: 2px 5px;
+                        border-radius: 3px;
+                        font-family: monospace;
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>Holmdex Market Pattern Reports</h1>
+                
+                <p>This page contains the Holmdex Market Pattern Reports generated on a regular schedule.</p>
+                
+                <h2>Latest Report</h2>
+                <ul class="report-list">
+                    <li class="report-item">
+                        <a href="index.html" class="report-link">
+                            <i class="fas fa-chart-line"></i>
+                            Current Market Pattern Report
+                            <span class="current-badge">Latest</span>
+                        </a>
+                        <div class="report-date">Generated on: '"$(date +'%Y-%m-%d')'"'</div>
+                    </li>
+                </ul>
+                
+                <h2>All Reports</h2>
+                <ul class="report-list" id="all-reports">
+                    <!-- Will be populated by JavaScript -->
+                </ul>
+                
+                <div class="wordpress-embed">
+                    <h3>How to Embed in WordPress</h3>
+                    <p>To embed this report in your WordPress site, use the following HTML code in a Custom HTML block:</p>
+                    <code>&lt;iframe src="https://holmdex.github.io/holmdex.se/index.html" width="100%" height="800px" frameborder="0"&gt;&lt;/iframe&gt;</code>
+                    <p>Or you can link directly to specific versions:</p>
+                    <code>&lt;iframe src="https://holmdex.github.io/holmdex.se/market-patterns-report-'"$(date +'%Y-%m-%d')'"'.html" width="100%" height="800px" frameborder="0"&gt;&lt;/iframe&gt;</code>
+                </div>
+                
+                <script>
+                // Simple script to list all HTML files in the directory
+                fetch("https://api.github.com/repos/holmdex/holmdex.se/contents/docs")
+                    .then(response => response.json())
+                    .then(data => {
+                        const reportsList = document.getElementById("all-reports");
+                        
+                        // Filter only HTML files and sort by name (which includes date) in reverse order
+                        const htmlFiles = data
+                            .filter(file => file.name.endsWith(".html") && file.name !== "index.html")
+                            .sort((a, b) => b.name.localeCompare(a.name));
+                        
+                        htmlFiles.forEach(file => {
+                            // Extract date from filename if possible
+                            let dateMatch = file.name.match(/(\d{4}-\d{2}-\d{2})/);
+                            let dateStr = dateMatch ? dateMatch[1] : "Unknown date";
+                            
+                            const li = document.createElement("li");
+                            li.className = "report-item";
+                            li.innerHTML = `
+                                <a href="${file.name}" class="report-link">
+                                    <i class="fas fa-file-alt"></i>
+                                    ${file.name}
+                                </a>
+                                <div class="report-date">Generated on: ${dateStr}</div>
+                            `;
+                            reportsList.appendChild(li);
+                        });
+                        
+                        // Add message if no reports found
+                        if (htmlFiles.length === 0) {
+                            reportsList.innerHTML = "<p>No archived reports found yet.</p>";
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error fetching reports:", error);
+                        document.getElementById("all-reports").innerHTML = 
+                            "<p>Error loading reports. Please check directly in the <a href='https://github.com/holmdex/holmdex.se/tree/main/docs'>GitHub repository</a>.</p>";
+                    });
+                </script>
+                
+                <!-- Add Font Awesome for icons -->
+                <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+            </body>
+            </html>' > "docs/reports.html"
+            
+            echo "Created GitHub Pages structure in docs folder"
+          else
+            echo "ERROR: Report HTML file not found"
+            exit 1
+          fi
+      
       - name: Deploy report files
-        uses: stefanzweifel/git-auto-commit-action@v4
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Update market patterns report [automated] ${{ env.CURRENT_DATE }}"
           file_pattern: |
@@ -675,9 +999,10 @@ jobs:
             data/*.rds 
             data/*.json
             data/latest_report.html
+            data/archive/**/*
             data/package_versions.*
             data/session_info.txt
-            data/last_render_info.json
+            docs/**/*
           commit_user_name: GitHub Actions
           commit_user_email: github-actions@github.com
           commit_author: GitHub Actions <github-actions@github.com>
@@ -699,6 +1024,12 @@ jobs:
               echo "✅ **Report generated successfully**"
               echo "- File size: $FILE_SIZE bytes"
               echo "- Dated copy: $DATED_FILENAME"
+              echo "- GitHub Pages: https://holmdex.github.io/holmdex.se/"
+              echo ""
+              echo "### WordPress Embed Code"
+              echo '```html'
+              echo '<iframe src="https://holmdex.github.io/holmdex.se/index.html" width="100%" height="800px" frameborder="0"></iframe>'
+              echo '```'
               echo ""
               echo "### Next scheduled run"
               
@@ -716,3 +1047,15 @@ jobs:
               echo "❌ **Report generation failed**"
             fi
           } >> $GITHUB_STEP_SUMMARY
+      
+      - name: Notify on completion (optional)
+        if: ${{ success() }}
+        run: |
+          # This step can be expanded to send notifications via webhooks or other methods
+          echo "Market Patterns Report generation completed successfully"
+          
+          # Output WordPress embed instructions to console as well for easy reference
+          echo "=== WordPress Embed Instructions ==="
+          echo "To embed this report in WordPress, use this HTML in a Custom HTML block:"
+          echo '<iframe src="https://holmdex.github.io/holmdex.se/index.html" width="100%" height="800px" frameborder="0"></iframe>'
+          echo "==================================="
