@@ -24,7 +24,7 @@ permissions:
 
 # Define environment variables used across all jobs
 env:
-  R_VERSION: '4.3.2'
+  R_VERSION: '4.2.3' # Using a more stable R version with better package compatibility
   QUARTO_VERSION: '1.7.30'  # Updated to the latest Quarto version
   R_LIBS_USER: ${{ github.workspace }}/r-libs
   GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -47,7 +47,8 @@ env:
 
 jobs:
   generate-report:
-    runs-on: ubuntu-latest
+    # Use Ubuntu 22.04 (jammy) instead of latest (noble) for better R package compatibility
+    runs-on: ubuntu-22.04
     strategy:
       # This prevents the workflow from stopping if one of the package installation steps fails
       fail-fast: false
@@ -303,13 +304,136 @@ jobs:
 
       - name: Pre-install critical dependencies
         run: |
-          set -e
+          # Don't use set -e here to allow for more resilient error handling
           
-          # Install core parts of R installation infrastructure
+          # Make sure system dependencies for R packages are installed
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
+            r-base-dev \
+            r-cran-dplyr \
+            r-cran-tidyverse \
+            r-cran-lubridate \
+            r-cran-knitr \
+            r-cran-jsonlite \
+            r-cran-xml2 \
+            r-cran-httr \
+            r-cran-curl \
+            r-cran-devtools \
+            r-cran-remotes \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libxml2-dev \
+            libfontconfig1-dev \
+            libharfbuzz-dev \
+            libfribidi-dev \
+            libfreetype6-dev \
+            libpng-dev \
+            libtiff5-dev \
+            libjpeg-dev
+            
+          # Print R library paths for debugging
+          echo "R library paths:"
+          Rscript -e '.libPaths()'
+          
+          # Check for dplyr before and after installation
+          echo "Checking for dplyr before installation..."
+          Rscript -e 'cat("dplyr exists:", requireNamespace("dplyr", quietly=TRUE), "\n")'
+          
+          # Install core parts of R installation infrastructure with multiple fallbacks
+          echo "Installing remotes and pak packages..."
           Rscript -e '
-          install.packages(c("remotes", "pak"), quiet = FALSE, repos = "https://cloud.r-project.org")
-          writeLines("Installed remotes and pak")
+          # Try multiple repositories if one fails
+          repos <- c(
+            CRAN = "https://cloud.r-project.org", 
+            RSPM = "https://packagemanager.posit.co/cran/latest",
+            RStudio = "https://cran.rstudio.com/"
+          )
+          
+          # First try to install remotes package
+          for (repo in repos) {
+            cat("Trying to install remotes from:", repo, "\n")
+            tryCatch({
+              install.packages("remotes", repos = repo, quiet = FALSE)
+              if (requireNamespace("remotes", quietly = TRUE)) {
+                cat("Successfully installed remotes\n")
+                break
+              }
+            }, error = function(e) {
+              cat("Failed to install remotes from", repo, ":", conditionMessage(e), "\n")
+            })
+          }
+          
+          # Then try to install pak
+          for (repo in repos) {
+            cat("Trying to install pak from:", repo, "\n")
+            tryCatch({
+              install.packages("pak", repos = repo, quiet = FALSE)
+              if (requireNamespace("pak", quietly = TRUE)) {
+                cat("Successfully installed pak\n")
+                break
+              }
+            }, error = function(e) {
+              cat("Failed to install pak from", repo, ":", conditionMessage(e), "\n")
+            })
+          }
+          
+          # If remotes is available, use it as a fallback to install more packages
+          if (requireNamespace("remotes", quietly = TRUE)) {
+            cat("Using remotes to install critical packages...\n")
+            remotes::install_cran(c("dplyr", "pak"), quiet = FALSE, upgrade = "never")
+          }
+          
+          # Try to directly install dplyr (critical dependency)
+          for (repo in repos) {
+            tryCatch({
+              install.packages("dplyr", repos = repo, quiet = FALSE)
+              if (requireNamespace("dplyr", quietly = TRUE)) {
+                cat("Successfully installed dplyr\n")
+                break
+              }
+            }, error = function(e) {
+              cat("Failed to install dplyr from", repo, ":", conditionMessage(e), "\n")
+            })
+          }
+          
+          # Check and report installed packages
+          installed <- installed.packages()[, "Package"]
+          cat("Installed key packages:\n")
+          key_pkgs <- c("remotes", "pak", "dplyr")
+          for (pkg in key_pkgs) {
+            cat(" -", pkg, ":", pkg %in% installed, "\n")
+          }
+          
+          # Register dplyr functions if available
+          if(requireNamespace("dplyr", quietly = TRUE)) {
+            cat("Registering dplyr functions in global environment\n")
+            try({
+              assign("filter", dplyr::filter, envir = .GlobalEnv)
+              assign("select", dplyr::select, envir = .GlobalEnv)
+              assign("group_by", dplyr::group_by, envir = .GlobalEnv)
+              assign("summarize", dplyr::summarize, envir = .GlobalEnv)
+              assign("summarise", dplyr::summarise, envir = .GlobalEnv)
+              assign("mutate", dplyr::mutate, envir = .GlobalEnv)
+              assign("arrange", dplyr::arrange, envir = .GlobalEnv)
+            })
+          }
           '
+          
+          # Check if dplyr is available after installation attempts
+          echo "Checking for dplyr after installation..."
+          Rscript -e 'cat("dplyr exists:", requireNamespace("dplyr", quietly=TRUE), "\n")'
+          
+          # If remotes and pak installation fails, try GitHub installation as last resort
+          if ! Rscript -e 'cat(requireNamespace("dplyr", quietly=TRUE))' | grep -q "TRUE"; then
+            echo "Attempting to install dplyr from GitHub..."
+            Rscript -e '
+              if (!requireNamespace("remotes", quietly = TRUE)) {
+                install.packages("remotes", repos = "https://cloud.r-project.org")
+              }
+              remotes::install_github("tidyverse/dplyr", upgrade = "never", quiet = FALSE)
+              cat("dplyr from GitHub:", requireNamespace("dplyr", quietly=TRUE), "\n")
+            '
+          fi
 
       - name: Install essential R packages - Stage 1 (Core)
         run: |
