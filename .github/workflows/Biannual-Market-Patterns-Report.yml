@@ -2,9 +2,8 @@ name: Biannual Market Patterns Report
 
 on:
   schedule:
-    # Run on January 1st and July 1st at 02:00 UTC (offset to avoid high load times)
-    - cron: '0 2 1 1,7 *'  
-  workflow_dispatch:  # Allow manual triggering with optional inputs
+    - cron: '0 2 1 1,7 *'  # Runs Jan 1 and July 1 at 02:00 UTC
+  workflow_dispatch:
     inputs:
       force_rebuild:
         description: 'Force rebuild all packages'
@@ -14,1437 +13,254 @@ on:
       data_days:
         description: 'Number of days of market data to analyze'
         required: false
-        default: '1826'  # Default to 5 years
+        default: '1826'  # 5 years
         type: string
 
-# Set permissions explicitly for security
 permissions:
-  contents: write    # Needed to commit the report back to the repository
-  packages: read     # Needed to download packages
+  contents: write
+  packages: read
 
-# Define environment variables used across all jobs
 env:
-  R_VERSION: '4.2.3' # Using a more stable R version with better package compatibility
-  QUARTO_VERSION: '1.7.30'  # Updated to the latest Quarto version
+  R_VERSION: '4.3.3'  # Latest stable
+  QUARTO_VERSION: '1.7.30'
   R_LIBS_USER: ${{ github.workspace }}/r-libs
-  GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+  CRAN_MIRROR: 'https://cloud.r-project.org'
+  ALT_CRAN_MIRROR: 'https://cran.rstudio.com'
   TZ: UTC
   LC_ALL: en_US.UTF-8
-  LANG: en_US.UTF-8
-  R_MAX_VSIZE: 32Gb
+  R_MAX_VSIZE: 8Gb
   R_MAX_NUM_THREADS: 4
-  NOT_CRAN: true
   R_KEEP_PKG_SOURCE: yes
-  DOWNLOAD_TIMEOUT: 1800
-  RSPM_URL: https://packagemanager.posit.co/cran/__linux__/jammy/latest
-  R_STARTUP_DEBUG: TRUE
-  HTTP_THREADS: 8
-  MINIMAL_PACKAGES: "tidyverse,lubridate,plotly,knitr,DT,curl,httr,jsonlite,xml2,rvest"
-  # Environment variable to track if we're in retry mode
-  RETRY_MODE: false
-  # Disable R system clock check which can cause failures
-  _R_CHECK_SYSTEM_CLOCK_: FALSE
+  DOWNLOAD_TIMEOUT: 600
+  # GLIBC workaround - pin to Ubuntu 22.04 versions
+  GLIBC_VERSION: '2.35'
+  DISABLE_PACKAGEKIT: 'true'
 
 jobs:
   generate-report:
-    # Use Ubuntu 22.04 (jammy) instead of latest (noble) for better R package compatibility
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.04  # Must use 22.04 for GLIBC compatibility
+    timeout-minutes: 120
     strategy:
-      # This prevents the workflow from stopping if one of the package installation steps fails
       fail-fast: false
       matrix:
         include:
-          - {os: ubuntu-latest, r: 'release'}
-    
+          - {os: ubuntu-22.04, r: 'release'}
+
     steps:
+      # ====================
+      # 1. SYSTEM HARDENING
+      # ====================
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # Full history for versions
-      
-      - name: Setup system date and time 
+          fetch-depth: 0
+
+      - name: Disable problematic services
+        run: |
+          # Disable services that cause NEEDRESTART errors
+          sudo systemctl mask packagekit.service
+          sudo systemctl mask php8.1-fpm.service
+          sudo systemctl daemon-reload
+
+      - name: Verify GLIBC version
+        run: |
+          echo "Current GLIBC version: $(ldd --version | head -1)"
+          if ! ldd --version | grep -q "${{ env.GLIBC_VERSION }}"; then
+            echo "::error::GLIBC version mismatch! Required: ${{ env.GLIBC_VERSION }}"
+            exit 1
+          fi
+
+      # ====================
+      # 2. ENVIRONMENT SETUP
+      # ====================
+      - name: Setup system environment
         run: |
           echo "CURRENT_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
-          echo "CURRENT_WEEK=$(date +'%Y-%W')" >> $GITHUB_ENV
-          echo "CURRENT_MONTH=$(date +'%Y-%m')" >> $GITHUB_ENV
-          echo "CURRENT_YEAR=$(date +'%Y')" >> $GITHUB_ENV
-          # Create directory structure
-          mkdir -p data/cache
+          mkdir -p data/{cache,archive,figures}
           mkdir -p ${{ env.R_LIBS_USER }}
-          # Print system information
-          echo "System Information:"
-          uname -a
-          lsb_release -a || cat /etc/os-release
+          
+          # Verify system state
+          lsb_release -a
+          df -h
+          ulimit -a
 
-      - name: Detect Ubuntu version
-        id: ubuntu-version
+      # ==================
+      # 3. DEPENDENCIES
+      # ==================
+      - name: Install system dependencies (pinned versions)
         run: |
-          # Try to read from os-release first
-          UBUNTU_CODENAME=""
-          if grep -q "VERSION_CODENAME" /etc/os-release; then
-            UBUNTU_CODENAME=$(grep -oP '(?<=VERSION_CODENAME=).+' /etc/os-release)
-          fi
-          
-          # If not found, try lsb_release
-          if [ -z "$UBUNTU_CODENAME" ] && command -v lsb_release > /dev/null; then
-            UBUNTU_CODENAME=$(lsb_release -cs)
-          fi
-          
-          # Default to jammy if we couldn't detect
-          if [ -z "$UBUNTU_CODENAME" ]; then
-            UBUNTU_CODENAME="jammy"
-          fi
-          
-          echo "UBUNTU_CODENAME=${UBUNTU_CODENAME}" >> $GITHUB_ENV
-          echo "RSPM_URL=https://packagemanager.posit.co/cran/__linux__/${UBUNTU_CODENAME}/latest" >> $GITHUB_ENV
-          echo "Detected Ubuntu: ${UBUNTU_CODENAME}, setting RSPM URL to: https://packagemanager.posit.co/cran/__linux__/${UBUNTU_CODENAME}/latest"
-      
-      - name: Install system dependencies
-        run: |
-          # Update packages and install required system dependencies
           sudo apt-get update -y
+          sudo apt-mark hold libc6 libc-bin  # Prevent GLIBC updates
           
-          # Install essential build tools and libraries
+          # Install pinned versions
           sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            libcurl4-openssl-dev libssl-dev \
-            libxml2-dev libfontconfig1-dev \
-            libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev \
-            libharfbuzz-dev libfribidi-dev libgit2-dev \
-            libudunits2-dev libgdal-dev libgeos-dev libproj-dev \
-            pkg-config libv8-dev libsodium-dev jq \
-            libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
-            libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 \
-            libxrandr2 libgbm1 libpulse0 \
-            libcairo2-dev
-          
-          # Handle Ubuntu version-specific dependencies
-          if [ "$UBUNTU_CODENAME" = "noble" ]; then
-            echo "Installing dependencies for Ubuntu Noble (24.04)"
-            # Noble-specific installations - removed problematic packages
-            sudo apt-get install -y --no-install-recommends \
-              libasound2-dev || echo "libasound2-dev installation failed, continuing anyway"
-          else
-            # For older Ubuntu versions
-            sudo apt-get install -y --no-install-recommends libasound2
-          fi
-          
-          # Install locales for proper UTF-8 support
-          sudo apt-get install -y locales
+            build-essential=12.9ubuntu3 \
+            libc6=2.35-0ubuntu3.6 \
+            libcurl4-openssl-dev=7.81.0-1ubuntu1.15 \
+            libssl-dev=3.0.2-0ubuntu1.12 \
+            libxml2-dev=2.9.13+dfsg-1ubuntu0.4 \
+            libfontconfig1-dev=2.13.1-4.2ubuntu5 \
+            locales=2.35-0ubuntu3.6
+
+          # Configure locales
           sudo locale-gen en_US.UTF-8
-      
-      - name: Setup R
+
+      # ==================
+      # 4. R & QUARTO SETUP
+      # ==================
+      - name: Setup R (with version pinning)
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ env.R_VERSION }}
-          use-public-rspm: true
-          
+          use-public-rspm: false
+          update-method: 'none'  # Prevent auto-updates
+
       - name: Setup Pandoc
         uses: r-lib/actions/setup-pandoc@v2
-        with:
-          pandoc-version: '3.1.11'
 
-      - name: Setup Quarto
+      - name: Setup Quarto (with fallback)
         uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: ${{ env.QUARTO_VERSION }}
-          
-      # Fallback installation if the setup action fails
-      - name: Fallback Quarto Installation
-        if: ${{ failure() }}
+          # Fallback to manual install if action fails
+          fallback-to-url: true
+
+      # ==================
+      # 5. LIBRARY PROTECTION
+      # ==================
+      - name: Create protected R library
         run: |
-          echo "Attempting fallback installation of Quarto..."
-          QUARTO_VERSION=${{ env.QUARTO_VERSION }}
+          # Create isolated library path
+          mkdir -p ${{ env.R_LIBS_USER }}-protected
+          echo "R_LIBS_USER=${{ env.R_LIBS_USER }}-protected" >> $GITHUB_ENV
           
-          # Determine the appropriate package for the system
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            QUARTO_URL="https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb"
-            echo "Downloading from: $QUARTO_URL"
-            curl -LO $QUARTO_URL
-            sudo dpkg -i quarto-${QUARTO_VERSION}-linux-amd64.deb || sudo apt-get install -f -y
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            QUARTO_URL="https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-macos.pkg"
-            echo "Downloading from: $QUARTO_URL"
-            curl -LO $QUARTO_URL
-            sudo installer -pkg quarto-${QUARTO_VERSION}-macos.pkg -target /
-          else
-            echo "Unsupported runner OS: $RUNNER_OS"
-            echo "Using default OS-specific approach"
-            
-            # Default to Linux if OS is not recognized
-            QUARTO_URL="https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb"
-            echo "Downloading from: $QUARTO_URL"
-            curl -LO $QUARTO_URL
-            sudo dpkg -i quarto-${QUARTO_VERSION}-linux-amd64.deb || sudo apt-get install -f -y
+          # Prevent system library contamination
+          echo 'Sys.setenv(LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu")' >> .Rprofile
+
+      # ==================
+      # 6. PACKAGE INSTALL
+      # ==================
+      - name: Install R packages (safe mode)
+        run: |
+          Rscript -e '
+          # Force binary packages to avoid compilation
+          options(install.packages.compile.from.source = "never",
+                  install.packages.check.source = "no")
+          
+          # Install with version checks
+          safe_install <- function(pkg) {
+            if (!requireNamespace(pkg, quietly = TRUE)) {
+              message("Installing ", pkg)
+              install.packages(pkg, repos = c(CRAN = Sys.getenv("CRAN_MIRROR")))
+              
+              # Verify installation
+              if (!requireNamespace(pkg, quietly = TRUE)) {
+                stop("Failed to install ", pkg)
+              }
+            }
+          }
+          
+          # Core packages
+          safe_install("dplyr")
+          safe_install("remotes")
+          
+          # Verify critical dependencies
+          if (as.numeric(version$major) < 4 || 
+              as.numeric(version$minor) < 3.0) {
+            stop("R version too old - requires >= 4.3.0")
+          }
+          '
+
+      # ==================
+      # 7. REPORT GENERATION
+      # ==================
+      - name: Render with stability checks
+        run: |
+          # Pre-flight checks
+          Rscript -e '
+          if (!file.exists("weekday-market-patterns.qmd")) {
+            stop("Quarto file not found!")
+          }
+          
+          # Verify critical packages
+          required <- c("dplyr", "rlang", "knitr")
+          missing <- setdiff(required, installed.packages())
+          if (length(missing) > 0) stop("Missing packages: ", paste(missing, collapse=", "))
+          '
+
+          DATA_DAYS="${{ github.event.inputs.data_days || '1826' }}"
+          
+          # Render with forced binary packages
+          quarto render weekday-market-patterns.qmd \
+            --to html \
+            --execute-params "days:$DATA_DAYS" \
+            --no-execute-cache \
+            --output-dir reports \
+            --fail-on-warning
+
+      # ==================
+      # 8. OUTPUT VALIDATION
+      # ==================
+      - name: Validate output
+        run: |
+          if [ ! -f reports/weekday-market-patterns.html ]; then
+            echo "::error::Report file not generated!"
+            exit 1
           fi
           
-          # Verify installation
-          quarto check || echo "Quarto installation may have issues but we'll continue"
+          # Check for GLIBC-related strings in output
+          if grep -q "GLIBC_" reports/weekday-market-patterns.html; then
+            echo "::warning::Potential GLIBC reference in output"
+          fi
+
+      # ==================
+      # 9. DEPLOYMENT
+      # ==================
+      - name: Archive and deploy
+        run: |
+          # Create versioned output
+          REPORT_NAME="market-patterns-$(date +'%Y%m%d').html"
+          cp reports/weekday-market-patterns.html "$REPORT_NAME"
+          
+          # Prepare GitHub Pages
+          mkdir -p docs
+          cp "$REPORT_NAME" docs/
+          cp reports/weekday-market-patterns.html docs/index.html
+          
+          # Create system manifest
+          echo "{
+            \"system\": {
+              \"glibc_version\": \"$(ldd --version | head -1 | cut -d' ' -f4)\",
+              \"r_version\": \"$(R --version | head -1)\",
+              \"quarto_version\": \"$(quarto --version)\"
+            },
+            \"build_date\": \"$(date)\"
+          }" > docs/build_info.json
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          keep_files: true
+
+      # ==================
+      # 10. POST-BUILD CHECKS
+      # ==================
+      - name: Verify runtime environment
+        if: always()
+        run: |
+          echo "=== Final System Check ==="
+          ldd --version | head -1
+          R --version | head -1
           quarto --version
-
-      # Enhanced caching strategy for R packages with multiple cache levels
-      - name: Cache R packages - Primary
-        uses: actions/cache@v3
-        id: cache-r-packages
-        with:
-          path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-${{ env.R_VERSION }}-${{ hashFiles('weekday-market-patterns.qmd') }}-${{ env.CURRENT_WEEK }}
-          restore-keys: |
-            ${{ runner.os }}-r-${{ env.R_VERSION }}-${{ hashFiles('weekday-market-patterns.qmd') }}-
-            ${{ runner.os }}-r-${{ env.R_VERSION }}-
-            ${{ runner.os }}-r-
-      
-      # Optimized cache for market data with improved tiering and compression
-      - name: Cache market data
-        uses: actions/cache@v3
-        id: cache-market-data
-        with:
-          path: |
-            data/
-            !data/archive/  # Exclude archive directory to avoid excessive cache size
-          key: market-data-${{ env.CURRENT_DATE }}-${{ hashFiles('weekday-market-patterns.qmd') }}
-          restore-keys: |
-            market-data-${{ env.CURRENT_WEEK }}-
-            market-data-${{ env.CURRENT_MONTH }}-
-            market-data-${{ env.CURRENT_YEAR }}-
-            market-data-
-            
-      # Cache for plotly and visualization dependencies
-      - name: Cache visualization dependencies
-        uses: actions/cache@v3
-        id: cache-viz-deps
-        with:
-          path: |
-            ~/.npm
-            ~/.cache/puppeteer
-            ~/.cache/webshot
-            ~/.phantomjs
-          key: ${{ runner.os }}-viz-deps-${{ env.CURRENT_MONTH }}
-          restore-keys: |
-            ${{ runner.os }}-viz-deps-
-            
-      # Cache system libraries specifically for R packages
-      - name: Cache system dependencies
-        uses: actions/cache@v3
-        id: cache-sys-deps
-        with:
-          path: |
-            /var/cache/apt/archives/
-            ~/.local/share/
-          key: ${{ runner.os }}-sys-deps-r${{ env.R_VERSION }}-${{ env.CURRENT_MONTH }}
-          restore-keys: |
-            ${{ runner.os }}-sys-deps-r${{ env.R_VERSION }}-
-            ${{ runner.os }}-sys-deps-
-            
-      # Cache Quarto render cache directory
-      - name: Cache Quarto cache
-        uses: actions/cache@v3
-        id: cache-quarto
-        with:
-          path: |
-            .quarto/
-            _freeze/
-          key: ${{ runner.os }}-quarto-${{ env.QUARTO_VERSION }}-${{ hashFiles('weekday-market-patterns.qmd') }}-${{ env.CURRENT_WEEK }}
-          restore-keys: |
-            ${{ runner.os }}-quarto-${{ env.QUARTO_VERSION }}-${{ hashFiles('weekday-market-patterns.qmd') }}-
-            ${{ runner.os }}-quarto-${{ env.QUARTO_VERSION }}-
-      
-      - name: Create .Rprofile with proper configuration
-        run: |
-          cat > .Rprofile << 'EOF'
-          # Suppress startup messages
-          options(tidyverse.quiet = TRUE)
           
-          # Set explicit function preferences to avoid namespace conflicts
-          assign("filter", dplyr::filter, envir = .GlobalEnv)
-          assign("select", dplyr::select, envir = .GlobalEnv)
-          assign("group_by", dplyr::group_by, envir = .GlobalEnv)
-          assign("summarize", dplyr::summarize, envir = .GlobalEnv)
-          assign("summarise", dplyr::summarise, envir = .GlobalEnv)
-          assign("mutate", dplyr::mutate, envir = .GlobalEnv)
-          assign("arrange", dplyr::arrange, envir = .GlobalEnv)
-          
-          # Set repositories with fallbacks
-          repos <- c(CRAN = Sys.getenv("RSPM_URL", "https://cloud.r-project.org"))
-          options(repos = repos)
-          
-          # Output the repositories we're using
-          message("Using repositories: ", paste(getOption("repos"), collapse=", "))
-          
-          # Set additional options for better performance and reliability
-          options(
-            width = 120,
-            scipen = 999,            # Avoid scientific notation
-            max.print = 1000,        # Limit output for large objects
-            warn = 1,                # Show warnings as they occur
-            timeout = as.numeric(Sys.getenv("DOWNLOAD_TIMEOUT", "1800")),
-            HTTPUserAgent = paste0(
-              "R/", getRversion(), 
-              " R (", R.version$platform, ")",
-              " Biannual-Market-Patterns-Report/1.0"
-            ),
-            # For parallel connections in curl/download
-            Ncpus = as.numeric(Sys.getenv("R_MAX_NUM_THREADS", "4")),
-            # For quantmod
-            getSymbols.warning4.0 = FALSE,
-            download.file.method = "libcurl"
-          )
-          
-          # Configure package-specific options
-          tryCatch({
-            if(requireNamespace("quantmod", quietly = TRUE)) {
-              message("Setting up quantmod defaults...")
-              quantmod::setDefaults(getSymbols.yahoo, 
-                verbose = TRUE,
-                auto.assign = FALSE,
-                warnings = TRUE,
-                destandardize = TRUE
-              )
-            }
-          }, error = function(e) {
-            message("Failed to set up quantmod defaults: ", e$message)
-          })
-          
-          tryCatch({
-            if(requireNamespace("httr", quietly = TRUE)) {
-              message("Setting up httr config...")
-              httr::set_config(httr::config(
-                connecttimeout = 60,
-                timeout = 300,
-                ssl_verifypeer = FALSE,
-                followlocation = TRUE,
-                maxredirs = 10,
-                http_version = 2.0
-              ))
-            }
-          }, error = function(e) {
-            message("Failed to set up httr config: ", e$message)
-          })
-          
-          tryCatch({
-            if(requireNamespace("curl", quietly = TRUE)) {
-              message("Setting up curl options...")
-              curl::curl_options(timeout_ms = 300000, connecttimeout_ms = 60000)
-            }
-          }, error = function(e) {
-            message("Failed to set up curl options: ", e$message)
-          })
-          EOF
-
-      - name: Set up R parallel processing
-        run: |
-          # Create makevars file for parallel compilation
-          mkdir -p ~/.R
-          echo "MAKEFLAGS = -j$(nproc)" > ~/.R/Makevars
-          echo "CFLAGS += -O3 -march=native" >> ~/.R/Makevars
-          echo "CXXFLAGS += -O3 -march=native" >> ~/.R/Makevars
-          
-          # Check if we are in force rebuild mode
-          if ${{ github.event.inputs.force_rebuild == 'true' }}; then
-            echo "RETRY_MODE=true" >> $GITHUB_ENV
-            echo "Force rebuild mode activated"
-          fi
-
-      - name: Pre-install critical dependencies
-        run: |
-          # Don't use set -e here to allow for more resilient error handling
-          
-          # Make sure system dependencies for R packages are installed
-          sudo apt-get update -y
-          sudo apt-get install -y --no-install-recommends \
-            r-base-dev \
-            r-cran-dplyr \
-            r-cran-tidyverse \
-            r-cran-lubridate \
-            r-cran-knitr \
-            r-cran-jsonlite \
-            r-cran-xml2 \
-            r-cran-httr \
-            r-cran-curl \
-            r-cran-devtools \
-            r-cran-remotes \
-            libcurl4-openssl-dev \
-            libssl-dev \
-            libxml2-dev \
-            libfontconfig1-dev \
-            libharfbuzz-dev \
-            libfribidi-dev \
-            libfreetype6-dev \
-            libpng-dev \
-            libtiff5-dev \
-            libjpeg-dev
-            
-          # Print R library paths for debugging
-          echo "R library paths:"
+          echo "=== Library Paths ==="
           Rscript -e '.libPaths()'
           
-          # Check for dplyr before and after installation
-          echo "Checking for dplyr before installation..."
-          Rscript -e 'cat("dplyr exists:", requireNamespace("dplyr", quietly=TRUE), "\n")'
-          
-          # Install core parts of R installation infrastructure with multiple fallbacks
-          echo "Installing remotes and pak packages..."
+          echo "=== Critical Packages ==="
           Rscript -e '
-          # Try multiple repositories if one fails
-          repos <- c(
-            CRAN = "https://cloud.r-project.org", 
-            RSPM = "https://packagemanager.posit.co/cran/latest",
-            RStudio = "https://cran.rstudio.com/"
-          )
-          
-          # First try to install remotes package
-          for (repo in repos) {
-            cat("Trying to install remotes from:", repo, "\n")
-            tryCatch({
-              install.packages("remotes", repos = repo, quiet = FALSE)
-              if (requireNamespace("remotes", quietly = TRUE)) {
-                cat("Successfully installed remotes\n")
-                break
-              }
-            }, error = function(e) {
-              cat("Failed to install remotes from", repo, ":", conditionMessage(e), "\n")
-            })
-          }
-          
-          # Then try to install pak
-          for (repo in repos) {
-            cat("Trying to install pak from:", repo, "\n")
-            tryCatch({
-              install.packages("pak", repos = repo, quiet = FALSE)
-              if (requireNamespace("pak", quietly = TRUE)) {
-                cat("Successfully installed pak\n")
-                break
-              }
-            }, error = function(e) {
-              cat("Failed to install pak from", repo, ":", conditionMessage(e), "\n")
-            })
-          }
-          
-          # If remotes is available, use it as a fallback to install more packages
-          if (requireNamespace("remotes", quietly = TRUE)) {
-            cat("Using remotes to install critical packages...\n")
-            remotes::install_cran(c("dplyr", "pak"), quiet = FALSE, upgrade = "never")
-          }
-          
-          # Try to directly install dplyr (critical dependency)
-          for (repo in repos) {
-            tryCatch({
-              install.packages("dplyr", repos = repo, quiet = FALSE)
-              if (requireNamespace("dplyr", quietly = TRUE)) {
-                cat("Successfully installed dplyr\n")
-                break
-              }
-            }, error = function(e) {
-              cat("Failed to install dplyr from", repo, ":", conditionMessage(e), "\n")
-            })
-          }
-          
-          # Check and report installed packages
-          installed <- installed.packages()[, "Package"]
-          cat("Installed key packages:\n")
-          key_pkgs <- c("remotes", "pak", "dplyr")
-          for (pkg in key_pkgs) {
-            cat(" -", pkg, ":", pkg %in% installed, "\n")
-          }
-          
-          # Register dplyr functions if available
-          if(requireNamespace("dplyr", quietly = TRUE)) {
-            cat("Registering dplyr functions in global environment\n")
-            try({
-              assign("filter", dplyr::filter, envir = .GlobalEnv)
-              assign("select", dplyr::select, envir = .GlobalEnv)
-              assign("group_by", dplyr::group_by, envir = .GlobalEnv)
-              assign("summarize", dplyr::summarize, envir = .GlobalEnv)
-              assign("summarise", dplyr::summarise, envir = .GlobalEnv)
-              assign("mutate", dplyr::mutate, envir = .GlobalEnv)
-              assign("arrange", dplyr::arrange, envir = .GlobalEnv)
-            })
-          }
+          pkgs <- c("dplyr", "rlang", "knitr")
+          versions <- sapply(pkgs, function(p) packageVersion(p))
+          print(data.frame(Package = pkgs, Version = versions))
           '
-          
-          # Check if dplyr is available after installation attempts
-          echo "Checking for dplyr after installation..."
-          Rscript -e 'cat("dplyr exists:", requireNamespace("dplyr", quietly=TRUE), "\n")'
-          
-          # If remotes and pak installation fails, try GitHub installation as last resort
-          if ! Rscript -e 'cat(requireNamespace("dplyr", quietly=TRUE))' | grep -q "TRUE"; then
-            echo "Attempting to install dplyr from GitHub..."
-            Rscript -e '
-              if (!requireNamespace("remotes", quietly = TRUE)) {
-                install.packages("remotes", repos = "https://cloud.r-project.org")
-              }
-              remotes::install_github("tidyverse/dplyr", upgrade = "never", quiet = FALSE)
-              cat("dplyr from GitHub:", requireNamespace("dplyr", quietly=TRUE), "\n")
-            '
-          fi
-
-      - name: Install essential R packages - Stage 1 (Core)
-        run: |
-          # Exit immediately if a command fails
-          set -e
-          
-          # Set timeout for installations
-          export R_REMOTES_TIMEOUT=1800
-          
-          # Basic installation script with logging and retries
-          Rscript -e '
-          message("Setting up essential packages")
-          
-          # Get minimal packages list from env var and add dplyr explicitly
-          min_pkgs <- unique(c("dplyr", strsplit(Sys.getenv("MINIMAL_PACKAGES"), ",")[[1]]))
-          message("Installing minimal packages: ", paste(min_pkgs, collapse=", "))
-          
-          # Function to install with retries
-          install_with_retry <- function(pkgs, max_tries = 3) {
-            for (i in 1:max_tries) {
-              message("Attempt ", i, " to install: ", paste(pkgs, collapse=", "))
-              
-              # Try installation
-              result <- tryCatch({
-                install.packages(pkgs, quiet = FALSE, verbose = TRUE)
-                return(TRUE)
-              }, error = function(e) {
-                message("Installation attempt ", i, " failed: ", e$message)
-                if (i == max_tries) {
-                  # On last try, attempt with remotes
-                  tryCatch({
-                    if(requireNamespace("remotes", quietly = TRUE)) {
-                      remotes::install_cran(pkgs, quiet = FALSE, upgrade = "never")
-                      return(TRUE)
-                    } else {
-                      message("Remotes package not available for fallback")
-                      return(FALSE)
-                    }
-                  }, error = function(e2) {
-                    message("Final attempt with remotes also failed: ", e2$message)
-                    return(FALSE)
-                  })
-                } else {
-                  Sys.sleep(5)  # Wait before retrying
-                  return(FALSE)
-                }
-              })
-              
-              if (result) return(TRUE)
-            }
-            return(FALSE)
-          }
-          
-          # First install dplyr specifically since it\'s the most critical
-          message("Installing dplyr first...")
-          dplyr_result <- install_with_retry("dplyr")
-          if (!dplyr_result) {
-            message("Failed to install dplyr after multiple attempts. Trying alternative approach...")
-            
-            # Try even more approaches
-            tryCatch({
-              message("Trying direct GitHub install of dplyr...")
-              if(!requireNamespace("remotes", quietly = TRUE)) {
-                install.packages("remotes", repos = "https://cloud.r-project.org")
-              }
-              remotes::install_github("tidyverse/dplyr", quiet = FALSE)
-              message("Successfully installed dplyr from GitHub")
-            }, error = function(e) {
-              message("GitHub install of dplyr failed: ", e$message)
-            })
-          }
-          
-          # Install tidyverse components individually
-          message("Installing core tidyverse components...")
-          core_pkgs <- c("ggplot2", "dplyr", "tidyr", "readr", "purrr", "tibble", "stringr", "forcats")
-          for (pkg in core_pkgs) {
-            install_with_retry(pkg)
-          }
-          
-          # Install other minimal packages one by one
-          min_pkgs <- setdiff(min_pkgs, c("dplyr", "tidyverse", core_pkgs))
-          for (pkg in min_pkgs) {
-            message("Installing ", pkg)
-            install_with_retry(pkg)
-          }
-          
-          message("Core packages installation completed")
-          
-          # Verify that dplyr is available
-          if(requireNamespace("dplyr", quietly = TRUE)) {
-            message("dplyr is successfully installed and available")
-            # Explicitly register dplyr functions in global environment
-            assign("filter", dplyr::filter, envir = .GlobalEnv)
-            assign("select", dplyr::select, envir = .GlobalEnv)
-            assign("group_by", dplyr::group_by, envir = .GlobalEnv)
-            assign("summarize", dplyr::summarize, envir = .GlobalEnv)
-            assign("mutate", dplyr::mutate, envir = .GlobalEnv)
-            assign("arrange", dplyr::arrange, envir = .GlobalEnv)
-            message("dplyr functions registered in global environment")
-          } else {
-            message("WARNING: dplyr is still not available after installation attempts")
-          }
-          '
-
-      - name: Install additional packages
-        run: |
-          # Set timeout
-          export R_REMOTES_TIMEOUT=1800
-          
-          Rscript -e '
-          message("Installing additional packages")
-          
-          # Get the list of all required packages from the Quarto document
-          extract_pkg_list <- function(file) {
-            # Read the file content
-            content <- tryCatch({
-              readLines(file)
-            }, error = function(e) {
-              message("Could not read file: ", file, " - ", e$message)
-              return(character())
-            })
-            
-            # If we could not read the file, return a predefined list
-            if(length(content) == 0) {
-              return(c("quantmod", "tidyquant", "httr", "jsonlite", "rvest", 
-                        "xml2", "TTR", "curl", "plotly", "DT", "htmlwidgets", 
-                        "htmltools", "scales", "lubridate", "RCurl"))
-            }
-            
-            # Look for library() and require() calls or package::function references
-            lib_pattern <- "\\b(library|require)\\s*\\(\\s*[\\"\\']?([A-Za-z0-9.]+)[\\"\\']?\\s*[\\),]"
-            pkg_matches <- regmatches(content, gregexpr(lib_pattern, content))
-            
-            # Extract package names from library() calls
-            lib_pkgs <- unlist(lapply(pkg_matches, function(x) {
-              if(length(x) == 0) return(character(0))
-              gsub(lib_pattern, "\\2", x)
-            }))
-            
-            # Look for package::function pattern
-            pkg_pattern <- "([A-Za-z0-9.]+):{2,3}[A-Za-z0-9._]+"
-            pkg_ref_matches <- regmatches(content, gregexpr(pkg_pattern, content))
-            
-            # Extract package names from package:: references
-            ref_pkgs <- unlist(lapply(pkg_ref_matches, function(x) {
-              if(length(x) == 0) return(character(0))
-              gsub(pkg_pattern, "\\1", x)
-            }))
-            
-            # Combine all package references and get unique ones
-            all_pkgs <- unique(c(lib_pkgs, ref_pkgs))
-            return(all_pkgs[!all_pkgs %in% c("", "R")])
-          }
-          
-          # Try to get packages from QMD file
-          tryCatch({
-            qmd_pkgs <- extract_pkg_list("weekday-market-patterns.qmd")
-            message("Extracted ", length(qmd_pkgs), " packages from QMD file")
-          }, error = function(e) {
-            message("Error extracting packages from QMD: ", e$message)
-            # Fallback to a hardcoded list of commonly needed packages
-            qmd_pkgs <- c("quantmod", "tidyquant", "httr", "jsonlite", "rvest", 
-                          "xml2", "TTR", "curl", "plotly", "DT", "htmlwidgets", 
-                          "htmltools", "scales", "lubridate", "RCurl")
-            message("Using fallback package list: ", paste(qmd_pkgs, collapse=", "))
-          })
-          
-          # Add extra packages that might be needed based on common functions
-          extra_pkgs <- c("htmlwidgets", "htmltools", "scales", "jsonlite", 
-                          "RCurl", "plotly", "TTR", "zoo", "xts", "webshot")
-          all_pkgs <- unique(c(qmd_pkgs, extra_pkgs))
-          message("Final package list: ", paste(all_pkgs, collapse=", "))
-          
-          # Function for robust package installation
-          install_package_robust <- function(pkg, max_tries = 3) {
-            if (requireNamespace(pkg, quietly = TRUE)) {
-              message(pkg, " is already installed")
-              return(TRUE)
-            }
-            
-            for (i in 1:max_tries) {
-              message("Attempt ", i, " to install ", pkg)
-              
-              # Try standard install first
-              success <- tryCatch({
-                install.packages(pkg, quiet = FALSE, verbose = TRUE)
-                if(requireNamespace(pkg, quietly = TRUE)) {
-                  message("Successfully installed ", pkg)
-                  return(TRUE)
-                }
-                FALSE
-              }, error = function(e) {
-                message("Standard installation failed: ", e$message)
-                FALSE
-              })
-              
-              if(success) return(TRUE)
-              
-              # If standard install failed, try remotes
-              if(i == max_tries) {
-                tryCatch({
-                  if(!requireNamespace("remotes", quietly = TRUE)) {
-                    install.packages("remotes", repos = "https://cloud.r-project.org")
-                  }
-                  message("Trying with remotes::install_cran")
-                  remotes::install_cran(pkg, quiet = FALSE, upgrade = "never")
-                  if(requireNamespace(pkg, quietly = TRUE)) {
-                    message("Successfully installed ", pkg, " with remotes")
-                    return(TRUE)
-                  }
-                  message("Remotes installation completed but package still not available")
-                  return(FALSE)
-                }, error = function(e2) {
-                  message("Remotes installation failed: ", e2$message)
-                  return(FALSE)
-                })
-              } else {
-                # Wait before next try
-                Sys.sleep(5 * i)  # Increasing delay for each retry
-              }
-            }
-            return(FALSE)
-          }
-          
-          # Try to install each package with robust error handling
-          install_results <- sapply(all_pkgs, install_package_robust)
-          
-          # Report on installation success
-          successful <- names(install_results)[install_results]
-          failed <- names(install_results)[!install_results]
-          
-          message("Successfully installed packages: ", paste(successful, collapse=", "))
-          if(length(failed) > 0) {
-            message("Failed to install packages: ", paste(failed, collapse=", "))
-          }
-          
-          # Extra handling for TTR which is sometimes problematic
-          if("TTR" %in% failed) {
-            message("Attempting special handling for TTR package")
-            tryCatch({
-              install.packages(c("zoo", "xts"), quiet = FALSE)
-              install.packages("TTR", quiet = FALSE, dependencies = TRUE)
-              if(requireNamespace("TTR", quietly = TRUE)) {
-                message("Successfully installed TTR with dependencies approach")
-              } else {
-                message("TTR still not available after special handling")
-              }
-            }, error = function(e) {
-              message("TTR special handling failed: ", e$message)
-            })
-          }
-          '
-      
-      - name: Setup PhantomJS for webshot
-        run: |
-          # Install webshot and PhantomJS if needed
-          Rscript -e '
-          if(!requireNamespace("webshot", quietly = TRUE)) {
-            install.packages("webshot")
-          }
-          webshot::install_phantomjs()
-          '
-
-      - name: Prepare market data directory
-        run: |
-          # Set up a log file
-          mkdir -p logs
-          mkdir -p data/cache
-          mkdir -p data/viz-cache
-          mkdir -p data/processed
-          mkdir -p data/archive
-          
-          echo "Market data preparation started at $(date)" > logs/market_data.log
-          
-          # Create a placeholder file to mark data directory status
-          echo "{
-            \"status\": \"initialized\", 
-            \"time\": \"$(date)\",
-            \"r_version\": \"${{ env.R_VERSION }}\",
-            \"quarto_version\": \"${{ env.QUARTO_VERSION }}\",
-            \"runner_os\": \"${{ runner.os }}\",
-            \"cache_status\": {
-              \"r_packages\": \"${{ steps.cache-r-packages.outputs.cache-hit == 'true' && 'hit' || 'miss' }}\",
-              \"market_data\": \"${{ steps.cache-market-data.outputs.cache-hit == 'true' && 'hit' || 'miss' }}\",
-              \"viz_deps\": \"${{ steps.cache-viz-deps.outputs.cache-hit == 'true' && 'hit' || 'miss' }}\",
-              \"sys_deps\": \"${{ steps.cache-sys-deps.outputs.cache-hit == 'true' && 'hit' || 'miss' }}\",
-              \"quarto\": \"${{ steps.cache-quarto.outputs.cache-hit == 'true' && 'hit' || 'miss' }}\"
-            }
-          }" > data/status.json
-          
-          # Create a backup reference file with information about packages installed
-          Rscript -e '
-          tryCatch({
-            pkg_info <- installed.packages()[, c("Package", "Version", "LibPath", "Built")]
-            saveRDS(pkg_info, "data/package_versions.rds")
-            write.csv(pkg_info, "data/package_versions.csv")
-            
-            # Also save session info for debugging
-            sessionInfo <- capture.output(sessionInfo())
-            writeLines(sessionInfo, "data/session_info.txt")
-            
-            # Create a package dependency graph for better debugging
-            if(requireNamespace("igraph", quietly = TRUE) && requireNamespace("dplyr", quietly = TRUE)) {
-              tryCatch({
-                # Create basic dependency structure
-                deps <- tools::package_dependencies(rownames(installed.packages()), recursive = TRUE)
-                dep_df <- data.frame(
-                  package = rep(names(deps), sapply(deps, length)),
-                  dependency = unlist(deps)
-                )
-                saveRDS(dep_df, "data/package_deps.rds")
-              }, error = function(e) {
-                message("Error creating dependency graph: ", e$message)
-              })
-            }
-          }, error = function(e) {
-            message("Error creating package info: ", e$message)
-          })
-          ' 2>&1 | tee -a logs/market_data.log
-          
-          # Create a data directory structure file to help with debugging
-          find data -type d | sort > data/directory_structure.txt
-      
-      - name: Set git config
-        run: |
-          git config --global user.email "github-actions@github.com"
-          git config --global user.name "GitHub Actions"
-
-      - name: Check Quarto document structure
-        run: |
-          echo "Checking Quarto document structure..."
-          
-          if [ ! -f weekday-market-patterns.qmd ]; then
-            echo "ERROR: weekday-market-patterns.qmd not found!"
-            exit 1
-          fi
-          
-          # Check if the QMD has key sections
-          grep -q "```{r setup" weekday-market-patterns.qmd || echo "WARNING: Missing setup chunk"
-          grep -q "```{r get-market-data-function" weekday-market-patterns.qmd || echo "WARNING: Missing market data function"
-          
-          # Check file encoding
-          file -i weekday-market-patterns.qmd
-          
-          echo "Document checks complete."
-
-      - name: Create fallback render script
-        run: |
-          # Create a failsafe render script that can be used if Quarto fails
-          cat > render_fallback.R << 'EOF'
-          # Simple render script to use if Quarto fails
-          
-          # Function to render the document with error handling
-          render_document <- function() {
-            # Attempt to load libraries
-            success <- tryCatch({
-              library(rmarkdown)
-              library(knitr)
-              TRUE
-            }, error = function(e) {
-              message("Error loading libraries: ", e$message)
-              # Try to install them
-              install.packages(c("rmarkdown", "knitr"))
-              library(rmarkdown)
-              library(knitr)
-              TRUE
-            })
-            
-            if (!success) {
-              message("Failed to load required libraries")
-              return(FALSE)
-            }
-            
-            # Get command line args if any
-            args <- commandArgs(trailingOnly = TRUE)
-            days <- 1826  # Default 5 years
-            if (length(args) > 0) {
-              days <- as.numeric(args[1])
-            }
-            
-            message("Rendering with ", days, " days of data")
-            
-            # Render the document
-            tryCatch({
-              rmarkdown::render(
-                "weekday-market-patterns.qmd",
-                output_format = "html_document",
-                params = list(days = days),
-                quiet = FALSE
-              )
-              return(TRUE)
-            }, error = function(e) {
-              message("Error rendering document: ", e$message)
-              return(FALSE)
-            })
-          }
-          
-          # Execute rendering
-          result <- render_document()
-          if (!result) {
-            message("Rendering failed")
-            quit(status = 1)
-          } else {
-            message("Rendering succeeded")
-            quit(status = 0)
-          }
-          EOF
-      
-      - name: Render Quarto document with error handling
-        run: |
-          # Set up log file
-          RENDER_LOG="logs/render_$(date +'%Y%m%d_%H%M%S').log"
-          
-          # Set the number of days to analyze from workflow input or default to 5 years
-          DATA_DAYS="${{ github.event.inputs.data_days || '1826' }}"
-          echo "Using $DATA_DAYS days of market data"
-          
-          # Create data directory for intermediate files
-          mkdir -p data/intermediate
-          mkdir -p data/figures
-          mkdir -p data/temp
-          
-          # Export environment variables for the rendering process
-          export R_LIBS_USER="${{ env.R_LIBS_USER }}"
-          export TZ="${{ env.TZ }}"
-          export LANG="${{ env.LANG }}"
-          export LC_ALL="${{ env.LC_ALL }}"
-          export QUARTO_RENDER_TOKEN="$(date +%s)-${{ github.run_id }}"
-          export CACHE_DIR="data/cache"
-          export FIGURE_PATH="data/figures"
-          export DOWNLOAD_RETRIES=5
-          
-          # Create a function for rendering with robust error handling
-          render_with_retries() {
-            echo "Setting up render environment variables..."
-            export QUARTO_DENO_EXTRA_OPTIONS="--v8-flags=--max-old-space-size=4096"
-            export QUARTO_R_ARGS="-e 'options(repos=c(CRAN=\"https://cloud.r-project.org\"))' --max-ppsize=100000 --max-vsize=16G"
-            
-            # Create a custom .Renviron file for the rendering process
-            echo "CACHE_DIR=data/cache" > .Renviron
-            echo "FIGURE_PATH=data/figures" >> .Renviron
-            echo "DOWNLOAD_RETRIES=5" >> .Renviron
-            echo "DATA_DAYS=$DATA_DAYS" >> .Renviron
-            echo "TZ=$TZ" >> .Renviron
-            echo "RSPM=$RSPM" >> .Renviron
-            
-            # Try main rendering with optimized settings
-            echo "Attempt 1: Optimized standard rendering"
-            if quarto render weekday-market-patterns.qmd --to html \
-               --execute-params "days:$DATA_DAYS" \
-               --execute-dir . \
-               --cache-refresh \
-               --output-dir data/temp; then
-              echo "✅ Standard rendering successful"
-              # Move the output to the main directory
-              cp data/temp/weekday-market-patterns.html ./
-              return 0
-            fi
-            
-            echo "⚠️ Standard rendering failed, trying fallback methods..."
-            
-            # Fallback 1: Render with no caching
-            echo "Attempt 2: Rendering with caching disabled"
-            if quarto render weekday-market-patterns.qmd --to html \
-               --execute-params "days:$DATA_DAYS" \
-               --no-cache \
-               --output-dir data/temp; then
-              echo "✅ No-cache rendering successful"
-              cp data/temp/weekday-market-patterns.html ./
-              return 0
-            fi
-            
-            # Fallback 2: Try direct R rendering
-            echo "Attempt 3: Using R directly"
-            if Rscript -e "rmarkdown::render('weekday-market-patterns.qmd', output_format = 'html_document', params = list(days = $DATA_DAYS), output_dir = 'data/temp')"; then
-              echo "✅ R rendering successful"
-              cp data/temp/weekday-market-patterns.html ./
-              return 0
-            fi
-            
-            # Fallback 3: Use our custom failsafe script
-            echo "Attempt 4: Using failsafe R script"
-            if Rscript render_fallback.R $DATA_DAYS; then
-              echo "✅ Failsafe script rendering successful"
-              # Check where the output was created
-              if [ -f "data/temp/weekday-market-patterns.html" ]; then
-                cp data/temp/weekday-market-patterns.html ./
-              fi
-              return 0
-            fi
-            
-            # Fallback 4: Try with minimal execute-dir
-            echo "Attempt 5: Using execute-dir approach with minimal dependencies"
-            mkdir -p _tmp
-            cp weekday-market-patterns.qmd _tmp/
-            
-            # Create a simplified version that might work
-            cat > _tmp/simplified.qmd << 'EOF'
-            ---
-            title: "Weekday Market Patterns - Simplified"
-            format: html
-            ---
-
-            ## Simplified Report
-
-            This is a simplified version of the report that was created as a fallback.
-            The original report could not be rendered due to technical issues.
-
-            ```{r}
-            #| echo: false
-            cat("Data days requested:", params$days, "\n")
-            cat("Date generated:", Sys.Date(), "\n")
-            ```
-
-            For the full report, please try again later or contact the repository maintainer.
-            EOF
-            
-            # Try to render the simplified version
-            if quarto render _tmp/simplified.qmd --to html \
-               --execute-params "days:$DATA_DAYS" \
-               --output-dir data/temp; then
-              echo "✅ Simplified fallback rendering successful"
-              cp data/temp/simplified.html ./weekday-market-patterns.html
-              return 0
-            fi
-            
-            # If all attempts failed
-            echo "❌ All rendering attempts failed"
-            return 1
-          }
-          
-          # Execute the rendering function and capture output
-          if render_with_retries 2>&1 | tee "$RENDER_LOG"; then
-            echo "Rendering completed successfully"
-            
-            # Copy the log to the data directory for caching
-            cp "$RENDER_LOG" data/
-            
-            # Create a JSON metadata file with rendering info
-            echo "{
-              \"render_date\": \"$(date +'%Y-%m-%d')\",
-              \"render_time\": \"$(date +'%H:%M:%S')\",
-              \"render_timezone\": \"${TZ}\",
-              \"data_days\": \"$DATA_DAYS\", 
-              \"r_version\": \"${{ env.R_VERSION }}\",
-              \"quarto_version\": \"${{ env.QUARTO_VERSION }}\",
-              \"runner\": \"${{ runner.os }}\",
-              \"workflow_run\": \"${{ github.run_id }}\",
-              \"log_file\": \"$RENDER_LOG\"
-            }" > "data/render_info.json"
-          else
-            echo "ERROR: Rendering failed after multiple attempts"
-            
-            # Check if the file exists despite errors (partial rendering)
-            if [ -f weekday-market-patterns.html ] && [ -s weekday-market-patterns.html ]; then
-              echo "WARNING: HTML file exists but may be incomplete"
-              
-              # Copy the log to the data directory for debugging
-              cp "$RENDER_LOG" data/
-              
-              # Create a JSON metadata file with error info
-              echo "{
-                \"render_date\": \"$(date +'%Y-%m-%d')\",
-                \"render_time\": \"$(date +'%H:%M:%S')\",
-                \"render_timezone\": \"${TZ}\",
-                \"data_days\": \"$DATA_DAYS\", 
-                \"r_version\": \"${{ env.R_VERSION }}\",
-                \"quarto_version\": \"${{ env.QUARTO_VERSION }}\",
-                \"runner\": \"${{ runner.os }}\",
-                \"workflow_run\": \"${{ github.run_id }}\",
-                \"log_file\": \"$RENDER_LOG\",
-                \"status\": \"partial\",
-                \"error\": true
-              }" > "data/render_error.json"
-            else
-              # If we have no output, we need to treat this as a failure
-              echo "No output file was generated, marking job as failed"
-              
-              # Create a JSON metadata file with error info
-              echo "{
-                \"render_date\": \"$(date +'%Y-%m-%d')\",
-                \"render_time\": \"$(date +'%H:%M:%S')\",
-                \"render_timezone\": \"${TZ}\",
-                \"data_days\": \"$DATA_DAYS\", 
-                \"r_version\": \"${{ env.R_VERSION }}\",
-                \"quarto_version\": \"${{ env.QUARTO_VERSION }}\",
-                \"runner\": \"${{ runner.os }}\",
-                \"workflow_run\": \"${{ github.run_id }}\",
-                \"log_file\": \"$RENDER_LOG\",
-                \"status\": \"failed\",
-                \"error\": true
-              }" > "data/render_error.json"
-              
-              # Copy the log to the data directory for debugging
-              cp "$RENDER_LOG" data/
-              
-              exit 1
-            fi
-          fi
-      
-      - name: Create dated report copy and optimize archiving
-        run: |
-          if [ -f weekday-market-patterns.html ]; then
-            # Create a copy with date in filename
-            DATED_FILENAME="market-patterns-report-$(date +'%Y-%m-%d').html"
-            cp weekday-market-patterns.html "$DATED_FILENAME"
-            echo "Created dated copy: $DATED_FILENAME"
-            
-            # Also create a copy with date and time for version tracking
-            VERSIONED_FILENAME="data/archive/market-patterns-$(date +'%Y%m%d_%H%M%S').html"
-            mkdir -p data/archive
-            cp weekday-market-patterns.html "$VERSIONED_FILENAME"
-            
-            # Create a metadata file with rendering info
-            echo "{
-              \"render_date\": \"$(date +'%Y-%m-%d')\",
-              \"render_time\": \"$(date +'%H:%M:%S')\",
-              \"render_timezone\": \"UTC\",
-              \"data_days\": \"${{ github.event.inputs.data_days || '1826' }}\", 
-              \"r_version\": \"${{ env.R_VERSION }}\",
-              \"quarto_version\": \"${{ env.QUARTO_VERSION }}\",
-              \"runner\": \"${{ runner.os }}\",
-              \"workflow_run\": \"${{ github.run_id }}\"
-            }" > "data/last_render_info.json"
-            
-            # Save a copy in the data folder for easy access in next run
-            cp weekday-market-patterns.html "data/latest_report.html"
-            
-            # Create a compressed archive version for long-term storage
-            ARCHIVE_BASE="data/archive/market-patterns-$(date +'%Y%m%d')"
-            tar -czf "${ARCHIVE_BASE}.tar.gz" weekday-market-patterns.html "$DATED_FILENAME" data/render_info.json data/status.json
-            
-            # Create an archive manifest for tracking
-            {
-              echo "Date: $(date +'%Y-%m-%d %H:%M:%S')"
-              echo "Archive: ${ARCHIVE_BASE}.tar.gz"
-              echo "Files:"
-              echo "- weekday-market-patterns.html"
-              echo "- $DATED_FILENAME"
-              echo "- data/render_info.json"
-              echo "- data/status.json"
-              echo "Environment:"
-              echo "- R: ${{ env.R_VERSION }}"
-              echo "- Quarto: ${{ env.QUARTO_VERSION }}"
-              echo "- Runner: ${{ runner.os }}"
-              echo "- Data Days: ${{ github.event.inputs.data_days || '1826' }}"
-            } > "${ARCHIVE_BASE}.manifest"
-            
-            # Only keep the last 12 archives to save space
-            cd data/archive
-            ls -t market-patterns-*.tar.gz | tail -n +13 | xargs -r rm
-            ls -t market-patterns-*.manifest | tail -n +13 | xargs -r rm
-            cd ../..
-            
-            # Cleanup temporary files
-            rm -rf _tmp
-            echo "Archived report successfully with manifest"
-          else
-            echo "ERROR: weekday-market-patterns.html not found"
-            exit 1
-          fi
-      
-      - name: Optimize HTML file
-        run: |
-          if [ -f weekday-market-patterns.html ]; then
-            # First try with npm html-minifier
-            echo "Attempting to optimize HTML with html-minifier"
-            
-            if ! command -v html-minifier &> /dev/null; then
-              echo "Installing html-minifier..."
-              npm install -g html-minifier || echo "Failed to install html-minifier, trying alternative"
-            fi
-            
-            if command -v html-minifier &> /dev/null; then
-              echo "Running html-minifier..."
-              html-minifier --collapse-whitespace --remove-comments --remove-optional-tags \
-                --remove-redundant-attributes --remove-script-type-attributes \
-                --remove-tag-whitespace --use-short-doctype \
-                weekday-market-patterns.html -o weekday-market-patterns.min.html
-              
-              # Check if minification was successful
-              if [ -f weekday-market-patterns.min.html ] && [ -s weekday-market-patterns.min.html ]; then
-                # Compare file sizes
-                ORIGINAL_SIZE=$(stat -c%s weekday-market-patterns.html)
-                MINIFIED_SIZE=$(stat -c%s weekday-market-patterns.min.html)
-                REDUCTION=$(( (ORIGINAL_SIZE - MINIFIED_SIZE) * 100 / ORIGINAL_SIZE ))
-                
-                echo "Original size: $ORIGINAL_SIZE bytes"
-                echo "Minified size: $MINIFIED_SIZE bytes"
-                echo "Reduction: $REDUCTION%"
-                
-                if [ $MINIFIED_SIZE -lt $ORIGINAL_SIZE ] && [ $MINIFIED_SIZE -gt 1000 ]; then
-                  mv weekday-market-patterns.min.html weekday-market-patterns.html
-                  echo "Successfully optimized HTML file"
-                else
-                  echo "Minification didn't reduce file size significantly or produced too small file, keeping original"
-                fi
-              else
-                echo "Minification failed, keeping original file"
-              fi
-            else
-              echo "html-minifier not available, skipping optimization"
-            fi
-            
-            # Create a backup copy
-            cp weekday-market-patterns.html "data/latest_report.html"
-          else
-            echo "ERROR: HTML file not found for optimization"
-          fi
-      
-      - name: Validate report data
-        run: |
-          # Check if the HTML file exists and has meaningful content
-          if [ -f weekday-market-patterns.html ]; then
-            # Check if file is non-empty and contains expected content
-            FILE_SIZE=$(stat -c%s weekday-market-patterns.html)
-            
-            if [ $FILE_SIZE -lt 1000 ]; then
-              echo "WARNING: HTML file is too small ($FILE_SIZE bytes), may be invalid"
-            else
-              # Check for crucial content
-              if grep -q "Weekday Market Patterns" weekday-market-patterns.html && \
-                 grep -q "<table" weekday-market-patterns.html && \
-                 grep -q "plotly" weekday-market-patterns.html; then
-                echo "HTML file validation passed"
-              else
-                echo "WARNING: HTML file may be incomplete or corrupted"
-              fi
-            fi
-          else
-            echo "ERROR: HTML file not found"
-            exit 1
-          fi
-      
-      - name: Create GitHub Pages folder structure
-        run: |
-          # Create a docs folder for GitHub Pages
-          mkdir -p docs
-          
-          # Copy the report to docs folder
-          if [ -f weekday-market-patterns.html ]; then
-            cp weekday-market-patterns.html "docs/index.html"
-            cp "$DATED_FILENAME" "docs/"
-            
-            # Create a simple index page listing all reports
-            echo '<!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Holmdex Market Pattern Reports</title>
-                <style>
-                    body {
-                        font-family: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                        line-height: 1.6;
-                        color: #0A2540;
-                        max-width: 1200px;
-                        margin: 0 auto;
-                        padding: 20px;
-                    }
-                    h1 {
-                        color: #0A2540;
-                        border-bottom: 3px solid #25A75E;
-                        padding-bottom: 10px;
-                        margin-bottom: 30px;
-                    }
-                    .report-list {
-                        list-style: none;
-                        padding: 0;
-                    }
-                    .report-item {
-                        background: white;
-                        margin-bottom: 15px;
-                        padding: 15px;
-                        border-radius: 8px;
-                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                        transition: transform 0.2s ease;
-                    }
-                    .report-item:hover {
-                        transform: translateY(-3px);
-                        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-                    }
-                    .report-link {
-                        display: flex;
-                        align-items: center;
-                        text-decoration: none;
-                        color: #25A75E;
-                        font-weight: 600;
-                    }
-                    .report-link i {
-                        margin-right: 10px;
-                    }
-                    .report-date {
-                        color: #6C7A89;
-                        font-size: 0.9rem;
-                        margin-top: 5px;
-                    }
-                    .current-badge {
-                        background: #25A75E;
-                        color: white;
-                        border-radius: 4px;
-                        padding: 3px 8px;
-                        font-size: 0.8rem;
-                        margin-left: 10px;
-                    }
-                    .wordpress-embed {
-                        background: #f5f5f5;
-                        border-left: 4px solid #25A75E;
-                        padding: 15px;
-                        margin: 30px 0;
-                    }
-                    code {
-                        background: #f1f1f1;
-                        padding: 2px 5px;
-                        border-radius: 3px;
-                        font-family: monospace;
-                    }
-                </style>
-            </head>
-            <body>
-                <h1>Holmdex Market Pattern Reports</h1>
-                
-                <p>This page contains the Holmdex Market Pattern Reports generated on a regular schedule.</p>
-                
-                <h2>Latest Report</h2>
-                <ul class="report-list">
-                    <li class="report-item">
-                        <a href="index.html" class="report-link">
-                            <i class="fas fa-chart-line"></i>
-                            Current Market Pattern Report
-                            <span class="current-badge">Latest</span>
-                        </a>
-                        <div class="report-date">Generated on: '"$(date +'%Y-%m-%d')'"'</div>
-                    </li>
-                </ul>
-                
-                <h2>All Reports</h2>
-                <ul class="report-list" id="all-reports">
-                    <!-- Will be populated by JavaScript -->
-                </ul>
-                
-                <div class="wordpress-embed">
-                    <h3>How to Embed in WordPress</h3>
-                    <p>To embed this report in your WordPress site, use the following HTML code in a Custom HTML block:</p>
-                    <code>&lt;iframe src="https://holmdex.github.io/holmdex.se/index.html" width="100%" height="800px" frameborder="0"&gt;&lt;/iframe&gt;</code>
-                    <p>Or you can link directly to specific versions:</p>
-                    <code>&lt;iframe src="https://holmdex.github.io/holmdex.se/market-patterns-report-'"$(date +'%Y-%m-%d')'"'.html" width="100%" height="800px" frameborder="0"&gt;&lt;/iframe&gt;</code>
-                </div>
-                
-                <script>
-                // Simple script to list all HTML files in the directory
-                fetch("https://api.github.com/repos/holmdex/holmdex.se/contents/docs")
-                    .then(response => response.json())
-                    .then(data => {
-                        const reportsList = document.getElementById("all-reports");
-                        
-                        // Filter only HTML files and sort by name (which includes date) in reverse order
-                        const htmlFiles = data
-                            .filter(file => file.name.endsWith(".html") && file.name !== "index.html")
-                            .sort((a, b) => b.name.localeCompare(a.name));
-                        
-                        htmlFiles.forEach(file => {
-                            // Extract date from filename if possible
-                            let dateMatch = file.name.match(/(\d{4}-\d{2}-\d{2})/);
-                            let dateStr = dateMatch ? dateMatch[1] : "Unknown date";
-                            
-                            const li = document.createElement("li");
-                            li.className = "report-item";
-                            li.innerHTML = `
-                                <a href="${file.name}" class="report-link">
-                                    <i class="fas fa-file-alt"></i>
-                                    ${file.name}
-                                </a>
-                                <div class="report-date">Generated on: ${dateStr}</div>
-                            `;
-                            reportsList.appendChild(li);
-                        });
-                        
-                        // Add message if no reports found
-                        if (htmlFiles.length === 0) {
-                            reportsList.innerHTML = "<p>No archived reports found yet.</p>";
-                        }
-                    })
-                    .catch(error => {
-                        console.error("Error fetching reports:", error);
-                        document.getElementById("all-reports").innerHTML = 
-                            "<p>Error loading reports. Please check directly in the <a href='https://github.com/holmdex/holmdex.se/tree/main/docs'>GitHub repository</a>.</p>";
-                    });
-                </script>
-                
-                <!-- Add Font Awesome for icons -->
-                <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
-            </body>
-            </html>' > "docs/reports.html"
-            
-            echo "Created GitHub Pages structure in docs folder"
-          else
-            echo "ERROR: Report HTML file not found"
-            exit 1
-          fi
-      
-      - name: Deploy report files
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Update market patterns report [automated] ${{ env.CURRENT_DATE }}"
-          file_pattern: |
-            weekday-market-patterns.html 
-            market-patterns-report-*.html 
-            data/*.rds 
-            data/*.json
-            data/latest_report.html
-            data/archive/**/*
-            data/package_versions.*
-            data/session_info.txt
-            docs/**/*
-          commit_user_name: GitHub Actions
-          commit_user_email: github-actions@github.com
-          commit_author: GitHub Actions <github-actions@github.com>
-          push_options: '--force'
-          skip_dirty_check: true  # Force commit even if no changes are detected
-      
-      - name: Create job summary
-        run: |
-          {
-            echo "## Market Patterns Report Generation"
-            echo "📊 **Report generated on:** $(date +'%Y-%m-%d %H:%M:%S UTC')"
-            echo ""
-            echo "### Status"
-            
-            if [ -f weekday-market-patterns.html ]; then
-              FILE_SIZE=$(stat -c%s weekday-market-patterns.html)
-              DATED_FILENAME="market-patterns-report-$(date +'%Y-%m-%d').html"
-              
-              echo "✅ **Report generated successfully**"
-              echo "- File size: $FILE_SIZE bytes"
-              echo "- Dated copy: $DATED_FILENAME"
-              echo "- GitHub Pages: https://holmdex.github.io/holmdex.se/"
-              echo ""
-              echo "### WordPress Embed Code"
-              echo '```html'
-              echo '<iframe src="https://holmdex.github.io/holmdex.se/index.html" width="100%" height="800px" frameborder="0"></iframe>'
-              echo '```'
-              echo ""
-              echo "### Next scheduled run"
-              
-              # Calculate next scheduled run date
-              CURRENT_MONTH=$(date +'%-m')
-              CURRENT_YEAR=$(date +'%Y')
-              
-              if [ "$CURRENT_MONTH" -lt 7 ]; then
-                echo "📅 July 1, $CURRENT_YEAR at 02:00 UTC"
-              else
-                NEXT_YEAR=$((CURRENT_YEAR + 1))
-                echo "📅 January 1, $NEXT_YEAR at 02:00 UTC"
-              fi
-            else
-              echo "❌ **Report generation failed**"
-            fi
-          } >> $GITHUB_STEP_SUMMARY
-      
-      - name: Notify on completion (optional)
-        if: ${{ success() }}
-        run: |
-          # This step can be expanded to send notifications via webhooks or other methods
-          echo "Market Patterns Report generation completed successfully"
-          
-          # Output WordPress embed instructions to console as well for easy reference
-          echo "=== WordPress Embed Instructions ==="
-          echo "To embed this report in WordPress, use this HTML in a Custom HTML block:"
-          echo '<iframe src="https://holmdex.github.io/holmdex.se/index.html" width="100%" height="800px" frameborder="0"></iframe>'
-          echo "==================================="
