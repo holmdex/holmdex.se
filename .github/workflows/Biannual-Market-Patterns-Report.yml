@@ -21,69 +21,55 @@ permissions:
   packages: read
 
 env:
-  R_VERSION: '4.4.0'  # Latest stable as of July 2024
+  R_VERSION: '4.4.0'  # Latest stable as of May 2025
   QUARTO_VERSION: '1.7.30'
   R_LIBS_USER: ${{ github.workspace }}/r-libs
-  CRAN_MIRROR: 'https://cloud.r-project.org'
-  ALT_CRAN_MIRROR: 'https://cran.rstudio.com'
+  GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
   TZ: UTC
   LC_ALL: en_US.UTF-8
+  LANG: en_US.UTF-8
   R_MAX_VSIZE: 8Gb
   R_MAX_NUM_THREADS: 4
+  NOT_CRAN: true
   R_KEEP_PKG_SOURCE: yes
   DOWNLOAD_TIMEOUT: 600
-  # Ubuntu 22.04 current versions (jammy)
-  UBUNTU_CODENAME: 'jammy'
+  _R_CHECK_SYSTEM_CLOCK_: FALSE
 
 jobs:
   generate-report:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 120
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - {os: ubuntu-22.04, r: 'release'}
-
+          - {os: ubuntu-latest, r: 'release'}
+    
     steps:
-      # ====================
-      # 1. SYSTEM SETUP
-      # ====================
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Disable problematic services
-        run: |
-          sudo systemctl mask packagekit.service || true
-          sudo systemctl mask php*-fpm.service || true
-          sudo systemctl daemon-reload
-
-      - name: Setup system environment
+      
+      - name: Setup system date and time
         run: |
           echo "CURRENT_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+          echo "CURRENT_WEEK=$(date +'%Y-%W')" >> $GITHUB_ENV
+          
+          # Create directory structure
           mkdir -p data/{cache,archive,figures}
           mkdir -p ${{ env.R_LIBS_USER }}
           
-          # Verify system
-          lsb_release -a
-          df -h
-          ulimit -a
-
-      # ==================
-      # 2. DEPENDENCIES
-      # ==================
-      - name: Update package sources
+          # Print system information
+          echo "System Information:"
+          uname -a
+          lsb_release -a || cat /etc/os-release
+      
+      - name: Install system dependencies
         run: |
+          # Update packages and install required system dependencies
           sudo apt-get update -y
-          sudo apt-get install -y software-properties-common
-          sudo add-apt-repository -y universe
-          sudo apt-get update -y
-
-      - name: Install system dependencies (current versions)
-        run: |
-          # Get current versions from Ubuntu's package database
+          
+          # Install essential build tools and libraries
           sudo apt-get install -y --no-install-recommends \
             build-essential \
             libcurl4-openssl-dev \
@@ -91,217 +77,294 @@ jobs:
             libxml2-dev \
             libfontconfig1-dev \
             libfreetype6-dev \
+            libpng-dev \
+            libtiff5-dev \
+            libjpeg-dev \
             libharfbuzz-dev \
             libfribidi-dev \
+            libgit2-dev \
+            libudunits2-dev \
             libgdal-dev \
             libgeos-dev \
             libproj-dev \
-            libudunits2-dev \
-            libv8-dev \
-            locales \
-            ca-certificates
-
-          # Verify installations
-          dpkg -l | grep -E 'libcurl|libssl|libxml2|libfontconfig'
-
-          # Configure locales
+            libcairo2-dev
+          
+          # Install locales for proper UTF-8 support
+          sudo apt-get install -y locales
           sudo locale-gen en_US.UTF-8
-
-      # ==================
-      # 3. R & QUARTO SETUP
-      # ==================
+      
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ env.R_VERSION }}
-          use-public-rspm: false
-
+          use-public-rspm: true
+          
       - name: Setup Pandoc
         uses: r-lib/actions/setup-pandoc@v2
-
-      - name: Setup Quarto (with fallback)
+        
+      - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: ${{ env.QUARTO_VERSION }}
-          fallback-to-url: true
-
-      # ==================
-      # 4. LIBRARY CONFIG
-      # ==================
+          
+      - name: Cache R packages
+        uses: actions/cache@v3
+        id: cache-r-packages
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: ${{ runner.os }}-r-${{ env.R_VERSION }}-${{ hashFiles('weekday-market-patterns.qmd') }}-${{ env.CURRENT_WEEK }}
+          restore-keys: |
+            ${{ runner.os }}-r-${{ env.R_VERSION }}-${{ hashFiles('weekday-market-patterns.qmd') }}-
+            ${{ runner.os }}-r-${{ env.R_VERSION }}-
+            
+      - name: Cache market data
+        uses: actions/cache@v3
+        id: cache-market-data
+        with:
+          path: data/cache/
+          key: market-data-${{ env.CURRENT_DATE }}
+          restore-keys: |
+            market-data-${{ env.CURRENT_WEEK }}-
+            market-data-
+      
       - name: Configure R environment
         run: |
-          # Create isolated library path
-          mkdir -p ${{ env.R_LIBS_USER }}-isolated
-          echo "R_LIBS_USER=${{ env.R_LIBS_USER }}-isolated" >> $GITHUB_ENV
-          
-          # Configure .Rprofile
+          # Create .Rprofile with proper settings
           cat > .Rprofile << 'EOF'
           options(
-            repos = c(CRAN = Sys.getenv("CRAN_MIRROR")),
+            tidyverse.quiet = TRUE,
+            repos = c(CRAN = "https://cloud.r-project.org"),
             Ncpus = as.numeric(Sys.getenv("R_MAX_NUM_THREADS")),
             download.file.method = "libcurl",
             timeout = as.numeric(Sys.getenv("DOWNLOAD_TIMEOUT")),
-            install.packages.compile.from.source = "never"
+            scipen = 999,
+            warn = 1
           )
           
-          # GLIBC compatibility check
-          if (Sys.info()["sysname"] == "Linux") {
-            glibc_version <- system("ldd --version | head -1", intern = TRUE)
-            message("GLIBC version: ", glibc_version)
-          }
+          # Set explicit function preferences to avoid namespace conflicts
+          assign("filter", dplyr::filter, envir = .GlobalEnv)
+          assign("select", dplyr::select, envir = .GlobalEnv)
+          assign("group_by", dplyr::group_by, envir = .GlobalEnv)
+          assign("summarize", dplyr::summarize, envir = .GlobalEnv)
+          assign("mutate", dplyr::mutate, envir = .GlobalEnv)
+          assign("arrange", dplyr::arrange, envir = .GlobalEnv)
           EOF
-
-          # Configure Makevars for compilation
+          
+          # Configure Makevars for parallel compilation
           mkdir -p ~/.R
           echo "MAKEFLAGS = -j$(nproc)" > ~/.R/Makevars
-          echo "CXXFLAGS += -O2 -march=native" >> ~/.R/Makevars
-
-      # ==================
-      # 5. PACKAGE INSTALL
-      # ==================
-      - name: Install R packages (with robust fallbacks)
+      
+      - name: Install R dependencies
         run: |
+          # Install essential packages first
           Rscript -e '
-          # Function to install with multiple fallbacks
-          safe_install <- function(pkgs) {
-            repos <- c(
-              CRAN = Sys.getenv("CRAN_MIRROR"),
-              RSPM = "https://packagemanager.posit.co/cran/latest",
-              BERKELEY = "https://cloud.r-project.org"
-            )
-            
-            for (repo in names(repos)) {
-              tryCatch({
-                message("Attempting install from: ", repo)
-                install.packages(
-                  pkgs,
-                  repos = repos[repo],
-                  dependencies = TRUE,
-                  quiet = FALSE,
-                  INSTALL_opts = "--no-multiarch"
-                )
-                if (all(sapply(pkgs, requireNamespace, quietly = TRUE))) {
-                  message("Successfully installed from: ", repo)
-                  return(TRUE)
-                }
-              }, error = function(e) {
-                message("Failed with ", repo, ": ", conditionMessage(e))
-              })
-            }
-            stop("Failed to install: ", paste(pkgs, collapse = ", "))
-          }
+          install.packages(c("remotes", "pak"))
           
-          # Core packages
-          safe_install(c("dplyr", "remotes", "pak"))
-          
-          # Verify critical packages
-          if (!requireNamespace("dplyr", quietly = TRUE)) {
-            message("Falling back to GitHub installation")
-            remotes::install_github("tidyverse/dplyr")
-          }
-          '
-
-      - name: Install report dependencies
-        run: |
-          Rscript -e '
-          report_pkgs <- c(
-            "quantmod", "tidyquant", "plotly", "DT",
-            "lubridate", "httr", "rvest", "TTR"
+          # Core packages needed for the analysis
+          core_pkgs <- c(
+            "tidyverse", "lubridate", "plotly", "knitr", "DT",
+            "quantmod", "tidyquant", "httr", "jsonlite", "rvest",
+            "xml2", "TTR", "curl"
           )
           
-          if (requireNamespace("pak", quietly = TRUE)) {
-            pak::pkg_install(report_pkgs, ask = FALSE)
-          } else {
-            install.packages(report_pkgs)
+          # First try with install.packages
+          success <- tryCatch({
+            install.packages(core_pkgs)
+            TRUE
+          }, error = function(e) {
+            message("Standard installation failed: ", e$message)
+            FALSE
+          })
+          
+          # Fall back to pak if standard installation fails
+          if (!success && requireNamespace("pak", quietly = TRUE)) {
+            message("Trying with pak...")
+            pak::pkg_install(core_pkgs, ask = FALSE)
+          }
+          
+          # Check if critical packages are installed
+          critical_pkgs <- c("dplyr", "tidyr", "ggplot2", "plotly", "knitr", "quantmod")
+          missing_pkgs <- critical_pkgs[!sapply(critical_pkgs, requireNamespace, quietly = TRUE)]
+          
+          if (length(missing_pkgs) > 0) {
+            message("Critical packages still missing: ", paste(missing_pkgs, collapse = ", "))
+            message("Attempting installation with remotes...")
+            remotes::install_cran(missing_pkgs, quiet = FALSE)
           }
           '
-
-      # ==================
-      # 6. REPORT GENERATION
-      # ==================
+      
+      - name: Create params file for Quarto
+        run: |
+          # Create a YAML file with the parameters
+          DATA_DAYS="${{ github.event.inputs.data_days || '1826' }}"
+          
+          echo "days: $DATA_DAYS" > params.yml
+          echo "Created params.yml with days: $DATA_DAYS"
+          cat params.yml
+      
       - name: Render Quarto document
         run: |
           DATA_DAYS="${{ github.event.inputs.data_days || '1826' }}"
           
+          # Create output directory
+          mkdir -p reports
+          
+          # Use --execute-params with YAML file instead of inline parameter
           quarto render weekday-market-patterns.qmd \
             --to html \
-            --execute-params "days:$DATA_DAYS" \
-            --output-dir reports \
-            --cache \
-            --fail-on-warning
-
-      # ==================
-      # 7. OUTPUT VALIDATION
-      # ==================
-      - name: Validate output
-        run: |
-          if [ ! -f reports/weekday-market-patterns.html ]; then
-            echo "::error::Report file not generated!"
+            --execute-params params.yml \
+            --output-dir reports
+          
+          # Check if rendering was successful
+          if [ -f reports/weekday-market-patterns.html ]; then
+            echo "✅ Quarto rendering successful"
+          else
+            echo "❌ Quarto rendering failed"
             exit 1
           fi
-          
-          # Basic content validation
-          if ! grep -q "<html" reports/weekday-market-patterns.html; then
-            echo "::error::Invalid HTML output!"
+      
+      - name: Create dated report
+        run: |
+          if [ -f reports/weekday-market-patterns.html ]; then
+            # Create a copy with date in filename
+            DATED_FILENAME="market-patterns-report-$(date +'%Y-%m-%d').html"
+            cp reports/weekday-market-patterns.html "reports/$DATED_FILENAME"
+            
+            # Also create a versioned copy in the archive
+            VERSIONED_FILENAME="data/archive/market-patterns-$(date +'%Y%m%d_%H%M%S').html"
+            cp reports/weekday-market-patterns.html "$VERSIONED_FILENAME"
+            
+            # Create a build info file
+            echo "{
+              \"render_date\": \"$(date +'%Y-%m-%d')\",
+              \"render_time\": \"$(date +'%H:%M:%S')\",
+              \"data_days\": \"$DATA_DAYS\", 
+              \"r_version\": \"${{ env.R_VERSION }}\",
+              \"quarto_version\": \"${{ env.QUARTO_VERSION }}\"
+            }" > "reports/build_info.json"
+            
+            echo "Created dated report: $DATED_FILENAME"
+          else
+            echo "ERROR: weekday-market-patterns.html not found"
             exit 1
           fi
-
-      # ==================
-      # 8. DEPLOYMENT
-      # ==================
-      - name: Archive and deploy
+      
+      - name: Setup GitHub Pages directory
         run: |
-          # Create versioned output
-          REPORT_NAME="market-patterns-$(date +'%Y%m%d').html"
-          cp reports/weekday-market-patterns.html "$REPORT_NAME"
-          
-          # Prepare GitHub Pages
+          # Create GitHub Pages structure
           mkdir -p docs
-          cp "$REPORT_NAME" docs/
-          cp reports/weekday-market-patterns.html docs/index.html
           
-          # Create build info
-          echo "{
-            \"build_date\": \"$(date)\",
-            \"versions\": {
-              \"ubuntu\": \"$(lsb_release -ds)\",
-              \"r\": \"$(R --version | head -1)\",
-              \"quarto\": \"$(quarto --version)\",
-              \"glibc\": \"$(ldd --version | head -1)\"
-            },
-            \"parameters\": {
-              \"data_days\": \"$DATA_DAYS\"
-            }
-          }" > docs/build_info.json
-
+          # Copy the latest report
+          cp reports/weekday-market-patterns.html docs/index.html
+          cp reports/*.html docs/
+          
+          # Create an index page
+          cat > docs/reports.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Holmdex Market Pattern Reports</title>
+              <style>
+                  body {
+                      font-family: "Nunito", -apple-system, sans-serif;
+                      line-height: 1.6;
+                      color: #0A2540;
+                      max-width: 1200px;
+                      margin: 0 auto;
+                      padding: 20px;
+                  }
+                  h1 {
+                      color: #0A2540;
+                      border-bottom: 3px solid #25A75E;
+                      padding-bottom: 10px;
+                  }
+                  .report-list {
+                      list-style: none;
+                      padding: 0;
+                  }
+                  .report-item {
+                      background: white;
+                      margin-bottom: 15px;
+                      padding: 15px;
+                      border-radius: 8px;
+                      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                  }
+                  .report-link {
+                      display: flex;
+                      align-items: center;
+                      text-decoration: none;
+                      color: #25A75E;
+                      font-weight: 600;
+                  }
+                  .current-badge {
+                      background: #25A75E;
+                      color: white;
+                      border-radius: 4px;
+                      padding: 3px 8px;
+                      font-size: 0.8rem;
+                      margin-left: 10px;
+                  }
+                  .wordpress-embed {
+                      background: #f5f5f5;
+                      border-left: 4px solid #25A75E;
+                      padding: 15px;
+                      margin: 30px 0;
+                  }
+                  code {
+                      background: #f1f1f1;
+                      padding: 2px 5px;
+                      border-radius: 3px;
+                  }
+              </style>
+          </head>
+          <body>
+              <h1>Holmdex Market Pattern Reports</h1>
+              
+              <h2>Latest Report</h2>
+              <ul class="report-list">
+                  <li class="report-item">
+                      <a href="index.html" class="report-link">
+                          Current Market Pattern Report
+                          <span class="current-badge">Latest</span>
+                      </a>
+                  </li>
+              </ul>
+              
+              <div class="wordpress-embed">
+                  <h3>How to Embed in WordPress</h3>
+                  <p>To embed this report in your WordPress site, use the following HTML code in a Custom HTML block:</p>
+                  <code>&lt;iframe src="https://holmdex.github.io/holmdex.se/index.html" width="100%" height="800px" frameborder="0"&gt;&lt;/iframe&gt;</code>
+              </div>
+          </body>
+          </html>
+          EOF
+      
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs
+          force_orphan: false
           keep_files: true
-
-      # ==================
-      # 9. POST-BUILD
-      # ==================
+      
       - name: Create summary
-        if: always()
         run: |
-          echo "### Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Date:** $(date)" >> $GITHUB_STEP_SUMMARY
-          echo "- **R Version:** ${{ env.R_VERSION }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Quarto Version:** ${{ env.QUARTO_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Market Patterns Report Generation" >> $GITHUB_STEP_SUMMARY
+          echo "📊 **Report generated on:** $(date +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ -f reports/weekday-market-patterns.html ]; then
-            echo "✅ **Successfully generated report**" >> $GITHUB_STEP_SUMMARY
-            echo "- [View Live Report](https://${{ github.repository_owner }}.github.io/${{ github.repository_name }}/)" >> $GITHUB_STEP_SUMMARY
+            FILE_SIZE=$(stat -c%s reports/weekday-market-patterns.html)
+            echo "✅ **Report generated successfully**" >> $GITHUB_STEP_SUMMARY
+            echo "- File size: $FILE_SIZE bytes" >> $GITHUB_STEP_SUMMARY
+            echo "- GitHub Pages: https://holmdex.github.io/holmdex.se/" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### WordPress Embed Code" >> $GITHUB_STEP_SUMMARY
+            echo '```html' >> $GITHUB_STEP_SUMMARY
+            echo '<iframe src="https://holmdex.github.io/holmdex.se/index.html" width="100%" height="800px" frameborder="0"></iframe>' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ **Report generation failed**" >> $GITHUB_STEP_SUMMARY
           fi
-          
-          echo "### System Information" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          ldd --version | head -1 >> $GITHUB_STEP_SUMMARY
-          R --version | head -1 >> $GITHUB_STEP_SUMMARY
-          quarto --version >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
