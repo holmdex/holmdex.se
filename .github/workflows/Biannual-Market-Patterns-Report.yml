@@ -127,9 +127,9 @@ jobs:
             market-data-${{ env.CURRENT_WEEK }}-
             market-data-
       
-      - name: Configure R environment
+      - name: Configure R environment (basic settings)
         run: |
-          # Create .Rprofile with proper settings
+          # Create a minimal .Rprofile with only basic settings
           cat > .Rprofile << 'EOF'
           options(
             tidyverse.quiet = TRUE,
@@ -140,14 +140,6 @@ jobs:
             scipen = 999,
             warn = 1
           )
-          
-          # Set explicit function preferences to avoid namespace conflicts
-          assign("filter", dplyr::filter, envir = .GlobalEnv)
-          assign("select", dplyr::select, envir = .GlobalEnv)
-          assign("group_by", dplyr::group_by, envir = .GlobalEnv)
-          assign("summarize", dplyr::summarize, envir = .GlobalEnv)
-          assign("mutate", dplyr::mutate, envir = .GlobalEnv)
-          assign("arrange", dplyr::arrange, envir = .GlobalEnv)
           EOF
           
           # Configure Makevars for parallel compilation
@@ -158,7 +150,20 @@ jobs:
         run: |
           # Install essential packages first
           Rscript -e '
-          install.packages(c("remotes", "pak"))
+          # Set the CRAN mirror
+          options(repos = c(CRAN = "https://cloud.r-project.org"))
+          
+          # Install base package management tools with robust error handling
+          for (pkg in c("remotes", "pak")) {
+            if (!requireNamespace(pkg, quietly = TRUE)) {
+              message("Installing ", pkg, "...")
+              tryCatch({
+                install.packages(pkg)
+              }, error = function(e) {
+                message("Failed to install ", pkg, ": ", e$message)
+              })
+            }
+          }
           
           # Core packages needed for the analysis
           core_pkgs <- c(
@@ -167,29 +172,73 @@ jobs:
             "xml2", "TTR", "curl"
           )
           
-          # First try with install.packages
-          success <- tryCatch({
-            install.packages(core_pkgs)
-            TRUE
-          }, error = function(e) {
-            message("Standard installation failed: ", e$message)
-            FALSE
-          })
+          # Critical packages that must be installed individually first
+          critical_pkgs <- c("dplyr", "tidyr", "ggplot2", "plotly", "knitr", "quantmod")
           
-          # Fall back to pak if standard installation fails
-          if (!success && requireNamespace("pak", quietly = TRUE)) {
-            message("Trying with pak...")
-            pak::pkg_install(core_pkgs, ask = FALSE)
+          # First install critical packages individually
+          for (pkg in critical_pkgs) {
+            if (!requireNamespace(pkg, quietly = TRUE)) {
+              message("Installing critical package: ", pkg)
+              tryCatch({
+                install.packages(pkg)
+              }, error = function(e) {
+                message("Failed to install ", pkg, " with standard method: ", e$message)
+                if (requireNamespace("remotes", quietly = TRUE)) {
+                  message("Trying with remotes...")
+                  remotes::install_cran(pkg, quiet = FALSE)
+                }
+              })
+            }
           }
           
-          # Check if critical packages are installed
-          critical_pkgs <- c("dplyr", "tidyr", "ggplot2", "plotly", "knitr", "quantmod")
+          # Then try to install remaining packages
+          remaining_pkgs <- setdiff(core_pkgs, critical_pkgs)
+          for (pkg in remaining_pkgs) {
+            if (!requireNamespace(pkg, quietly = TRUE)) {
+              message("Installing package: ", pkg)
+              tryCatch({
+                install.packages(pkg)
+              }, error = function(e) {
+                message("Failed to install ", pkg, " with standard method: ", e$message)
+                if (requireNamespace("remotes", quietly = TRUE)) {
+                  message("Trying with remotes...")
+                  remotes::install_cran(pkg, quiet = FALSE)
+                } else if (requireNamespace("pak", quietly = TRUE)) {
+                  message("Trying with pak...")
+                  pak::pkg_install(pkg, ask = FALSE)
+                }
+              })
+            }
+          }
+          
+          # Verify critical packages
           missing_pkgs <- critical_pkgs[!sapply(critical_pkgs, requireNamespace, quietly = TRUE)]
           
           if (length(missing_pkgs) > 0) {
-            message("Critical packages still missing: ", paste(missing_pkgs, collapse = ", "))
-            message("Attempting installation with remotes...")
-            remotes::install_cran(missing_pkgs, quiet = FALSE)
+            message("ERROR: Critical packages still missing: ", paste(missing_pkgs, collapse = ", "))
+            quit(status = 1)
+          } else {
+            message("All critical packages successfully installed.")
+          }
+          '
+      
+      - name: Configure dplyr functions
+        run: |
+          # Only set up dplyr functions AFTER packages are installed
+          Rscript -e '
+          if (requireNamespace("dplyr", quietly = TRUE)) {
+            message("Setting up dplyr function preferences...")
+            # Set explicit function preferences to avoid namespace conflicts
+            assign("filter", dplyr::filter, envir = .GlobalEnv)
+            assign("select", dplyr::select, envir = .GlobalEnv)
+            assign("group_by", dplyr::group_by, envir = .GlobalEnv)
+            assign("summarize", dplyr::summarize, envir = .GlobalEnv)
+            assign("mutate", dplyr::mutate, envir = .GlobalEnv)
+            assign("arrange", dplyr::arrange, envir = .GlobalEnv)
+            message("dplyr function preferences set up successfully.")
+          } else {
+            message("ERROR: dplyr package not available. Cannot set up function preferences.")
+            quit(status = 1)
           }
           '
       
