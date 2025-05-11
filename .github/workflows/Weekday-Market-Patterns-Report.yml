@@ -1,0 +1,56 @@
+name: Generate Weekday Market Patterns Report
+
+on:
+  schedule:
+    # Runs at 00:00 UTC on January 1st each year
+    - cron: '0 0 1 1 *'
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.3'  # Or your preferred version
+        
+      - name: Install Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: '1.4'  # Or your preferred version
+          
+      - name: Cache R packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.local/share/renv
+            ~/R/library
+            .renv
+            .Rprofile
+          key: ${{ runner.os }}-r-${{ hashFiles('**/renv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-r-
+            
+      - name: Install dependencies
+        run: |
+          Rscript -e 'install.packages(c("renv", "rmarkdown", "knitr", "tidyverse", "plotly", "lubridate", "quantmod", "tidyquant", "httr", "jsonlite", "rvest", "xml2", "TTR", "curl", "DT"), repos = "https://cloud.r-project.org")'
+          Rscript -e 'if(file.exists("renv.lock")) renv::restore()'
+          
+      - name: Render report
+        run: |
+          quarto render Weekday_Market_Patterns.qmd --to html
+          
+      - name: Commit and push results
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "GitHub Actions"
+          git add Weekday_Market_Patterns.html
+          git commit -m "Auto-generated report for $(date +'%Y')" || echo "No changes to commit"
+          git push origin HEAD:$GITHUB_REF || echo "Nothing to push"
