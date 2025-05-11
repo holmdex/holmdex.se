@@ -1,15 +1,9 @@
-name: Generate Market Patterns Report
+name: Weekday Market Patterns Report
 
 on:
   schedule:
-    - cron: '0 0 1 1,7 *'  # Runs Jan 1 and July 1 at midnight UTC
+    - cron: '0 0 1 1 *'  # Runs annually on Jan 1 at midnight UTC
   workflow_dispatch:
-    inputs:
-      generate_html:
-        description: 'Generate HTML version'
-        required: false
-        default: true
-        type: boolean
 
 env:
   QUARTO_VERSION: "1.5.36"
@@ -18,27 +12,26 @@ env:
   CACHE_DIR: ".cache"
   MIN_TRADING_DAYS: 1000
   MIN_WEEKDAY_COUNT: 100
-  DATA_DIR: "data"  # Directory for cached financial data
 
 jobs:
   generate-report:
-    name: Generate Report
+    name: Generate HTML Report
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
     permissions:
       contents: write
       pages: write
       id-token: write
 
     steps:
-      # -------- INITIAL SETUP --------
+      # Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           lfs: true
 
-      # -------- SYSTEM DEPENDENCIES --------
+      # System Dependencies
       - name: Install system packages
         run: |
           sudo apt-get update -qq
@@ -46,10 +39,9 @@ jobs:
             libcurl4-openssl-dev libssl-dev libxml2-dev \
             libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
             libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev \
-            pandoc git-lfs ca-certificates \
-            texlive-latex-recommended texlive-fonts-recommended texlive-latex-extra
+            pandoc git-lfs ca-certificates
 
-      # -------- TOOL INSTALLATION --------
+      # Setup R and Quarto
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
@@ -60,137 +52,102 @@ jobs:
         uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: ${{ env.QUARTO_VERSION }}
-          tinytex: true
-          install-tinytex: true
 
-      # -------- CACHE SETUP --------
+      # Cache R packages
       - name: Cache R packages
-        uses: actions/cache@v4
-        id: r-cache
+        uses: actions/cache@v3
         with:
           path: |
             ~/.local/share/renv
             ~/R/library
             ${{ env.CACHE_DIR }}/R
-          key: ${{ runner.os }}-r-${{ env.R_VERSION }}-${{ hashFiles('**/renv.lock', '**/DESCRIPTION') }}
+          key: ${{ runner.os }}-r-${{ env.R_VERSION }}-${{ hashFiles('**/renv.lock') }}
           restore-keys: |
             ${{ runner.os }}-r-${{ env.R_VERSION }}-
 
-      - name: Cache Quarto
-        uses: actions/cache@v4
-        id: quarto-cache
-        with:
-          path: |
-            _freeze
-            ${{ env.CACHE_DIR }}/quarto
-          key: ${{ runner.os }}-quarto-${{ env.QUARTO_VERSION }}-${{ hashFiles('**/*.qmd', '**/*.Rmd') }}
-          restore-keys: |
-            ${{ runner.os }}-quarto-${{ env.QUARTO_VERSION }}-
-
-      - name: Cache financial data
-        uses: actions/cache@v4
-        id: data-cache
-        with:
-          path: |
-            ${{ env.DATA_DIR }}/
-          key: ${{ runner.os }}-data-${{ hashFiles('**/*.csv', '**/*.json') }}
-          restore-keys: |
-            ${{ runner.os }}-data-
-
-      # -------- PACKAGE INSTALLATION --------
-      - name: Install R dependencies
+      # Install R dependencies
+      - name: Install R packages
         run: |
-          mkdir -p ${{ env.CACHE_DIR }}/R ${{ env.CACHE_DIR }}/quarto
+          mkdir -p ${{ env.CACHE_DIR }}/R
           Rscript -e '
           options(repos = c(CRAN = "https://cloud.r-project.org"))
-          core_pkgs <- c("renv", "pak", "devtools")
-          install.packages(core_pkgs)
-          
+          install.packages(c("renv", "pak"))
           if (file.exists("renv.lock")) {
             renv::restore(confirm = FALSE)
           } else {
-            req_pkgs <- c(
+            pak::pkg_install(c(
               "tidyverse", "lubridate", "plotly", "quantmod", "tidyquant",
               "httr", "jsonlite", "rvest", "xml2", "TTR", "curl", "DT",
               "rmarkdown", "knitr", "kableExtra", "here", "fs"
-            )
-            if (requireNamespace("pak", quietly = TRUE)) {
-              pak::pkg_install(req_pkgs, ask = FALSE)
-            } else {
-              install.packages(req_pkgs)
-            }
-          }
-          '
+            ))
+          }'
 
-      # -------- REPORT GENERATION --------
+      # Create output directory
       - name: Create output directory
         run: mkdir -p ${{ env.OUTPUT_DIR }}
 
-      - name: Render HTML report
+      # Show Pandoc version
+      - name: Show Pandoc version
+        run: pandoc --version
+
+      # Render HTML report
+      - name: Render HTML report (with fallback caching)
         id: render-html
         run: |
+          echo "Rendering report..."
           quarto render Weekday_Market_Patterns.qmd \
             --to html \
             --output-dir ${{ env.OUTPUT_DIR }} \
             --cache \
-            --fail-on-warning
+            --log-level debug
         continue-on-error: true
 
-      - name: Retry failed HTML render
+      # Retry render without cache if failure
+      - name: Retry render without cache if needed
         if: steps.render-html.outcome == 'failure'
         run: |
+          echo "Retrying render without cache..."
           quarto render Weekday_Market_Patterns.qmd \
             --to html \
             --output-dir ${{ env.OUTPUT_DIR }} \
-            --no-cache
+            --no-cache \
+            --log-level debug
 
-      # -------- OUTPUT HANDLING --------
-      - name: Upload reports
+      # Upload report artifact
+      - name: Upload report
         uses: actions/upload-artifact@v4
         with:
-          name: market-patterns-report-${{ github.run_number }}
-          path: |
-            ${{ env.OUTPUT_DIR }}/
-            package_report.csv
-          retention-days: 90
+          name: weekday-market-patterns
+          path: ${{ env.OUTPUT_DIR }}/
 
+      # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         if: success() && github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ${{ env.OUTPUT_DIR }}/
+          publish_dir: ${{ env.OUTPUT_DIR }}
           keep_files: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'docs: Update market patterns report [skip ci]'
+          commit_message: 'docs: update weekday market patterns HTML [skip ci]'
 
-      # -------- VERSION CONTROL --------
-      - name: Commit results
+      # Commit report to main branch (optional versioning)
+      - name: Commit report to repository
         if: success() && github.ref == 'refs/heads/main'
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git add ${{ env.OUTPUT_DIR }}/*.html
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "chore: Auto-update market report [skip ci]"
-            git pull --rebase
-            git push origin HEAD:main
-          fi
+          git commit -m "chore: update HTML report [skip ci]" || echo "Nothing to commit"
+          git pull --rebase
+          git push origin HEAD:main
 
-      # -------- NOTIFICATIONS --------
+      # Failure notification
       - name: Notify on failure
         if: failure()
         uses: actions/github-script@v6
         with:
           script: |
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '⚠️ Report generation failed! See run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
-            })
+            core.setFailed('⚠️ HTML report generation failed! See run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}')
