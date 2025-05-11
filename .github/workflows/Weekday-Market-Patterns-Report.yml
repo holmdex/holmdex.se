@@ -1,162 +1,191 @@
-name: Generate Annual Market Patterns Report
+name: Weekday Market Patterns Report
 
 on:
   schedule:
-    - cron: '0 0 1 1 *'
+    - cron: '0 0 1 1 *'  # Runs once a year on Jan 1 at 00:00 UTC
   workflow_dispatch:
+    inputs:
+      generate_pdf:
+        description: 'Generate PDF version'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  QUARTO_VERSION: "1.5.36"
+  R_VERSION: "4.3.3"
+  OUTPUT_DIR: "reports"
+  CACHE_DIR: ".cache"
+  MIN_TRADING_DAYS: 1000
+  MIN_WEEKDAY_COUNT: 100
 
 jobs:
   generate-report:
+    name: Generate Report
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    env:
-      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-      RENV_PATHS_ROOT: ~/.local/share/renv
-      QUARTO_VERSION: 1.5.36  # Pinned to specific Quarto version
-      R_VERSION: '4.3.3'      # Pinned R version
-      
+    timeout-minutes: 90
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+
     steps:
+      # -------- INITIAL SETUP --------
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
+          lfs: true
 
-      # System setup ----------------------------------------------------------
-      - name: Install system dependencies
+      # -------- SYSTEM DEPENDENCIES --------
+      - name: Install system packages
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y \
-            libcurl4-openssl-dev \
-            libssl-dev \
-            libxml2-dev \
-            libfontconfig1-dev \
-            libharfbuzz-dev \
-            libfribidi-dev \
-            libfreetype6-dev \
-            libpng-dev \
-            libtiff5-dev \
-            libjpeg-dev \
-            pandoc
+          sudo apt-get install -y --no-install-recommends \
+            libcurl4-openssl-dev libssl-dev libxml2-dev \
+            libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
+            libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev \
+            pandoc git-lfs ca-certificates \
+            texlive-latex-recommended texlive-fonts-recommended texlive-latex-extra
 
-      # R Setup ---------------------------------------------------------------
-      - name: Set up R
+      # -------- TOOL INSTALLATION --------
+      - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ env.R_VERSION }}
           use-public-rspm: true
 
-      # Quarto Setup ----------------------------------------------------------
-      - name: Install Quarto (Primary Method)
-        id: quarto-install
+      - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: ${{ env.QUARTO_VERSION }}
           tinytex: true
-        continue-on-error: true
+          install-tinytex: true
 
-      - name: Fallback Quarto Install (Manual)
-        if: steps.quarto-install.outcome == 'failure'
-        run: |
-          wget https://github.com/quarto-dev/quarto-cli/releases/download/v${{ env.QUARTO_VERSION }}/quarto-${{ env.QUARTO_VERSION }}-linux-amd64.deb
-          sudo dpkg -i quarto-*.deb
-          rm quarto-*.deb
-          quarto check
-
-      # Cache Setup -----------------------------------------------------------
+      # -------- CACHE SETUP --------
       - name: Cache R packages
         uses: actions/cache@v3
-        id: r-cache
         with:
           path: |
-            ${{ env.RENV_PATHS_ROOT }}
+            ~/.local/share/renv
             ~/R/library
-            .renv
-            .Rprofile
-          key: ${{ runner.os }}-r-${{ env.R_VERSION }}-${{ hashFiles('**/DESCRIPTION') }}-${{ hashFiles('**/renv.lock') }}
+            ${{ env.CACHE_DIR }}/R
+          key: ${{ runner.os }}-r-${{ env.R_VERSION }}-${{ hashFiles('**/renv.lock', '**/DESCRIPTION') }}
           restore-keys: |
             ${{ runner.os }}-r-${{ env.R_VERSION }}-
 
-      # Dependency Installation -----------------------------------------------
-      - name: Install CRAN packages (Primary)
-        id: install-cran
-        run: |
-          Rscript -e '
-          pkgs <- c("renv", "remotes", "pak", "tidyverse", "plotly", "lubridate", 
-                   "quantmod", "tidyquant", "httr", "jsonlite", "rvest", "xml2", 
-                   "TTR", "curl", "DT", "fs", "here", "rmarkdown", "knitr")
-          options(repos = c(CRAN = "https://cloud.r-project.org"))
-          pak::pkg_install(pkgs, ask = FALSE, upgrade = TRUE)
-          '
-        continue-on-error: true
-
-      - name: Install CRAN packages (Fallback)
-        if: steps.install-cran.outcome == 'failure'
-        run: |
-          Rscript -e '
-          pkgs <- c("renv", "remotes", "tidyverse", "plotly", "lubridate", 
-                   "quantmod", "tidyquant", "httr", "jsonlite", "rvest", "xml2", 
-                   "TTR", "curl", "DT", "rmarkdown", "knitr")
-          options(repos = c(CRAN = "https://cloud.r-project.org"))
-          install.packages(pkgs)
-          '
-
-      - name: Restore renv (if exists)
-        if: file.exists('renv.lock')
-        run: |
-          Rscript -e '
-          if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
-          renv::restore(confirm = FALSE)
-          '
-
-      # Pre-Render Checks -----------------------------------------------------
-      - name: Verify environment
-        run: |
-          Rscript -e '
-          required <- c("quarto", "rmarkdown", "knitr", "tidyverse", "plotly")
-          installed <- rownames(installed.packages())
-          missing <- setdiff(required, installed)
-          if (length(missing) > 0) stop("Missing packages: ", paste(missing, collapse = ", "))
-          '
-
-      # Report Generation -----------------------------------------------------
-      - name: Render report (Primary)
-        id: render-report
-        run: |
-          quarto render Weekday_Market_Patterns.qmd \
-            --to html \
-            --output-dir ./output \
-            --cache
-        continue-on-error: true
-
-      - name: Render report (Fallback - No Cache)
-        if: steps.render-report.outcome == 'failure'
-        run: |
-          quarto render Weekday_Market_Patterns.qmd \
-            --to html \
-            --output-dir ./output \
-            --no-cache
-
-      # Artifact Handling -----------------------------------------------------
-      - name: Archive output
-        uses: actions/upload-artifact@v3
-        if: always()
+      - name: Cache Quarto
+        uses: actions/cache@v3
         with:
-          name: market-patterns-report
-          path: output/
-          retention-days: 7
+          path: |
+            _freeze
+            ${{ env.CACHE_DIR }}/quarto
+          key: ${{ runner.os }}-quarto-${{ env.QUARTO_VERSION }}-${{ hashFiles('**/*.qmd', '**/*.Rmd') }}
+          restore-keys: |
+            ${{ runner.os }}-quarto-${{ env.QUARTO_VERSION }}-
 
-      # Git Operations --------------------------------------------------------
-      - name: Setup Git
-        if: github.ref == 'refs/heads/main'
+      # -------- PACKAGE INSTALLATION --------
+      - name: Install R dependencies
+        run: |
+          mkdir -p ${{ env.CACHE_DIR }}/R ${{ env.CACHE_DIR }}/quarto
+          Rscript -e '
+            options(repos = c(CRAN = "https://cloud.r-project.org"))
+            install.packages(c("renv", "pak", "devtools"))
+            if (file.exists("renv.lock")) {
+              renv::restore(confirm = FALSE)
+            } else {
+              pak::pkg_install(c(
+                "tidyverse", "lubridate", "plotly", "quantmod", "tidyquant",
+                "httr", "jsonlite", "rvest", "xml2", "TTR", "curl", "DT",
+                "rmarkdown", "knitr", "kableExtra", "here", "fs"
+              ), ask = FALSE)
+            }
+          '
+
+      # -------- REPORT GENERATION --------
+      - name: Create output directory
+        run: mkdir -p ${{ env.OUTPUT_DIR }}
+
+      - name: Render HTML report
+        id: render-html
+        run: |
+          quarto render Weekday_Market_Patterns.qmd \
+            --to html \
+            --output-dir ${{ env.OUTPUT_DIR }} \
+            --cache \
+            --fail-on-warning
+        continue-on-error: true
+
+      - name: Render PDF report
+        id: render-pdf
+        if: ${{ inputs.generate_pdf || github.event_name == 'schedule' }}
+        run: |
+          quarto render Weekday_Market_Patterns.qmd \
+            --to pdf \
+            --output-dir ${{ env.OUTPUT_DIR }} \
+            --cache \
+            --fail-on-warning
+        continue-on-error: true
+
+      - name: Retry failed renders
+        if: steps.render-html.outcome == 'failure' || steps.render-pdf.outcome == 'failure'
+        run: |
+          if [ "${{ steps.render-html.outcome }}" == "failure" ]; then
+            quarto render Weekday_Market_Patterns.qmd \
+              --to html \
+              --output-dir ${{ env.OUTPUT_DIR }} \
+              --no-cache
+          fi
+          if [ "${{ steps.render-pdf.outcome }}" == "failure" ]; then
+            quarto render Weekday_Market_Patterns.qmd \
+              --to pdf \
+              --output-dir ${{ env.OUTPUT_DIR }} \
+              --no-cache
+          fi
+
+      # -------- ARCHIVE RESULTS --------
+      - name: Upload reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: market-patterns-report-${{ github.run_number }}
+          path: |
+            ${{ env.OUTPUT_DIR }}/
+            package_report.csv
+          retention-days: 90
+
+      # -------- PRESERVE DATA/ CACHE --------
+      - name: Commit updated data cache
+        if: success() && github.ref == 'refs/heads/main'
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          
+          git add data/*.csv || true
+          if git diff --cached --quiet; then
+            echo "No data changes to commit"
+          else
+            git commit -m "chore: Update financial data cache [skip ci]"
+            git pull --rebase
+            git push origin HEAD:main
+          fi
 
-      - name: Commit and push results
-        if: github.ref == 'refs/heads/main' && success()
-        run: |
-          git add output/Weekday_Market_Patterns.html
-          git commit -m "[Automated] Update market patterns report $(date +'%Y-%m-%d')"
-          git push origin HEAD:main
+      # -------- DEPLOY TO PAGES --------
+      - name: Deploy to GitHub Pages
+        if: success() && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ${{ env.OUTPUT_DIR }}/
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'docs: Update market patterns report [skip ci]'
+
+      # -------- ERROR NOTIFICATION --------
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            console.log("⚠️ Report generation failed! See run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
