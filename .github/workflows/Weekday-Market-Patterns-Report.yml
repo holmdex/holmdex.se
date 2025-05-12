@@ -31,6 +31,13 @@ jobs:
           fetch-depth: 0
           lfs: true
 
+      - name: Pull LFS files
+        run: git lfs pull
+
+      # Debug - List files
+      - name: List repo contents for debug
+        run: ls -alhR
+
       # System Dependencies
       - name: Install system packages
         run: |
@@ -95,7 +102,7 @@ jobs:
         id: render-html
         run: |
           echo "Rendering report..."
-          quarto render Weekday_Market_Patterns.qmd \
+          quarto render weekday-market-patterns.qmd \
             --to html \
             --output-dir ${{ env.OUTPUT_DIR }} \
             --cache \
@@ -107,7 +114,7 @@ jobs:
         if: steps.render-html.outcome == 'failure'
         run: |
           echo "Retrying render without cache..."
-          quarto render Weekday_Market_Patterns.qmd \
+          quarto render weekday-market-patterns.qmd \
             --to html \
             --output-dir ${{ env.OUTPUT_DIR }} \
             --no-cache \
