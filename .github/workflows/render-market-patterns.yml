@@ -1,154 +1,63 @@
-name: Weekday Market Patterns Report
+name: Render Weekday Market Patterns Report
 
 on:
-  schedule:
-    - cron: '0 0 1 1 *'  # Runs annually on Jan 1 at midnight UTC
   workflow_dispatch:
-
-env:
-  QUARTO_VERSION: "1.5.36"
-  R_VERSION: "4.3.3"
-  OUTPUT_DIR: "reports"
-  CACHE_DIR: ".cache"
-  MIN_TRADING_DAYS: 1000
-  MIN_WEEKDAY_COUNT: 100
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
 
 jobs:
-  generate-report:
-    name: Generate HTML Report
+  render:
+    name: Build and Deploy Report
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          lfs: true
 
-      - name: Pull LFS files
-        run: git lfs pull
-
-      - name: List repo contents for debug
-        run: ls -alhR
-
-      - name: Install system packages
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            libcurl4-openssl-dev libssl-dev libxml2-dev \
-            libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
-            libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev \
-            curl jq dnsutils iputils-ping wget ca-certificates
-
-      - name: Check internet connection
-        run: |
-          ping -c 2 yahoo.com || true
-          curl -I https://finance.yahoo.com || true
-
-      - name: Setup R
+      - name: Set up R
         uses: r-lib/actions/setup-r@v2
         with:
-          r-version: ${{ env.R_VERSION }}
-          use-public-rspm: true
+          r-version: '4.3.2'
 
-      - name: Setup Quarto
+      - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         with:
-          version: ${{ env.QUARTO_VERSION }}
+          version: '1.4.550'
 
-      - name: Cache R packages
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.local/share/renv
-            ~/R/library
-            ${{ env.CACHE_DIR }}/R
-          key: ${{ runner.os }}-r-${{ env.R_VERSION }}-${{ hashFiles('**/renv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-r-${{ env.R_VERSION }}-
-
-      - name: Install R packages
+      - name: Install system dependencies
         run: |
-          mkdir -p ${{ env.CACHE_DIR }}/R
-          Rscript -e '
-            options(repos = c(CRAN = "https://cloud.r-project.org"))
-            install.packages(c("renv", "pak"))
-            if (file.exists("renv.lock")) {
-              renv::restore(confirm = FALSE)
-            } else {
-              pak::pkg_install(c(
-                "tidyverse", "lubridate", "plotly", "quantmod", "tidyquant",
-                "httr", "jsonlite", "rvest", "xml2", "TTR", "curl", "DT",
-                "rmarkdown", "knitr", "kableExtra", "here", "fs"
-              ))
-            }'
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev \
+            libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev libtiff5-dev \
+            libjpeg-dev pandoc
 
-      - name: Create output directory
-        run: mkdir -p ${{ env.OUTPUT_DIR }}
-
-      - name: Print system info
+      - name: Install required R packages
         run: |
-          Rscript -e 'sessionInfo()'
-          Rscript -e 'Sys.getenv()'
-          Rscript -e 'httr::GET("https://query1.finance.yahoo.com/v7/finance/quote?symbols=AAPL") %>% httr::content("text") %>% cat()'
+          Rscript -e 'install.packages(c("quantmod", "tidyverse", "plotly", "DT", "lubridate", "scales", "httr", "jsonlite", "rmarkdown"))'
 
-      - name: Render HTML report
-        id: render-html
+      - name: Attempt data fetch (non-fatal)
         run: |
-          echo "Rendering report..."
-          quarto render weekday-market-patterns.qmd \
-            --to html \
-            --output-dir ${{ env.OUTPUT_DIR }} \
-            --cache \
-            --log-level debug
-        continue-on-error: true
+          Rscript -e 'tryCatch(source("scripts/fetch_data.R"), error = function(e) message("⚠️ fetch_data.R failed: ", e$message))'
 
-      - name: Retry render without cache if needed
-        if: steps.render-html.outcome == 'failure'
+      - name: Render Quarto report to HTML
         run: |
-          echo "Retrying render without cache..."
-          quarto render weekday-market-patterns.qmd \
-            --to html \
-            --output-dir ${{ env.OUTPUT_DIR }} \
-            --no-cache \
-            --log-level debug
+          quarto render weekday-market-patterns.qmd --to html
+        continue-on-error: false
 
-      - name: Upload report
+      - name: Upload rendered HTML as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: weekday-market-patterns
-          path: ${{ env.OUTPUT_DIR }}/
+          name: weekday-market-patterns-report
+          path: weekday-market-patterns.html
 
-      - name: Deploy to GitHub Pages
-        if: success() && github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ${{ env.OUTPUT_DIR }}
-          keep_files: true
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'docs: update weekday market patterns HTML [skip ci]'
-
-      - name: Commit report to repository
-        if: success() && github.ref == 'refs/heads/main'
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
-          git add ${{ env.OUTPUT_DIR }}/*.html
-          git commit -m "chore: update HTML report [skip ci]" || echo "Nothing to commit"
-          git pull --rebase
-          git push origin HEAD:main
-
-      - name: Notify on failure
-        if: failure()
-        uses: actions/github-script@v6
-        with:
-          script: |
-            core.setFailed('⚠️ HTML report generation failed! See run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}')
+      # Optional GitHub Pages deployment
+      # Uncomment below if you want automatic publishing to gh-pages
+      #
+      # - name: Deploy to GitHub Pages
+      #   uses: peaceiris/actions-gh-pages@v4
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     publish_dir: ./_site
