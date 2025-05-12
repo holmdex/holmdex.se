@@ -24,7 +24,6 @@ jobs:
       id-token: write
 
     steps:
-      # Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -34,11 +33,9 @@ jobs:
       - name: Pull LFS files
         run: git lfs pull
 
-      # Debug - List files
       - name: List repo contents for debug
         run: ls -alhR
 
-      # System Dependencies
       - name: Install system packages
         run: |
           sudo apt-get update -qq
@@ -46,9 +43,13 @@ jobs:
             libcurl4-openssl-dev libssl-dev libxml2-dev \
             libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
             libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev \
-            pandoc git-lfs ca-certificates
+            curl jq dnsutils iputils-ping wget ca-certificates
 
-      # Setup R and Quarto
+      - name: Check internet connection
+        run: |
+          ping -c 2 yahoo.com || true
+          curl -I https://finance.yahoo.com || true
+
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
@@ -60,7 +61,6 @@ jobs:
         with:
           version: ${{ env.QUARTO_VERSION }}
 
-      # Cache R packages
       - name: Cache R packages
         uses: actions/cache@v3
         with:
@@ -72,33 +72,32 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-r-${{ env.R_VERSION }}-
 
-      # Install R dependencies
       - name: Install R packages
         run: |
           mkdir -p ${{ env.CACHE_DIR }}/R
           Rscript -e '
-          options(repos = c(CRAN = "https://cloud.r-project.org"))
-          install.packages(c("renv", "pak"))
-          if (file.exists("renv.lock")) {
-            renv::restore(confirm = FALSE)
-          } else {
-            pak::pkg_install(c(
-              "tidyverse", "lubridate", "plotly", "quantmod", "tidyquant",
-              "httr", "jsonlite", "rvest", "xml2", "TTR", "curl", "DT",
-              "rmarkdown", "knitr", "kableExtra", "here", "fs"
-            ))
-          }'
+            options(repos = c(CRAN = "https://cloud.r-project.org"))
+            install.packages(c("renv", "pak"))
+            if (file.exists("renv.lock")) {
+              renv::restore(confirm = FALSE)
+            } else {
+              pak::pkg_install(c(
+                "tidyverse", "lubridate", "plotly", "quantmod", "tidyquant",
+                "httr", "jsonlite", "rvest", "xml2", "TTR", "curl", "DT",
+                "rmarkdown", "knitr", "kableExtra", "here", "fs"
+              ))
+            }'
 
-      # Create output directory
       - name: Create output directory
         run: mkdir -p ${{ env.OUTPUT_DIR }}
 
-      # Show Pandoc version
-      - name: Show Pandoc version
-        run: pandoc --version
+      - name: Print system info
+        run: |
+          Rscript -e 'sessionInfo()'
+          Rscript -e 'Sys.getenv()'
+          Rscript -e 'httr::GET("https://query1.finance.yahoo.com/v7/finance/quote?symbols=AAPL") %>% httr::content("text") %>% cat()'
 
-      # Render HTML report
-      - name: Render HTML report (with fallback caching)
+      - name: Render HTML report
         id: render-html
         run: |
           echo "Rendering report..."
@@ -109,7 +108,6 @@ jobs:
             --log-level debug
         continue-on-error: true
 
-      # Retry render without cache if failure
       - name: Retry render without cache if needed
         if: steps.render-html.outcome == 'failure'
         run: |
@@ -120,14 +118,12 @@ jobs:
             --no-cache \
             --log-level debug
 
-      # Upload report artifact
       - name: Upload report
         uses: actions/upload-artifact@v4
         with:
           name: weekday-market-patterns
           path: ${{ env.OUTPUT_DIR }}/
 
-      # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         if: success() && github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v3
@@ -139,7 +135,6 @@ jobs:
           user_email: 'github-actions[bot]@users.noreply.github.com'
           commit_message: 'docs: update weekday market patterns HTML [skip ci]'
 
-      # Commit report to main branch (optional versioning)
       - name: Commit report to repository
         if: success() && github.ref == 'refs/heads/main'
         run: |
@@ -151,7 +146,6 @@ jobs:
           git pull --rebase
           git push origin HEAD:main
 
-      # Failure notification
       - name: Notify on failure
         if: failure()
         uses: actions/github-script@v6
