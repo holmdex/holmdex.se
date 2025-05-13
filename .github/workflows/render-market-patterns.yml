@@ -36,7 +36,11 @@ jobs:
 
       - name: Install required R packages
         run: |
-          Rscript -e 'install.packages(c("quantmod", "tidyverse", "plotly", "DT", "lubridate", "scales", "httr", "jsonlite", "rmarkdown"))'
+          Rscript -e 'install.packages(c("quantmod", "tidyverse", "plotly", "DT", "lubridate", "scales", "httr", "jsonlite", "rmarkdown"), repos = "https://cloud.r-project.org")'
+
+      - name: Verify R packages installed
+        run: |
+          Rscript -e 'required <- c("quantmod", "tidyverse", "plotly", "DT", "lubridate", "scales", "httr", "jsonlite", "rmarkdown"); missing <- required[!required %in% rownames(installed.packages())]; if (length(missing)) stop("Missing packages: ", paste(missing, collapse=", "))'
 
       - name: Attempt data fetch (non-fatal)
         run: |
